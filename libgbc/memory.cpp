@@ -7,7 +7,6 @@ namespace gbc
 
   uint8_t Memory::read(uint16_t address)
   {
-    m_machine.incr_cycles(1);
     if (this->is_within(address, ProgramArea)) {
       return m_program_area.at(address - ProgramArea.first);
     }
@@ -20,7 +19,6 @@ namespace gbc
 
   void Memory::write(uint16_t address, uint8_t value)
   {
-    m_machine.incr_cycles(1);
     if (this->is_within(address, ProgramArea)) {
       m_program_area.at(address - ProgramArea.first) = value;
     }

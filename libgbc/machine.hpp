@@ -10,8 +10,6 @@ namespace gbc
   {
   public:
     Machine();
-    // common operations
-    void incr_cycles(int count) { cpu.incr_cycles(count); }
 
     CPU    cpu;
     Memory memory;
@@ -21,7 +19,7 @@ namespace gbc
   };
 
   inline Machine::Machine()
-    : memory(*this),
+    : cpu(*this), memory(*this),
       ddCharacter  {Memory::Display_Chr},
       ddBackground1{Memory::Display_BG1},
       ddBackground2{Memory::Display_BG2}
