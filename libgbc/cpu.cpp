@@ -7,10 +7,9 @@
 
 namespace gbc
 {
-  static std::array<instruction_t, 3> instructions {{
-    {"NOP",            0, instr_NOP},      // 0x00
-    {"LD BC, 0x%04x",  2, instr_LD_BC},    // 0x01
-    {"LD (BC), A",     0, instr_LD_BC_A},  // 0x02
+  static std::array<instruction_t, 30> instructions {{
+    {"NOP (0x0)",       0,       0, instr_NOP},      // 0x00
+    {"LD (N), SP",       0,       0, instr_NOP},      // 0x00
   }};
 
   CPU::CPU(Memory& mem) noexcept
@@ -21,7 +20,13 @@ namespace gbc
 
   void CPU::reset() noexcept
   {
-    std::memset(&registers(), 0, sizeof(regs_t));
+    // gameboy Z80 initial register values
+    registers().af = 0x01b0;
+    registers().bc = 0x0013;
+    registers().de = 0x00d8;
+    registers().hl = 0x014d;
+    registers().sp = 0xfffe;
+    registers().pc = 0x0100;
     this->m_cycles_total = 0;
   }
 
@@ -59,5 +64,10 @@ namespace gbc
   {
     assert(count >= 0);
     this->m_cycles_total += count;
+  }
+  
+  void CPU::stop()
+  {
+    this->m_running = false;
   }
 }

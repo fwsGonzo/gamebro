@@ -10,6 +10,7 @@ namespace gbc
   struct instruction_t {
     const std::string mnemonic;
     const uint16_t    length;
+    const uint16_t    operand;
     handler_t         handler;
   };
 }

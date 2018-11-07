@@ -1,7 +1,7 @@
 #include <cstdio>
 #include <stdexcept>
 #include <vector>
-static const char* romfile = "tloz_seasons.gbc";
+static const char* romfile = "tloz_la.gb";
 
 static inline
 std::vector<uint8_t> load_file(const std::string& filename)
@@ -30,7 +30,7 @@ int main()
   printf("Loaded %zu bytes ROM\n", romdata.size());
 
 	auto* m = new gbc::Machine(romdata);
-	while (true)
+	while (m->cpu.is_running())
 	{
 		m->cpu.simulate();
 	}
