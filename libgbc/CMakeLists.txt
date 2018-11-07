@@ -1,6 +1,8 @@
 
 set(SOURCES
+    bios.cpp
     cpu.cpp
+    machine.cpp
     memory.cpp
   )
 

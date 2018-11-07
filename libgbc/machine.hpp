@@ -9,21 +9,12 @@ namespace gbc
   class Machine
   {
   public:
-    Machine();
+    Machine(const std::vector<uint8_t>& rom);
 
-    CPU    cpu;
     Memory memory;
+    CPU    cpu;
     DisplayData ddCharacter;
     DisplayData ddBackground1;
     DisplayData ddBackground2;
   };
-
-  inline Machine::Machine()
-    : cpu(*this), memory(*this),
-      ddCharacter  {Memory::Display_Chr},
-      ddBackground1{Memory::Display_BG1},
-      ddBackground2{Memory::Display_BG2}
-  {
-
-  }
 }

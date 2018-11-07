@@ -1,10 +1,10 @@
 #include <cstdio>
-#include <string>
 #include <stdexcept>
+#include <vector>
 static const char* romfile = "tloz_seasons.gbc";
 
 static inline
-std::string load_file(const std::string& filename)
+std::vector<uint8_t> load_file(const std::string& filename)
 {
 	size_t size = 0;
 	FILE* f = fopen(filename.c_str(), "rb");
@@ -14,8 +14,7 @@ std::string load_file(const std::string& filename)
 	size = ftell(f);
 	fseek(f, 0, SEEK_SET);
 
-  std::string result;
-  result.resize(size);
+  std::vector<uint8_t> result(size);
 	if (size != fread(result.data(), 1, size, f))
 	{
     throw std::runtime_error("Error when reading from file: " + filename);
@@ -30,7 +29,7 @@ int main()
   auto romdata = load_file(romfile);
   printf("Loaded %zu bytes ROM\n", romdata.size());
 
-	auto* m = new gbc::Machine;
+	auto* m = new gbc::Machine(romdata);
 	while (true)
 	{
 		m->cpu.simulate();

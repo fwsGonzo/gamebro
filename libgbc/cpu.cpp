@@ -1,53 +1,58 @@
 #include "cpu.hpp"
 
 #include "machine.hpp"
-#include "operations.hpp"
 #include <cassert>
+#include <cstring>
+#include "instructions.cpp"
 
 namespace gbc
 {
-  CPU::CPU(Machine& machine) noexcept
-    : m_machine(machine)
+  static std::array<instruction_t, 3> instructions {{
+    {"NOP",            0, instr_NOP},      // 0x00
+    {"LD BC, 0x%04x",  2, instr_LD_BC},    // 0x01
+    {"LD (BC), A",     0, instr_LD_BC_A},  // 0x02
+  }};
+
+  CPU::CPU(Memory& mem) noexcept
+    : m_memory(mem)
   {
     this->reset();
-    // install opcodes
-    ops[0] = instr_NOP;
   }
 
   void CPU::reset() noexcept
   {
-    this->m_regs = {0};
-    this->sp_set(0x0);
-    this->pc_set(0x0);
+    std::memset(&registers(), 0, sizeof(regs_t));
     this->m_cycles_total = 0;
   }
 
-  uint8_t CPU::readop(int dx) const
+  uint8_t CPU::readop8(const int dx)
   {
-    return m_machine.memory.read8(m_pc + dx);
+    return memory().read8(registers().pc + dx);
+  }
+  uint16_t CPU::readop16(const int dx)
+  {
+    return memory().read16(registers().pc + dx);
   }
 
   void CPU::simulate()
   {
     // 1. read instruction from memory
-    uint8_t opcode = this->readop(0);
+    const uint8_t opcode = this->readop8(0);
+    auto& instr = instructions.at(opcode);
+    printf("Executing opcode %#x: %s\n",
+           opcode, instr.mnemonic.c_str());
     // 2. increment program counter
-    this->pc_set(this->pc_read() + 1);
+    registers().pc += 1;
+    if (registers().pc == 0x8) exit(1);
     // 3. execute opcode
-    this->execute(opcode);
-    // 4. pass the time
-    this->incr_cycles(reg_read(REG_T));
+    unsigned time = this->execute(instr);
+    // 4. pass the time (in T-states)
+    this->incr_cycles(time);
   }
 
-  void CPU::execute(uint8_t opcode)
+  unsigned CPU::execute(const instruction_t& instr)
   {
-    if (ops.at(opcode) != nullptr) {
-        ops[opcode](*this, opcode);
-        return;
-    }
-
-    printf("WARNING: opcode %#x treated as NOP\n", opcode);
-    instr_NOP(*this, opcode);
+    return instr.handler(*this, instr);
   }
 
   void CPU::incr_cycles(int count)
@@ -55,5 +60,4 @@ namespace gbc
     assert(count >= 0);
     this->m_cycles_total += count;
   }
-
 }

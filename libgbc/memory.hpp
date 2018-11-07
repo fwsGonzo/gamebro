@@ -28,6 +28,9 @@ namespace gbc
 
     static constexpr uint16_t range_size(range_t range) { return range.second - range.first; }
 
+    // for installing BIOS and program
+    auto& program_area() noexcept { return m_program_area; }
+
   private:
     inline bool is_within(uint16_t addr, const range_t& range) const
     {
