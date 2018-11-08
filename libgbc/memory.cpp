@@ -13,8 +13,13 @@ namespace gbc
     if (this->is_within(address, WorkRAM)) {
       return m_work_ram.at(address - WorkRAM.first);
     }
-    throw std::runtime_error("Invalid memory read at address " +
-                              std::to_string(address));
+    if (this->is_within(address, ZRAM)) {
+      return m_zram.at(address - ZRAM.first);
+    }
+    char buffer[256];
+    int len = snprintf(buffer, sizeof(buffer),
+            "Invalid memory read at 0x%04x", address);
+    throw std::runtime_error(std::string(buffer, len));
   }
 
   void Memory::write8(uint16_t address, uint8_t value)
@@ -25,9 +30,15 @@ namespace gbc
     else if (this->is_within(address, WorkRAM)) {
       m_work_ram.at(address - WorkRAM.first) = value;
     }
+    else if (this->is_within(address, ZRAM)) {
+      m_zram.at(address - ZRAM.first) = value;
+    }
     else {
-      throw std::runtime_error("Invalid memory read at address " +
-                               std::to_string(address));
+      char buffer[256];
+      int len = snprintf(buffer, sizeof(buffer),
+              "Invalid memory write at 0x%04x, value 0x%x",
+              address, value);
+      throw std::runtime_error(std::string(buffer, len));
     }
   }
 

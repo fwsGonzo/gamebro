@@ -4,33 +4,28 @@
 #include <cassert>
 #include <cstring>
 #include "instructions.cpp"
-#define INSTR(x) static instruction_t instr_##x {handler_##x, printer_##x}
 
 namespace gbc
 {
-  INSTR(NOP);
-  INSTR(LD_N_SP);
-  INSTR(LD_R_N);
-  INSTR(LD_D_N);
-  INSTR(RST);
-  INSTR(HALT);
-  INSTR(STOP);
-  INSTR(JP);
-  INSTR(CALL);
-  INSTR(MISSING);
-
   instruction_t& resolve_instruction(const uint8_t opcode)
   {
     if (opcode == 0) return instr_NOP;
     if (opcode == 0x08) return instr_LD_N_SP;
+    if (opcode == 0x10) return instr_STOP;
+
+    if ((opcode & 0xc0) == 0x40) {
+      if (opcode == 0x76) return instr_HALT;
+      return instr_LD_D_D;
+    }
     if ((opcode & 0xcf) == 0x1) return instr_LD_R_N;
+    if ((opcode & 0xe7) == 0x2) return instr_LD_R_A_R;
+    if ((opcode & 0xef) == 0xea) return instr_LD_N_A_N;
     if ((opcode & 0xc7) == 0x6) return instr_LD_D_N;
     if ((opcode & 0xc7) == 0xc7) return instr_RST;
     if ((opcode & 0xff) == 0xc3) return instr_JP; // direct
-    if ((opcode & 0xc2) == 0xc2) return instr_JP; // conditional
+    if ((opcode & 0xe7) == 0xc2) return instr_JP; // conditional
     if ((opcode & 0xff) == 0xc4) return instr_CALL; // direct
     if ((opcode & 0xcd) == 0xcd) return instr_CALL; // conditional
-    if ((opcode & 0xFF) == 0x10) return instr_STOP;
 
     return instr_MISSING;
   }
@@ -81,7 +76,8 @@ namespace gbc
             registers().pc,  opcode, prn);
     // increment program counter
     registers().pc += 1;
-    if (registers().pc == 0x8) exit(1);
+    static int counter = 0;
+    if (counter++ == 12) exit(1);
     // run instruction handler
     return instr.handler(*this, opcode);
   }

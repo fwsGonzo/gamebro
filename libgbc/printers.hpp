@@ -13,7 +13,7 @@ static const char* cstr_reg(const uint8_t bf, bool sp) {
 }
 static const char* cstr_dest(const uint8_t bf) {
   static const char* dest[] = {"B", "C", "D", "E", "H", "L", "(HL)", "A"};
-  return dest[bf >> 3];
+  return dest[bf & 0x7];
 }
 static const char* cstr_flag(const uint8_t bf) {
   static const char* s[] = {"not zero", "zero", "not carry", "carry"};
