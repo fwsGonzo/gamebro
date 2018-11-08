@@ -5,4 +5,4 @@ pushd build
 cmake ..
 make -j3
 popd
-./build/gamebro tloz_seasons.gbc
+./build/gamebro tloz_la.gbc

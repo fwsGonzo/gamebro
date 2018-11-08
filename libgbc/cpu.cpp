@@ -4,13 +4,36 @@
 #include <cassert>
 #include <cstring>
 #include "instructions.cpp"
+#define INSTR(x) static instruction_t instr_##x {handler_##x, printer_##x}
 
 namespace gbc
 {
-  static std::array<instruction_t, 30> instructions {{
-    {"NOP (0x0)",       0,       0, instr_NOP},      // 0x00
-    {"LD (N), SP",       0,       0, instr_NOP},      // 0x00
-  }};
+  INSTR(NOP);
+  INSTR(LD_N_SP);
+  INSTR(LD_R_N);
+  INSTR(LD_D_N);
+  INSTR(RST);
+  INSTR(HALT);
+  INSTR(STOP);
+  INSTR(JP);
+  INSTR(CALL);
+  INSTR(MISSING);
+
+  instruction_t& resolve_instruction(const uint8_t opcode)
+  {
+    if (opcode == 0) return instr_NOP;
+    if (opcode == 0x08) return instr_LD_N_SP;
+    if ((opcode & 0xcf) == 0x1) return instr_LD_R_N;
+    if ((opcode & 0xc7) == 0x6) return instr_LD_D_N;
+    if ((opcode & 0xc7) == 0xc7) return instr_RST;
+    if ((opcode & 0xff) == 0xc3) return instr_JP; // direct
+    if ((opcode & 0xc2) == 0xc2) return instr_JP; // conditional
+    if ((opcode & 0xff) == 0xc4) return instr_CALL; // direct
+    if ((opcode & 0xcd) == 0xcd) return instr_CALL; // conditional
+    if ((opcode & 0xFF) == 0x10) return instr_STOP;
+
+    return instr_MISSING;
+  }
 
   CPU::CPU(Memory& mem) noexcept
     : m_memory(mem)
@@ -43,21 +66,24 @@ namespace gbc
   {
     // 1. read instruction from memory
     const uint8_t opcode = this->readop8(0);
-    auto& instr = instructions.at(opcode);
-    printf("Executing opcode %#x: %s\n",
-           opcode, instr.mnemonic.c_str());
-    // 2. increment program counter
-    registers().pc += 1;
-    if (registers().pc == 0x8) exit(1);
-    // 3. execute opcode
-    unsigned time = this->execute(instr);
-    // 4. pass the time (in T-states)
+    // 2. execute instruction
+    unsigned time = this->execute(opcode);
+    // 3. pass the time (in T-states)
     this->incr_cycles(time);
   }
 
-  unsigned CPU::execute(const instruction_t& instr)
+  unsigned CPU::execute(const uint8_t opcode)
   {
-    return instr.handler(*this, instr);
+    char prn[128];
+    auto& instr = resolve_instruction(opcode);
+    instr.printer(prn, sizeof(prn), *this, opcode);
+    printf("[pc 0x%04x] opcode 0x%02x: %s\n",
+            registers().pc,  opcode, prn);
+    // increment program counter
+    registers().pc += 1;
+    if (registers().pc == 0x8) exit(1);
+    // run instruction handler
+    return instr.handler(*this, opcode);
   }
 
   void CPU::incr_cycles(int count)
@@ -65,9 +91,14 @@ namespace gbc
     assert(count >= 0);
     this->m_cycles_total += count;
   }
-  
+
   void CPU::stop()
   {
     this->m_running = false;
+  }
+
+  void CPU::wait()
+  {
+    this->m_waiting = true;
   }
 }

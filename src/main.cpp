@@ -1,7 +1,7 @@
 #include <cstdio>
 #include <stdexcept>
 #include <vector>
-static const char* romfile = "tloz_la.gb";
+static const char* romfile = "tests/bits_ram_en.gb";
 
 static inline
 std::vector<uint8_t> load_file(const std::string& filename)
