@@ -12,4 +12,11 @@ namespace gbc
     memory.program_area() = rom;
   }
 
+  void Machine::undefined()
+  {
+    if (this->stop_when_undefined) {
+      printf("*** An undefined operation happened\n");
+      cpu.break_now();
+    }
+  }
 }

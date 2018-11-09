@@ -216,7 +216,7 @@ namespace gbc
   {
     if ((opcode & 1) || (cpu.registers().compare_flags(opcode))) {
       cpu.registers().pc = cpu.readop16(0);
-      printf("\n* Jumped to 0x%04x", cpu.registers().pc);
+      printf("* Jumped to 0x%04x", cpu.registers().pc);
       return 8;
     }
     cpu.registers().pc += 2;
@@ -261,7 +261,7 @@ namespace gbc
     if (opcode == 0xc9 || cpu.registers().compare_flags(opcode)) {
       cpu.registers().pc = cpu.memory().read16(cpu.registers().sp);
       cpu.registers().sp += 2;
-      printf("\n* Returned to 0x%04x", cpu.registers().pc);
+      printf("* Returned to 0x%04x", cpu.registers().pc);
     }
     return 8;
   }
@@ -280,7 +280,7 @@ namespace gbc
     cpu.registers().sp -= 2;
     cpu.memory().write16(cpu.registers().sp, cpu.registers().pc);
     cpu.registers().pc = opcode & 0x38;
-    printf("\n* Restarted to 0x%04x", cpu.registers().pc);
+    printf("* Restarted to 0x%04x", cpu.registers().pc);
     return 8;
   }
   PRINTER(RST) (char* buffer, size_t len, CPU&, uint8_t opcode) {
@@ -300,7 +300,7 @@ namespace gbc
   {
     if ((opcode & 0x20) == 0 || (cpu.registers().compare_flags(opcode))) {
       cpu.registers().pc += 1 + (int8_t) cpu.readop8(0);
-      printf("\n* Jumped relative to 0x%04x", cpu.registers().pc);
+      printf("* Jumped relative to 0x%04x", cpu.registers().pc);
     }
     return 8;
   }
@@ -333,7 +333,7 @@ namespace gbc
       cpu.memory().write16(cpu.registers().sp, 2 + cpu.registers().pc);
       // jump to immediate address
       cpu.registers().pc = cpu.readop16(0);
-      printf("\n* Called 0x%04x", cpu.registers().pc);
+      printf("* Called 0x%04x", cpu.registers().pc);
       return 16;
     }
     return 12;

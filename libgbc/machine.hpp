@@ -18,5 +18,9 @@ namespace gbc
     DisplayData ddCharacter;
     DisplayData ddBackground1;
     DisplayData ddBackground2;
+
+    // make the machine stop when an undefined OP happens
+    bool stop_when_undefined = false;
+    void undefined();
   };
 }

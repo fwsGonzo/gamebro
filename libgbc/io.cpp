@@ -1,5 +1,6 @@
 #include "io.hpp"
 #include <cstdio>
+#include "machine.hpp"
 
 namespace gbc
 {
@@ -20,6 +21,7 @@ namespace gbc
           return m_interrupts;
     }
     printf("[io] * Unknown read 0x%04x\n", addr);
+    machine().undefined();
     return 0;
   }
   void IO::write_io(const uint16_t addr, uint8_t value)
@@ -35,5 +37,6 @@ namespace gbc
           return;
     }
     printf("[io] * Unknown write 0x%04x value 0x%02x\n", addr, value);
+    machine().undefined();
   }
 }

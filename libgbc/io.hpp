@@ -16,10 +16,12 @@ namespace gbc
 
     void trigger_key(const uint8_t);
 
+    Machine& machine() noexcept { return m_machine; }
+
   private:
     Machine& m_machine;
     uint8_t  m_p1;
-    
+
     uint8_t  m_timer = 0x0;
     uint8_t  m_interrupts = 0x0;
   };

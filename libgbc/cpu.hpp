@@ -20,13 +20,14 @@ namespace gbc
     void  simulate();
     uint64_t gettime() const noexcept { return m_cycles_total; }
 
-    instruction_t& resolve_instruction(uint8_t opcode);
+    uint8_t  current_opcode() const noexcept { return m_cur_opcode; }
     uint8_t  readop8(int dx = 0);
     uint16_t readop16(int dx = 0);
     unsigned execute(const uint8_t);
     void     incr_cycles(int count);
     void     stop();
     void     wait();
+    instruction_t& resolve_instruction(uint8_t opcode);
 
     regs_t& registers() noexcept { return m_registers; }
 
@@ -39,6 +40,7 @@ namespace gbc
     void breakpoint(uint16_t address, breakpoint_t func);
     void default_pausepoint(uint16_t address, bool single_step);
     void single_step(bool en) { m_singlestep = en; }
+    void break_now() { this->m_break = true; }
     static void print_and_pause(CPU&, const uint8_t opcode);
 
     std::string to_string() const;
@@ -47,10 +49,12 @@ namespace gbc
     regs_t   m_registers;
     Memory&  m_memory;
     uint64_t m_cycles_total = 0;
-    uint8_t  m_last_flags = 0xFF;
+    uint8_t  m_cur_opcode = 0xff;
+    uint8_t  m_last_flags = 0xff;
     bool     m_running = true;
     bool     m_waiting = false;
     bool     m_singlestep = false;
+    bool     m_break = false;
     std::map<uint16_t, breakpoint_t> m_breakpoints;
   };
 

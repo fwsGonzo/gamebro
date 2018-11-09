@@ -77,16 +77,17 @@ namespace gbc
   void CPU::simulate()
   {
     // 1. read instruction from memory
-    const uint8_t opcode = this->readop8(0);
+    this->m_cur_opcode = this->readop8(0);
     // 2. execute instruction
-    unsigned time = this->execute(opcode);
+    unsigned time = this->execute(this->m_cur_opcode);
     // 3. pass the time (in T-states)
     this->incr_cycles(time);
   }
 
   unsigned CPU::execute(const uint8_t opcode)
   {
-    if (this->m_singlestep) {
+    if (this->m_singlestep || this->m_break) {
+      this->m_break = false;
       // pause for each instruction
       this->print_and_pause(*this, opcode);
     }
@@ -101,7 +102,7 @@ namespace gbc
     char prn[128];
     auto& instr = resolve_instruction(opcode);
     instr.printer(prn, sizeof(prn), *this, opcode);
-    printf("[pc 0x%04x] opcode 0x%02x: %s",
+    printf("[pc 0x%04x] opcode 0x%02x: %s\n",
             registers().pc,  opcode, prn);
     // increment program counter
     registers().pc += 1;
@@ -112,11 +113,9 @@ namespace gbc
     {
       m_last_flags = registers().flags;
       char fbuf[5];
-      printf(" -> F: [%s]\n",
+      printf("* Flags changed: [%s]\n",
               cstr_flags(fbuf, registers().flags));
     }
-    else printf("\n");
-
     // return cycles used
     return ret;
   }
