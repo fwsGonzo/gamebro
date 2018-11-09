@@ -8,8 +8,8 @@ static const char* cstr_reg_bc_de(const uint8_t bf) {
 static const char* cstr_reg(const uint8_t bf, bool sp) {
   static const char* notsp[] = {"BC", "DE", "HL", "AF"};
   static const char* notaf[] = {"BC", "DE", "HL", "SP"};
-  if (sp) return notaf[bf >> 4];
-  return notsp[bf >> 4];
+  if (sp) return notaf[(bf >> 4) & 0x3];
+  return notsp[(bf >> 4) & 0x3];
 }
 static const char* cstr_dest(const uint8_t bf) {
   static const char* dest[] = {"B", "C", "D", "E", "H", "L", "(HL)", "A"};
@@ -28,4 +28,9 @@ static void fill_flag_buffer(char* buffer, size_t len,
 {
   snprintf(buffer, len, "%s: %s",
            cstr_flag(opcode), cstr_flag_en(opcode, flags));
+}
+
+static const char* cstr_alu(const uint8_t bf) {
+  static const char* dest[] = {"ADD", "ADC", "SUB", "SBC", "AND", "XOR", "OR", "CP"};
+  return dest[bf & 0x7];
 }

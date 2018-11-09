@@ -3,7 +3,7 @@
 
 namespace gbc
 {
-  enum reg_flags_t {
+  enum flags_t {
     MASK_ZERO      = 0x80,
     MASK_NEGATIVE  = 0x40,
     MASK_HALFCARRY = 0x20,
@@ -78,7 +78,7 @@ namespace gbc
       __builtin_unreachable();
     }
 
-    bool compare_flags(const uint8_t opcode) {
+    bool compare_flags(const uint8_t opcode) noexcept {
       const uint8_t idx = (opcode >> 3) & 0x3;
       if (idx == 0) return (flags & MASK_ZERO) == 0; // not zero
       if (idx == 1) return (flags & MASK_ZERO); // zero
@@ -86,9 +86,60 @@ namespace gbc
       if (idx == 3) return (flags & MASK_CARRY); // carry
       __builtin_unreachable();
     }
+
+    void alu(uint8_t op, uint8_t value) noexcept
+    {
+      auto& reg = this->accum;
+      switch (op & 0x7) {
+        case 0x0: // ADD
+            reg += value;
+            if (value > reg) flags |= MASK_CARRY;
+            if ((value & 0xF) > (reg & 0xF)) flags |= MASK_HALFCARRY;
+            return;
+        case 0x1: // ADC
+            reg += value;
+            if (flags & MASK_CARRY) reg++;
+            if (value > reg) flags |= MASK_CARRY;
+            if ((value & 0xF) > (reg & 0xF)) flags |= MASK_HALFCARRY;
+            return;
+        case 0x2: // SUB
+            reg -= value;
+            if (value > reg) flags |= MASK_CARRY;
+            if ((value & 0xF) > (reg & 0xF)) flags |= MASK_HALFCARRY;
+            return;
+        case 0x3: // SBC
+            reg -= value;
+            if (flags & MASK_CARRY) reg--;
+            if (value > reg) flags |= MASK_CARRY;
+            if ((value & 0xF) > (reg & 0xF)) flags |= MASK_HALFCARRY;
+            return;
+        case 0x4: // AND
+            reg &= value;
+            flags = 0;
+            if (reg == 0) flags |= MASK_ZERO;
+            flags |= MASK_HALFCARRY;
+            return;
+        case 0x5: // XOR
+            reg ^= value;
+            flags = 0;
+            if (reg == 0) flags |= MASK_ZERO;
+            return;
+        case 0x6: // OR
+            reg |= value;
+            flags = 0;
+            if (reg == 0) flags |= MASK_ZERO;
+            return;
+        case 0x7:
+            const uint8_t tmp = reg - value;
+            flags = MASK_NEGATIVE;
+            if (reg == value) flags |= MASK_ZERO;
+            if (value > tmp) flags |= MASK_CARRY;
+            return;
+      }
+    } // alu()
   };
 
-  inline reg_flags_t to_flag(const uint8_t opcode) {
-    return (reg_flags_t) (1 >> (4 + ((opcode >> 3) & 0x3)));
+  inline flags_t to_flag(const uint8_t opcode) {
+    return (flags_t) (1 >> (4 + ((opcode >> 3) & 0x3)));
   }
 }

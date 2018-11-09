@@ -9,11 +9,7 @@ namespace gbc
         ddBackground1{Memory::Display_BG1},
         ddBackground2{Memory::Display_BG2}
   {
-    // install ROM at 0x100
-    size_t size = std::min(rom.size(),
-                  memory.program_area().size());
-    std::copy(rom.begin(), rom.begin() + size,
-              memory.program_area().begin());
+    memory.program_area() = rom;
   }
 
 }

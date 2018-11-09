@@ -8,10 +8,16 @@ namespace gbc
   uint8_t Memory::read8(uint16_t address)
   {
     if (this->is_within(address, ProgramArea)) {
-      return m_program_area.at(address - ProgramArea.first);
+      if (address < 32768) {
+        return m_rom.at(address - ProgramArea.first);
+      }
+      return m_rom.at(m_rom_bank + address - ProgramBank.first);
     }
     if (this->is_within(address, WorkRAM)) {
       return m_work_ram.at(address - WorkRAM.first);
+    }
+    if (this->is_within(address, BankRAM)) {
+      return m_bank.at(m_ram_bank + address - BankRAM.first);
     }
     if (this->is_within(address, ZRAM)) {
       return m_zram.at(address - ZRAM.first);
@@ -25,10 +31,17 @@ namespace gbc
   void Memory::write8(uint16_t address, uint8_t value)
   {
     if (this->is_within(address, ProgramArea)) {
-      m_program_area.at(address - ProgramArea.first) = value;
+      if (address < 32768) {
+        m_rom.at(address - ProgramArea.first) = value;
+      } else {
+        m_rom.at(m_rom_bank + address - ProgramBank.first) = value;
+      }
     }
     else if (this->is_within(address, WorkRAM)) {
       m_work_ram.at(address - WorkRAM.first) = value;
+    }
+    else if (this->is_within(address, BankRAM)) {
+      m_bank.at(m_ram_bank + address - BankRAM.first) = value;
     }
     else if (this->is_within(address, ZRAM)) {
       m_zram.at(address - ZRAM.first) = value;
