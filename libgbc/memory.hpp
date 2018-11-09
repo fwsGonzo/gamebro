@@ -20,8 +20,13 @@ namespace gbc
 
     static constexpr range_t BankRAM     {0xA000, 0xBFFF};
     static constexpr range_t WorkRAM     {0xC000, 0xDFFF};
+    static constexpr range_t EchoRAM     {0xE000, 0xFDFF}; // echo of work RAM
     static constexpr range_t OAM_RAM     {0xFE00, 0xFEFF};
-    static constexpr range_t ZRAM        {0xFF80, 0xFFFF};
+
+    static constexpr range_t IO_Ports    {0xFF00, 0xFF4B};
+    static constexpr range_t Unusable    {0xFF4C, 0xFF7F};
+    static constexpr range_t ZRAM        {0xFF80, 0xFFFE};
+    static constexpr uint16_t InterruptEn = 0xFFFF;
 
     Memory(Machine&);
 
@@ -32,6 +37,8 @@ namespace gbc
     void     write16(uint16_t address, uint16_t value);
 
     static constexpr uint16_t range_size(range_t range) { return range.second - range.first; }
+
+    Machine& machine() noexcept { return m_machine; }
 
     // for installing BIOS and program
     auto& program_area() noexcept { return m_rom; }

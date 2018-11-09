@@ -3,6 +3,7 @@
 #include "cpu.hpp"
 #include "display_data.hpp"
 #include "memory.hpp"
+#include "io.hpp"
 
 namespace gbc
 {
@@ -13,6 +14,7 @@ namespace gbc
 
     Memory memory;
     CPU    cpu;
+    IO     io;
     DisplayData ddCharacter;
     DisplayData ddBackground1;
     DisplayData ddBackground2;

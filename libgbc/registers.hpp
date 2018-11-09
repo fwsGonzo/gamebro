@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include <string>
 
 namespace gbc
 {
@@ -12,10 +13,6 @@ namespace gbc
 
   struct regs_t
   {
-    void write_flags(uint8_t value) {
-      this->flags = value & 0xF0;
-    }
-
     union {
       struct {
         uint8_t flags;
@@ -78,6 +75,20 @@ namespace gbc
       __builtin_unreachable();
     }
 
+    uint8_t& getextr(const uint8_t bf) {
+      switch (bf & 0x7) {
+      case 0: return accum;
+      case 1: return b;
+      case 2: return c;
+      case 3: return d;
+      case 4: return e;
+      case 5: return h;
+      case 6: return l;
+      case 7: throw std::runtime_error("getextr: (HL) not accessible here");
+      }
+      __builtin_unreachable();
+    }
+
     bool compare_flags(const uint8_t opcode) noexcept {
       const uint8_t idx = (opcode >> 3) & 0x3;
       if (idx == 0) return (flags & MASK_ZERO) == 0; // not zero
@@ -130,6 +141,7 @@ namespace gbc
             if (reg == 0) flags |= MASK_ZERO;
             return;
         case 0x7:
+            //printf("\nCP 0x%02x vs 0x%02x (HL=0x%04x)\n", reg, value, hl);
             const uint8_t tmp = reg - value;
             flags = MASK_NEGATIVE;
             if (reg == value) flags |= MASK_ZERO;
@@ -137,6 +149,18 @@ namespace gbc
             return;
       }
     } // alu()
+
+    std::string to_string() const {
+      char buffer[512];
+      int len = snprintf(buffer, sizeof(buffer),
+          "\tAF = 0x%04x  BC = 0x%04x  A = 0x%02x  F = 0x%02x  B = 0x%02x\n"
+          "\tDE = 0x%04x  HL = 0x%04x  C = 0x%02x  D = 0x%02x  E = 0x%02x\n"
+          "\tSP = 0x%04x  PC = 0x%04x  H = 0x%02x  L = 0x%02x\n",
+          af, bc, accum, flags, b,
+          de, hl, c, d, e,
+          sp, pc, h, l);
+      return std::string(buffer, len);
+    }
   };
 
   inline flags_t to_flag(const uint8_t opcode) {

@@ -13,14 +13,23 @@ namespace gbc
       }
       return m_rom.at(m_rom_bank + address - ProgramBank.first);
     }
-    if (this->is_within(address, WorkRAM)) {
+    else if (this->is_within(address, WorkRAM)) {
       return m_work_ram.at(address - WorkRAM.first);
     }
-    if (this->is_within(address, BankRAM)) {
+    else if (this->is_within(address, EchoRAM)) {
+      return m_work_ram.at(address - EchoRAM.first);
+    }
+    else if (this->is_within(address, BankRAM)) {
       return m_bank.at(m_ram_bank + address - BankRAM.first);
     }
-    if (this->is_within(address, ZRAM)) {
+    else if (this->is_within(address, IO_Ports)) {
+      return machine().io.read_io(address);
+    }
+    else if (this->is_within(address, ZRAM)) {
       return m_zram.at(address - ZRAM.first);
+    }
+    else if (address == InterruptEn) {
+      return machine().io.read_io(address);
     }
     char buffer[256];
     int len = snprintf(buffer, sizeof(buffer),
@@ -40,11 +49,20 @@ namespace gbc
     else if (this->is_within(address, WorkRAM)) {
       m_work_ram.at(address - WorkRAM.first) = value;
     }
+    else if (this->is_within(address, EchoRAM)) {
+      m_work_ram.at(address - EchoRAM.first) = value;
+    }
     else if (this->is_within(address, BankRAM)) {
       m_bank.at(m_ram_bank + address - BankRAM.first) = value;
     }
+    else if (this->is_within(address, IO_Ports)) {
+      machine().io.write_io(address, value);
+    }
     else if (this->is_within(address, ZRAM)) {
       m_zram.at(address - ZRAM.first) = value;
+    }
+    else if (address == InterruptEn) {
+      machine().io.write_io(address, value);
     }
     else {
       char buffer[256];
