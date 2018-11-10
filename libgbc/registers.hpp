@@ -155,7 +155,7 @@ namespace gbc
       int len = snprintf(buffer, sizeof(buffer),
           "\tAF = 0x%04x  BC = 0x%04x  A = 0x%02x  F = 0x%02x  B = 0x%02x\n"
           "\tDE = 0x%04x  HL = 0x%04x  C = 0x%02x  D = 0x%02x  E = 0x%02x\n"
-          "\tSP = 0x%04x  PC = 0x%04x  H = 0x%02x  L = 0x%02x\n",
+          "\tSP = 0x%04x  PC = 0x%04x  H = 0x%02x  L = 0x%02x",
           af, bc, accum, flags, b,
           de, hl, c, d, e,
           sp, pc, h, l);

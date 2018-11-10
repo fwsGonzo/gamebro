@@ -12,6 +12,16 @@ namespace gbc
     memory.program_area() = rom;
   }
 
+  uint64_t Machine::now() noexcept
+  {
+    return cpu.gettime();
+  }
+
+  void Machine::break_now()
+  {
+    cpu.break_now();
+  }
+
   void Machine::undefined()
   {
     if (this->stop_when_undefined) {

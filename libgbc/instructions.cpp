@@ -54,7 +54,7 @@ namespace gbc
     }
     return 8;
   }
-  PRINTER(LD_R_A_R) (char* buffer, size_t len, CPU& cpu, uint8_t opcode) {
+  PRINTER(LD_R_A_R) (char* buffer, size_t len, CPU&, uint8_t opcode) {
     if (opcode & 4) {
       return snprintf(buffer, len, "LD (%s), A", cstr_reg(opcode, true));
     }
@@ -216,7 +216,7 @@ namespace gbc
   {
     if ((opcode & 1) || (cpu.registers().compare_flags(opcode))) {
       cpu.registers().pc = cpu.readop16(0);
-      printf("* Jumped to 0x%04x", cpu.registers().pc);
+      printf("* Jumped to 0x%04x\n", cpu.registers().pc);
       return 8;
     }
     cpu.registers().pc += 2;
@@ -261,7 +261,7 @@ namespace gbc
     if (opcode == 0xc9 || cpu.registers().compare_flags(opcode)) {
       cpu.registers().pc = cpu.memory().read16(cpu.registers().sp);
       cpu.registers().sp += 2;
-      printf("* Returned to 0x%04x", cpu.registers().pc);
+      printf("* Returned to 0x%04x\n", cpu.registers().pc);
     }
     return 8;
   }
@@ -277,11 +277,9 @@ namespace gbc
   INSTRUCTION(RST) (CPU& cpu, const uint8_t opcode)
   {
     // jump to vector area
-    cpu.registers().sp -= 2;
-    cpu.memory().write16(cpu.registers().sp, cpu.registers().pc);
-    cpu.registers().pc = opcode & 0x38;
-    printf("* Restarted to 0x%04x", cpu.registers().pc);
-    return 8;
+    unsigned t = cpu.push_and_jump(opcode & 0x38);
+    printf("* Restarted to 0x%04x\n", cpu.registers().pc);
+    return t;
   }
   PRINTER(RST) (char* buffer, size_t len, CPU&, uint8_t opcode) {
     return snprintf(buffer, len, "RST 0x%02x", opcode & 0x38);
@@ -300,7 +298,7 @@ namespace gbc
   {
     if ((opcode & 0x20) == 0 || (cpu.registers().compare_flags(opcode))) {
       cpu.registers().pc += 1 + (int8_t) cpu.readop8(0);
-      printf("* Jumped relative to 0x%04x", cpu.registers().pc);
+      printf("* Jumped relative to 0x%04x\n", cpu.registers().pc);
     }
     return 8;
   }
@@ -333,7 +331,7 @@ namespace gbc
       cpu.memory().write16(cpu.registers().sp, 2 + cpu.registers().pc);
       // jump to immediate address
       cpu.registers().pc = cpu.readop16(0);
-      printf("* Called 0x%04x", cpu.registers().pc);
+      printf("* Called 0x%04x\n", cpu.registers().pc);
       return 16;
     }
     return 12;
@@ -352,25 +350,26 @@ namespace gbc
   {
     const bool from_a = (opcode & 0x10) == 0;
     uint16_t addr;
-    unsigned cycles = 0;
+    unsigned cycles;
     if ((opcode & 0xa) == 0x0) {
-      addr = cpu.memory().read16(0xFF00 + cpu.readop8(0));
+      addr = 0xFF00 + cpu.readop8(0);
       cpu.registers().pc += 1;
       cycles = 12;
     }
     else if ((opcode & 0xa) == 0x2) {
-      addr = cpu.memory().read16(0xFF00 + cpu.registers().c);
+      addr = 0xFF00 + cpu.registers().c;
       cycles = 8;
     }
     else {
-      addr = cpu.memory().read16(cpu.readop16(0));
+      addr = cpu.readop16(0);
       cpu.registers().pc += 2;
+      cycles = 8;
     }
     if (from_a)
         cpu.memory().write8(addr, cpu.registers().accum);
     else
-        cpu.memory().write8(cpu.registers().accum, addr);
-    return 12;
+        cpu.registers().accum = cpu.memory().read8(addr);
+    return cycles;
   }
   PRINTER(LD_xxx_A) (char* buffer, size_t len, CPU& cpu, uint8_t opcode)
   {
@@ -396,10 +395,10 @@ namespace gbc
   INSTRUCTION(DI_EI) (CPU& cpu, const uint8_t opcode)
   {
     if (opcode & 0x10) { // enable interrupts
-      cpu.memory().write8(cpu.memory().InterruptEn, 0x1);
+      cpu.enable_interrupts();
     }
     else { // disable interrupts
-      cpu.memory().write8(cpu.memory().InterruptEn, 0x0);
+      cpu.disable_interrupts();
     }
     return 4;
   }

@@ -48,7 +48,7 @@ namespace gbc
   }
 
   CPU::CPU(Memory& mem) noexcept
-    : m_memory(mem)
+    : m_memory(mem), m_machine(mem.machine())
   {
     this->reset();
   }
@@ -82,14 +82,21 @@ namespace gbc
     unsigned time = this->execute(this->m_cur_opcode);
     // 3. pass the time (in T-states)
     this->incr_cycles(time);
+    // 4. check if interrupts are enabled
+    if (this->ime())
+    {
+      // 5. execute pending interrupts
+      const uint8_t imask = machine().io.interrupt_mask();
+      if (imask) this->execute_interrupts(imask);
+    }
   }
 
   unsigned CPU::execute(const uint8_t opcode)
   {
     if (this->m_singlestep || this->m_break) {
-      this->m_break = false;
       // pause for each instruction
       this->print_and_pause(*this, opcode);
+      this->m_break = false;
     }
     else {
       // look for breakpoints
@@ -102,8 +109,8 @@ namespace gbc
     char prn[128];
     auto& instr = resolve_instruction(opcode);
     instr.printer(prn, sizeof(prn), *this, opcode);
-    printf("[pc 0x%04x] opcode 0x%02x: %s\n",
-            registers().pc,  opcode, prn);
+    printf("%9lu: [pc 0x%04x] opcode 0x%02x: %s\n",
+            gettime(), registers().pc,  opcode, prn);
     // increment program counter
     registers().pc += 1;
     // run instruction handler
@@ -136,13 +143,36 @@ namespace gbc
     this->m_waiting = true;
   }
 
+  void CPU::execute_interrupts(const uint8_t imask)
+  {
+    auto& io = machine().io;
+    if (imask &  0x1) io.interrupt(io.vblank);
+    if (imask &  0x2) io.interrupt(io.lcd_stat);
+    if (imask &  0x4) io.interrupt(io.timer);
+    if (imask &  0x8) io.interrupt(io.serial);
+    if (imask & 0x10) io.interrupt(io.joypad);
+  }
+
+  unsigned CPU::push_and_jump(uint16_t address)
+  {
+    registers().sp -= 2;
+    memory().write16(registers().sp, registers().pc);
+    registers().pc = address;
+    return 8;
+  }
+
   void CPU::print_and_pause(CPU& cpu, const uint8_t opcode)
   {
     char buffer[512];
     cpu.resolve_instruction(opcode) .printer(buffer, sizeof(buffer), cpu, opcode);
     printf("Breakpoint at [pc 0x%04x] opcode 0x%02x: %s\n",
            cpu.registers().pc, opcode, buffer);
-    printf("%s", cpu.registers().to_string().c_str());
+    // CPU registers
+    printf("%s\n", cpu.registers().to_string().c_str());
+    // I/O interrupt registers
+    auto& io = cpu.machine().io;
+    printf("\tIF = 0x%02x  IE = 0x%02x  IME 0x%x\n",
+           io.read_io(IO::REG_IF), io.read_io(IO::REG_IE), cpu.ime());
     try {
       auto& mem = cpu.memory();
       printf("\t(HL) = 0x%04x  (SP) = 0x%04x  (0xA000) = 0x%04x\n",

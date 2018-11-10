@@ -19,6 +19,10 @@ namespace gbc
     DisplayData ddBackground1;
     DisplayData ddBackground2;
 
+    uint64_t now() noexcept;
+
+    // debugging aids
+    void break_now();
     // make the machine stop when an undefined OP happens
     bool stop_when_undefined = false;
     void undefined();
