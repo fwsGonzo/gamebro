@@ -81,6 +81,7 @@ namespace gbc
 
     Machine& machine() noexcept { return m_machine; }
 
+    void reset();
     void simulate();
 
     interrupt_t vblank;

@@ -41,14 +41,15 @@ int main(int argc, char** args)
   printf("Loaded %zu bytes ROM\n", romdata.size());
 
 	auto* m = new gbc::Machine(romdata);
-	m->stop_when_undefined = true;
+	//m->stop_when_undefined = true;
 	//m->cpu.default_pausepoint(0x485c, true);
+	//m->break_on_interrupts = true;
 	while (m->cpu.is_running())
 	{
 		const uint64_t t0 = m->cpu.gettime();
 		m->cpu.simulate();
 		uint64_t t1 = m->cpu.gettime() - t0;
-		usleep(t1 * 500);
+		usleep(t1 * 50);
 		m->io.simulate();
 		//if (m->cpu.gettime() > 9000) assert(0);
 	}

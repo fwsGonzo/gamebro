@@ -3,13 +3,12 @@
 
 namespace gbc
 {
-  Machine::Machine(const std::vector<uint8_t>& rom)
-      : memory(*this), cpu(memory), io(*this),
+  Machine::Machine(std::vector<uint8_t> rom)
+      : memory(*this, std::move(rom)), cpu(memory), io(*this),
         ddCharacter  {Memory::Display_Chr},
         ddBackground1{Memory::Display_BG1},
         ddBackground2{Memory::Display_BG2}
   {
-    memory.program_area() = rom;
   }
 
   uint64_t Machine::now() noexcept
@@ -20,6 +19,10 @@ namespace gbc
   void Machine::break_now()
   {
     cpu.break_now();
+  }
+  bool Machine::is_breaking() const noexcept
+  {
+    return cpu.is_breaking();
   }
 
   void Machine::undefined()

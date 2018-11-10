@@ -36,8 +36,8 @@ namespace gbc
     Memory&  memory() noexcept { return m_memory; }
     Machine& machine() noexcept { return m_machine; }
 
-    void enable_interrupts() noexcept { m_intr_master_enable = true; }
-    void disable_interrupts() noexcept { m_intr_master_enable = false; }
+    void enable_interrupts() noexcept;
+    void disable_interrupts() noexcept;
     bool ime() const noexcept { return m_intr_master_enable; }
 
     bool is_running() const noexcept { return m_running; }
@@ -54,6 +54,7 @@ namespace gbc
     std::string to_string() const;
 
   private:
+    void handle_interrupts();
     void execute_interrupts(const uint8_t);
     regs_t   m_registers;
     Memory&  m_memory;
@@ -62,10 +63,13 @@ namespace gbc
     uint8_t  m_cur_opcode = 0xff;
     uint8_t  m_last_flags = 0xff;
     bool     m_intr_master_enable = false;
+    int8_t   m_intr_enable_pending  = 0;
+    int8_t   m_intr_disable_pending = 0;
     bool     m_running = true;
     bool     m_waiting = false;
-    bool     m_singlestep = false;
-    bool     m_break = false;
+    // debugging
+    bool     m_break         = false;
+    bool     m_singlestep    = false;
     std::map<uint16_t, breakpoint_t> m_breakpoints;
   };
 

@@ -10,7 +10,7 @@ namespace gbc
   class Machine
   {
   public:
-    Machine(const std::vector<uint8_t>& rom);
+    Machine(std::vector<uint8_t> rom);
 
     Memory memory;
     CPU    cpu;
@@ -23,8 +23,11 @@ namespace gbc
 
     // debugging aids
     void break_now();
+    bool is_breaking() const noexcept;
     // make the machine stop when an undefined OP happens
     bool stop_when_undefined = false;
+    bool break_on_interrupts = false;
+    bool break_on_io = false;
     void undefined();
   };
 }

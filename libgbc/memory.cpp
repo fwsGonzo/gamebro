@@ -3,7 +3,11 @@
 
 namespace gbc
 {
-  Memory::Memory(Machine& mach) : m_machine(mach) {}
+  Memory::Memory(Machine& mach, std::vector<uint8_t> rom)
+    : m_machine(mach), m_mbc{std::move(rom)}
+  {
+    assert(m_mbc.rom_valid());
+  }
 
   uint8_t Memory::read8(uint16_t address)
   {
@@ -11,10 +15,7 @@ namespace gbc
       func(*this, address, 0x0);
     }
     if (this->is_within(address, ProgramArea)) {
-      if (address < 32768) {
-        return m_rom.at(address - ProgramArea.first);
-      }
-      return m_rom.at(0x4000 + address - ProgramBank.first);
+      return m_mbc.read(address);
     }
     else if (this->is_within(address, VideoRAM)) {
       return m_video_ram.at(address - VideoRAM.first);
@@ -26,7 +27,7 @@ namespace gbc
       return m_work_ram.at(address - EchoRAM.first);
     }
     else if (this->is_within(address, BankRAM)) {
-      return m_rambank.get(address - BankRAM.first);
+      return m_mbc.read(address);
     }
     else if (this->is_within(address, IO_Ports)) {
       return machine().io.read_io(address);
@@ -34,10 +35,11 @@ namespace gbc
     else if (this->is_within(address, ZRAM)) {
       return m_zram.at(address - ZRAM.first);
     }
-    char buffer[256];
-    int len = snprintf(buffer, sizeof(buffer),
-            "Invalid memory read at 0x%04x", address);
-    throw std::runtime_error(std::string(buffer, len));
+    else if (address == InterruptEn) {
+      return machine().io.read_io(address);
+    }
+    printf("Invalid memory read at 0x%04x", address);
+    return 0xff;
   }
 
   void Memory::write8(uint16_t address, uint8_t value)
@@ -46,37 +48,39 @@ namespace gbc
       func(*this, address, value);
     }
     if (this->is_within(address, ProgramArea)) {
-      if (address < 32768) {
-        m_rom.at(address - ProgramArea.first) = value;
-      } else {
-        m_rom.at(0x4000 + address - ProgramBank.first) = value;
-      }
+      m_mbc.write(address, value);
+      return;
     }
     else if (this->is_within(address, VideoRAM)) {
       m_video_ram.at(address - VideoRAM.first) = value;
+      return;
     }
     else if (this->is_within(address, WorkRAM)) {
       m_work_ram.at(address - WorkRAM.first) = value;
+      return;
     }
     else if (this->is_within(address, EchoRAM)) {
       m_work_ram.at(address - EchoRAM.first) = value;
+      return;
     }
     else if (this->is_within(address, BankRAM)) {
-      m_rambank.get(address - BankRAM.first) = value;
+      m_mbc.write(address, value);
+      return;
     }
     else if (this->is_within(address, IO_Ports)) {
       machine().io.write_io(address, value);
+      return;
     }
     else if (this->is_within(address, ZRAM)) {
       m_zram.at(address - ZRAM.first) = value;
+      return;
     }
-    else {
-      char buffer[256];
-      int len = snprintf(buffer, sizeof(buffer),
-              "Invalid memory write at 0x%04x, value 0x%x",
-              address, value);
-      throw std::runtime_error(std::string(buffer, len));
+    else if (address == InterruptEn) {
+      machine().io.write_io(address, value);
+      return;
     }
+    printf("Invalid memory write at 0x%04x, value 0x%x",
+           address, value);
   }
 
   uint16_t Memory::read16(uint16_t address) {

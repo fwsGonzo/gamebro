@@ -1,10 +1,9 @@
 #pragma once
 #include <array>
 #include <cstdint>
-#include <stdexcept>
 #include <vector>
 #include <util/delegate.hpp>
-#include "banks.hpp"
+#include "mbc1.hpp"
 
 namespace gbc
 {
@@ -15,7 +14,6 @@ namespace gbc
   public:
     using range_t  = std::pair<uint16_t, uint16_t>;
     static constexpr range_t ProgramArea {0x0000, 0x7FFF};
-    static constexpr range_t ProgramBank {0x4000, 0x7FFF};
     static constexpr range_t Display_Chr {0x8000, 0x97FF};
     static constexpr range_t Display_BG1 {0x9800, 0x9BFF};
     static constexpr range_t Display_BG2 {0x9C00, 0x9FFF};
@@ -31,7 +29,7 @@ namespace gbc
     static constexpr range_t ZRAM        {0xFF80, 0xFFFE};
     static constexpr uint16_t InterruptEn = 0xFFFF;
 
-    Memory(Machine&);
+    Memory(Machine&, std::vector<uint8_t> rom);
 
     uint8_t read8(uint16_t address);
     void    write8(uint16_t address, uint8_t value);
@@ -42,9 +40,6 @@ namespace gbc
     static constexpr uint16_t range_size(range_t range) { return range.second - range.first; }
 
     Machine& machine() noexcept { return m_machine; }
-
-    // for installing BIOS and program
-    auto& program_area() noexcept { return m_rom; }
 
     // debugging
     enum amode_t { READ, WRITE };
@@ -58,10 +53,8 @@ namespace gbc
     }
 
     Machine& m_machine;
-    std::vector<uint8_t>       m_rom;
-    Banks<8, 16384>            m_rombank;
+    MBC1                       m_mbc;
     std::array<uint8_t, 8192>  m_video_ram = {};
-    Banks<8, 8192>             m_rambank;
     std::array<uint8_t, 8192>  m_work_ram = {};
     std::array<uint8_t, 256>   m_oam_ram = {};
     std::array<uint8_t, 128>   m_zram = {}; // high-speed RAM
@@ -74,7 +67,5 @@ namespace gbc
         m_read_breakpoints.push_back(func);
     else if (mode == WRITE)
         m_write_breakpoints.push_back(func);
-    else
-        throw std::runtime_error("Unimplemented enum");
   }
 }

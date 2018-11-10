@@ -33,13 +33,8 @@ namespace gbc
     unsigned time = this->execute(this->m_cur_opcode);
     // 3. pass the time (in T-states)
     this->incr_cycles(time);
-    // 4. check if interrupts are enabled
-    if (this->ime())
-    {
-      // 5. execute pending interrupts
-      const uint8_t imask = machine().io.interrupt_mask();
-      if (imask) this->execute_interrupts(imask);
-    }
+    // 4. handle interrupts
+    this->handle_interrupts();
   }
 
   unsigned CPU::execute(const uint8_t opcode)
@@ -79,6 +74,34 @@ namespace gbc
     return ret;
   }
 
+  // it takes 2 instruction-cycles to toggle interrupts
+  void CPU::enable_interrupts() noexcept {
+    m_intr_enable_pending = 2;
+  }
+  void CPU::disable_interrupts() noexcept {
+    m_intr_disable_pending = 2;
+  }
+
+  void CPU::handle_interrupts()
+  {
+    // enable/disable interrupts over cycles
+    if (m_intr_enable_pending > 0) {
+      m_intr_enable_pending--;
+      if (!m_intr_enable_pending) m_intr_master_enable = true;
+    }
+    if (m_intr_disable_pending > 0) {
+      m_intr_disable_pending--;
+      if (!m_intr_disable_pending) m_intr_master_enable = false;
+    }
+    // check if interrupts are enabled
+    if (this->ime())
+    {
+      // 5. execute pending interrupts
+      const uint8_t imask = machine().io.interrupt_mask();
+      if (imask) this->execute_interrupts(imask);
+    }
+
+  }
   void CPU::execute_interrupts(const uint8_t imask)
   {
     auto& io = machine().io;
@@ -111,17 +134,18 @@ namespace gbc
     if ((opcode & 0xe7) == 0x2)  return instr_LD_R_A_R;
     if ((opcode & 0xc7) == 0x3)  return instr_INC_DEC_R;
     if ((opcode & 0xc6) == 0x4)  return instr_INC_DEC_D;
+    if ((opcode & 0xe7) == 0x7)  return instr_RLC_RRC;
     if (opcode == 0x10) return instr_STOP;
     if (opcode == 0x18) return instr_JR_N;
     if ((opcode & 0xe7) == 0x20) return instr_JR_N;
     if ((opcode & 0xc7) == 0x6)  return instr_LD_D_N;
     if ((opcode & 0xe7) == 0x22) return instr_LDID_HL_A;
     if ((opcode & 0xf7) == 0x37) return instr_SCF_CCF;
-    if ((opcode & 0xc6) == 0xc6) return instr_ALU_A_N_D;
+    if ((opcode & 0xc7) == 0xc6) return instr_ALU_A_N_D;
     if ((opcode & 0xc0) == 0x80) return instr_ALU_A_N_D;
     if ((opcode & 0xcb) == 0xc1) return instr_PUSH_POP;
     if ((opcode & 0xe7) == 0xc0) return instr_RET; // cond ret
-    if (opcode == 0xc9) return instr_RET;          // plain ret
+    if ((opcode & 0xef) == 0xc9) return instr_RET; // ret / reti
     if ((opcode & 0xc7) == 0xc7) return instr_RST;
     if ((opcode & 0xff) == 0xc3) return instr_JP; // direct
     if ((opcode & 0xe7) == 0xc2) return instr_JP; // conditional
