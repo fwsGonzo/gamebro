@@ -7,7 +7,98 @@
 
 namespace gbc
 {
-  instruction_t& CPU::resolve_instruction(const uint8_t opcode)
+  CPU::CPU(Memory& mem) noexcept
+    : m_memory(mem), m_machine(mem.machine())
+  {
+    this->reset();
+  }
+
+  void CPU::reset() noexcept
+  {
+    // gameboy Z80 initial register values
+    registers().af = 0x01b0;
+    registers().bc = 0x0013;
+    registers().de = 0x00d8;
+    registers().hl = 0x014d;
+    registers().sp = 0xfffe;
+    registers().pc = 0x0100;
+    this->m_cycles_total = 0;
+  }
+
+  void CPU::simulate()
+  {
+    // 1. read instruction from memory
+    this->m_cur_opcode = this->readop8(0);
+    // 2. execute instruction
+    unsigned time = this->execute(this->m_cur_opcode);
+    // 3. pass the time (in T-states)
+    this->incr_cycles(time);
+    // 4. check if interrupts are enabled
+    if (this->ime())
+    {
+      // 5. execute pending interrupts
+      const uint8_t imask = machine().io.interrupt_mask();
+      if (imask) this->execute_interrupts(imask);
+    }
+  }
+
+  unsigned CPU::execute(const uint8_t opcode)
+  {
+    if (this->m_singlestep || this->m_break) {
+      // pause for each instruction
+      this->print_and_pause(*this, opcode);
+      this->m_break = false;
+    }
+    else {
+      // look for breakpoints
+      auto it = m_breakpoints.find(registers().pc);
+      if (it != m_breakpoints.end()) {
+        /*unsigned ret =*/ it->second(*this, opcode);
+      }
+    }
+    // decode into executable instruction
+    auto& instr = decode(opcode);
+    // print the instruction (when enabled)
+    char prn[128];
+    instr.printer(prn, sizeof(prn), *this, opcode);
+    printf("%9lu: [pc 0x%04x] opcode 0x%02x: %s\n",
+            gettime(), registers().pc,  opcode, prn);
+    // increment program counter
+    registers().pc += 1;
+    // run instruction handler
+    unsigned ret = instr.handler(*this, opcode);
+    // print out the resulting flags reg
+    if (m_last_flags != registers().flags)
+    {
+      m_last_flags = registers().flags;
+      char fbuf[5];
+      printf("* Flags changed: [%s]\n",
+              cstr_flags(fbuf, registers().flags));
+    }
+    // return cycles used
+    return ret;
+  }
+
+  void CPU::execute_interrupts(const uint8_t imask)
+  {
+    auto& io = machine().io;
+    if (imask &  0x1) io.interrupt(io.vblank);
+    if (imask &  0x2) io.interrupt(io.lcd_stat);
+    if (imask &  0x4) io.interrupt(io.timer);
+    if (imask &  0x8) io.interrupt(io.serial);
+    if (imask & 0x10) io.interrupt(io.joypad);
+  }
+
+  uint8_t CPU::readop8(const int dx)
+  {
+    return memory().read8(registers().pc + dx);
+  }
+  uint16_t CPU::readop16(const int dx)
+  {
+    return memory().read16(registers().pc + dx);
+  }
+
+  instruction_t& CPU::decode(const uint8_t opcode)
   {
     if (opcode == 0) return instr_NOP;
     if (opcode == 0x08) return instr_LD_N_SP;
@@ -47,86 +138,6 @@ namespace gbc
     return instr_MISSING;
   }
 
-  CPU::CPU(Memory& mem) noexcept
-    : m_memory(mem), m_machine(mem.machine())
-  {
-    this->reset();
-  }
-
-  void CPU::reset() noexcept
-  {
-    // gameboy Z80 initial register values
-    registers().af = 0x01b0;
-    registers().bc = 0x0013;
-    registers().de = 0x00d8;
-    registers().hl = 0x014d;
-    registers().sp = 0xfffe;
-    registers().pc = 0x0100;
-    this->m_cycles_total = 0;
-  }
-
-  uint8_t CPU::readop8(const int dx)
-  {
-    return memory().read8(registers().pc + dx);
-  }
-  uint16_t CPU::readop16(const int dx)
-  {
-    return memory().read16(registers().pc + dx);
-  }
-
-  void CPU::simulate()
-  {
-    // 1. read instruction from memory
-    this->m_cur_opcode = this->readop8(0);
-    // 2. execute instruction
-    unsigned time = this->execute(this->m_cur_opcode);
-    // 3. pass the time (in T-states)
-    this->incr_cycles(time);
-    // 4. check if interrupts are enabled
-    if (this->ime())
-    {
-      // 5. execute pending interrupts
-      const uint8_t imask = machine().io.interrupt_mask();
-      if (imask) this->execute_interrupts(imask);
-    }
-  }
-
-  unsigned CPU::execute(const uint8_t opcode)
-  {
-    if (this->m_singlestep || this->m_break) {
-      // pause for each instruction
-      this->print_and_pause(*this, opcode);
-      this->m_break = false;
-    }
-    else {
-      // look for breakpoints
-      auto it = m_breakpoints.find(registers().pc);
-      if (it != m_breakpoints.end()) {
-        /*unsigned ret =*/ it->second(*this, opcode);
-      }
-    }
-    // print the instruction (when enabled)
-    char prn[128];
-    auto& instr = resolve_instruction(opcode);
-    instr.printer(prn, sizeof(prn), *this, opcode);
-    printf("%9lu: [pc 0x%04x] opcode 0x%02x: %s\n",
-            gettime(), registers().pc,  opcode, prn);
-    // increment program counter
-    registers().pc += 1;
-    // run instruction handler
-    unsigned ret = instr.handler(*this, opcode);
-    // print out the resulting flags reg
-    if (m_last_flags != registers().flags)
-    {
-      m_last_flags = registers().flags;
-      char fbuf[5];
-      printf("* Flags changed: [%s]\n",
-              cstr_flags(fbuf, registers().flags));
-    }
-    // return cycles used
-    return ret;
-  }
-
   void CPU::incr_cycles(int count)
   {
     assert(count >= 0);
@@ -143,16 +154,6 @@ namespace gbc
     this->m_waiting = true;
   }
 
-  void CPU::execute_interrupts(const uint8_t imask)
-  {
-    auto& io = machine().io;
-    if (imask &  0x1) io.interrupt(io.vblank);
-    if (imask &  0x2) io.interrupt(io.lcd_stat);
-    if (imask &  0x4) io.interrupt(io.timer);
-    if (imask &  0x8) io.interrupt(io.serial);
-    if (imask & 0x10) io.interrupt(io.joypad);
-  }
-
   unsigned CPU::push_and_jump(uint16_t address)
   {
     registers().sp -= 2;
@@ -164,7 +165,7 @@ namespace gbc
   void CPU::print_and_pause(CPU& cpu, const uint8_t opcode)
   {
     char buffer[512];
-    cpu.resolve_instruction(opcode) .printer(buffer, sizeof(buffer), cpu, opcode);
+    cpu.decode(opcode).printer(buffer, sizeof(buffer), cpu, opcode);
     printf("Breakpoint at [pc 0x%04x] opcode 0x%02x: %s\n",
            cpu.registers().pc, opcode, buffer);
     // CPU registers
@@ -182,4 +183,5 @@ namespace gbc
     printf("Press any key to continue...\n");
     getchar(); // press any key
   }
+
 }

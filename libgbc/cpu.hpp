@@ -29,7 +29,7 @@ namespace gbc
     void     incr_cycles(int count);
     void     stop();
     void     wait();
-    instruction_t& resolve_instruction(uint8_t opcode);
+    instruction_t& decode(uint8_t opcode);
 
     regs_t& registers() noexcept { return m_registers; }
 
