@@ -44,7 +44,7 @@ int main(int argc, char** args)
 	auto* m = new gbc::Machine(romdata);
 	//m->stop_when_undefined = true;
 	//m->cpu.default_pausepoint(0x485c, true);
-	m->break_on_interrupts = true;
+	//m->break_on_interrupts = true;
 	bool brk = false;
 	//m->cpu.breakpoint(0x7d19, [&brk] (gbc::CPU&, uint8_t) {brk = true;});
 
