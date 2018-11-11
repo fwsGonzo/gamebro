@@ -4,6 +4,7 @@ set(SOURCES
     cpu.cpp
     io.cpp
     machine.cpp
+    mbc1.cpp
     memory.cpp
   )
 

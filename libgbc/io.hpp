@@ -54,6 +54,8 @@ namespace gbc
       REG_WY    = 0xff4a,
       REG_WX    = 0xff4b,
 
+      REG_BOOT  = 0xff50,
+
       // INTERRUPTS
       REG_IF    = 0xff0f,
       REG_IE    = 0xffff,
@@ -94,7 +96,8 @@ namespace gbc
     inline uint8_t& reg(uint16_t addr) {
       return m_regs.at(addr & 0xff);
     }
-    std::array<uint8_t, 76> m_regs = {};
+    std::array<uint8_t, 81> m_regs = {};
     uint8_t m_reg_ie = 0x0;
+    uint8_t m_ly = 0x0;
   };
 }

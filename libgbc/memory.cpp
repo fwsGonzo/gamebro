@@ -4,7 +4,7 @@
 namespace gbc
 {
   Memory::Memory(Machine& mach, std::vector<uint8_t> rom)
-    : m_machine(mach), m_mbc{std::move(rom)}
+    : m_machine(mach), m_mbc{*this, std::move(rom)}
   {
     assert(m_mbc.rom_valid());
   }

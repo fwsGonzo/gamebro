@@ -45,6 +45,21 @@ namespace gbc
                     cstr_reg(opcode, true), cpu.readop16(1));
   }
 
+  INSTRUCTION(ADD_HL_R) (CPU& cpu, const uint8_t opcode)
+  {
+    auto& reg   = cpu.registers().getreg_sp(opcode);
+    auto& hl    = cpu.registers().hl;
+    auto& flags = cpu.registers().flags;
+    flags &= MASK_ZERO;
+    if (((hl &  0x0fff) + (reg &  0x0fff)) &  0x1000) flags |= MASK_HALFCARRY;
+    if (((hl & 0x0ffff) + (reg & 0x0ffff)) & 0x10000) flags |= MASK_CARRY;
+    hl += reg;
+    return 8;
+  }
+  PRINTER(ADD_HL_R) (char* buffer, size_t len, CPU&, uint8_t opcode) {
+    return snprintf(buffer, len, "ADD HL, %s", cstr_reg(opcode, true));
+  }
+
   INSTRUCTION(LD_R_A_R) (CPU& cpu, const uint8_t opcode)
   {
     if (opcode & 4) {
@@ -79,18 +94,38 @@ namespace gbc
 
   INSTRUCTION(INC_DEC_D) (CPU& cpu, const uint8_t opcode)
   {
-    if ((opcode & 0x1) == 0) {
-      cpu.registers().getdest(opcode)++;
-    } else {
-      cpu.registers().getdest(opcode)--;
+    const uint8_t dst = opcode >> 3;
+    uint8_t  value;
+    unsigned cycles;
+    if (dst != 0x6)
+    {
+      if ((opcode & 0x1) == 0) {
+        cpu.registers().getdest(dst)++;
+      }
+      else {
+        cpu.registers().getdest(dst)--;
+      }
+      value = cpu.registers().getdest(dst);
+      cycles = 8;
     }
-    return 8;
+    else {
+      if ((opcode & 0x1) == 0) {
+        cpu.write_hl(cpu.read_hl() + 1);
+      } else {
+        cpu.write_hl(cpu.read_hl() - 1);
+      }
+      value = cpu.read_hl();
+      cycles = 16;
+    }
+    auto& flags = cpu.registers().flags;
+    flags = (flags & MASK_CARRY); // keep carry
+    if (opcode & 0x1) flags |= MASK_NEGATIVE; // DEC
+    if (value == 0) flags |= MASK_ZERO; // set zero
+    return cycles;
   }
   PRINTER(INC_DEC_D) (char* buffer, size_t len, CPU&, uint8_t opcode) {
-    if ((opcode & 0x1) == 0) {
-      return snprintf(buffer, len, "INC %s", cstr_dest(opcode));
-    }
-    return snprintf(buffer, len, "DEC %s", cstr_dest(opcode));
+    const char* mnemonic = (opcode & 0x1) ? "DEC" : "INC";
+    return snprintf(buffer, len, "%s %s", mnemonic, cstr_dest(opcode >> 3));
   }
 
   INSTRUCTION(LD_D_N) (CPU& cpu, const uint8_t opcode)
@@ -98,7 +133,7 @@ namespace gbc
     if (((opcode >> 3) & 0x7) != 0x6)
       cpu.registers().getdest(opcode >> 3) = cpu.readop8(0);
     else
-      cpu.memory().write8(cpu.registers().hl, cpu.readop8(0));
+      cpu.write_hl(cpu.readop8(0));
     cpu.registers().pc += 1;
     return 4;
   }
@@ -156,8 +191,18 @@ namespace gbc
 
   INSTRUCTION(LD_D_D) (CPU& cpu, const uint8_t opcode)
   {
-    cpu.registers().getdest(opcode >> 3) = cpu.registers().getdest(opcode & 3);
-    return 4;
+    const bool HL = (opcode & 0x7) == 0x6;
+    uint8_t reg;
+    if (!HL) reg = cpu.registers().getdest(opcode);
+    else     reg = cpu.read_hl();
+    const unsigned cycles = (HL) ? 8 : 4;
+
+    if (((opcode >> 3) & 0x7) != 0x6) {
+        cpu.registers().getdest(opcode >> 3) = reg;
+        return cycles;
+    }
+    cpu.write_hl(reg);
+    return cycles + 4;
   }
   PRINTER(LD_D_D) (char* buffer, size_t len, CPU&, uint8_t opcode) {
     return snprintf(buffer, len, "LD %s, %s",
@@ -169,12 +214,12 @@ namespace gbc
     const uint16_t addr = cpu.readop16(0);
     cpu.registers().pc += 2;
     if ((opcode & 0x10) == 0) {
-      // load from (N) into A
-      cpu.registers().accum = cpu.memory().read8(addr);
+      // load into (N) from A
+      cpu.memory().write8(addr, cpu.registers().accum);
     }
     else {
-      // load from A into (N)
-      cpu.memory().write8(addr, cpu.registers().accum);
+      // load into A from (N)
+      cpu.registers().accum = cpu.memory().read8(addr);
     }
     return 4;
   }
@@ -189,11 +234,11 @@ namespace gbc
   {
     if ((opcode & 0x8) == 0) {
       // load from A into (HL)
-      cpu.memory().write8(cpu.registers().hl, cpu.registers().accum);
+      cpu.write_hl(cpu.registers().accum);
     }
     else {
       // load from (HL) into A
-      cpu.registers().accum = cpu.memory().read8(cpu.registers().hl);
+      cpu.registers().accum = cpu.read_hl();
     }
     if ((opcode & 0x10) == 0) {
       cpu.registers().hl++;
@@ -209,6 +254,17 @@ namespace gbc
       return snprintf(buffer, len, "%s (HL=0x%04x), A", mnemonic, cpu.registers().hl);
     else
       return snprintf(buffer, len, "%s A, (HL=0x%04x)", mnemonic, cpu.registers().hl);
+  }
+
+  INSTRUCTION(CPL) (CPU& cpu, const uint8_t)
+  {
+    cpu.registers().accum = ~cpu.registers().accum;
+    cpu.registers().flags |= MASK_NEGATIVE;
+    cpu.registers().flags |= MASK_HALFCARRY;
+    return 4;
+  }
+  PRINTER(CPL) (char* buffer, size_t len, CPU&, uint8_t) {
+    return snprintf(buffer, len, "CPL");
   }
 
   INSTRUCTION(SCF_CCF) (CPU& cpu, const uint8_t opcode)
@@ -230,29 +286,30 @@ namespace gbc
   INSTRUCTION(ALU_A_N_D) (CPU& cpu, const uint8_t opcode)
   {
     const uint8_t alu_op = opcode >> 3;
-    if ((opcode & 3) != 0x6) // 110
+    if ((opcode & 0x40) == 0)
     {
       // <alu> A, D
       if ((opcode & 0x7) != 0x6)
         cpu.registers().alu(alu_op, cpu.registers().getdest(opcode));
       else
-        cpu.registers().alu(alu_op, cpu.memory().read8(cpu.registers().hl));
+        cpu.registers().alu(alu_op, cpu.read_hl());
       return 4;
     }
     // <alu> A, N
     cpu.registers().alu(alu_op, cpu.readop8());
+    cpu.registers().pc++;
     return 8;
   }
   PRINTER(ALU_A_N_D) (char* buffer, size_t len, CPU& cpu, uint8_t opcode)
   {
     const uint8_t alu_op = opcode >> 3;
-    if ((opcode & 3) != 0x6) // 110
+    if ((opcode & 0x40) == 0)
     {
       return snprintf(buffer, len, "%s A, %s",
                       cstr_alu(alu_op), cstr_dest(opcode));
     }
     return snprintf(buffer, len, "%s A, 0x%02x",
-                    cstr_alu(alu_op), cpu.readop16(1));
+                    cstr_alu(alu_op), cpu.readop8(1));
   }
 
   INSTRUCTION(JP) (CPU& cpu, const uint8_t opcode)
@@ -346,6 +403,8 @@ namespace gbc
     if ((opcode & 0x20) == 0 || (cpu.registers().compare_flags(opcode))) {
       cpu.registers().pc += 1 + (int8_t) cpu.readop8(0);
       printf("* Jumped relative to 0x%04x\n", cpu.registers().pc);
+    } else {
+      cpu.registers().pc += 1; // skip over imm8
     }
     return 8;
   }
@@ -429,9 +488,9 @@ namespace gbc
     }
     else if ((opcode & 0xa) == 0x2) {
       if (from_a)
-        return snprintf(buffer, len, "LD (C=0x%02x), A", cpu.registers().c);
+        return snprintf(buffer, len, "LD (FF00+0x%02x), A", cpu.registers().c);
       else
-        return snprintf(buffer, len, "LD A, (C=0x%02x)", cpu.registers().c);
+        return snprintf(buffer, len, "LD A, (FF00+0x%02x)", cpu.registers().c);
     }
     if (from_a)
       return snprintf(buffer, len, "LD (0x%04x), A", cpu.readop16(1));
@@ -439,13 +498,43 @@ namespace gbc
       return snprintf(buffer, len, "LD A, (0x%04x)", cpu.readop16(1));
   }
 
-  INSTRUCTION(DI_EI) (CPU& cpu, const uint8_t opcode)
+  INSTRUCTION(LD_HL_SP) (CPU& cpu, const uint8_t)
+  {
+    // LD HL, SP+N
+    cpu.registers().hl = cpu.registers().sp + cpu.readop8(0);
+    cpu.registers().pc++;
+    return 12;
+  }
+  PRINTER(LD_HL_SP) (char* buffer, size_t len, CPU& cpu, uint8_t) {
+    return snprintf(buffer, len,
+                    "LD HL, SP + 0x%02x", cpu.readop8(1));
+  }
+
+  INSTRUCTION(LD_JP_HL) (CPU& cpu, const uint8_t opcode)
   {
     if (opcode & 0x10) {
-      cpu.disable_interrupts();
+      // LD SP, HL
+      cpu.registers().sp = cpu.registers().hl;
+      return 8;
     }
     else {
+      // JP HL
+      cpu.registers().pc = cpu.registers().hl;
+      return 4;
+    }
+  }
+  PRINTER(LD_JP_HL) (char* buffer, size_t len, CPU&, uint8_t opcode) {
+    const char* mnemonic = (opcode & 0x10) ? "LD SP, HL" : "JP HL";
+    return snprintf(buffer, len, "%s", mnemonic);
+  }
+
+  INSTRUCTION(DI_EI) (CPU& cpu, const uint8_t opcode)
+  {
+    if (opcode & 0x08) {
       cpu.enable_interrupts();
+    }
+    else {
+      cpu.disable_interrupts();
     }
     return 4;
   }
@@ -458,69 +547,111 @@ namespace gbc
   {
     const uint8_t opcode = cpu.readop8(0);
     cpu.registers().pc++;
+    const bool HL = (opcode & 0x7) == 0x6;
+    uint8_t reg;
+    if (!HL) reg = cpu.registers().getdest(opcode);
+    else     reg = cpu.read_hl();
+    const unsigned cycles = (HL) ? 16 : 8;
 
+    // BIT, RESET, SET
     if ((opcode >> 6) & 0x3)
     {
       const uint8_t bit = (opcode >> 3) & 3;
-      const bool HL = (opcode & 0x7) == 0x7;
-      uint8_t reg = (!HL) ? cpu.registers().getextr(opcode)
-                          : cpu.memory().read8(cpu.registers().hl);
-      const unsigned cycles = (HL) ? 16 : 8;
-       // BIT, RESET, SET
-      if ((opcode >> 6) == 0x1) {
-        // BIT
-        const bool set = reg & (1 << bit);
-        // set flags
-        if (set == 0) cpu.registers().flags |= MASK_ZERO;
-        cpu.registers().flags &= ~MASK_NEGATIVE;
-        cpu.registers().flags |=  MASK_HALFCARRY;
-        return cycles;
+      switch (opcode >> 6)
+      {
+        case 0x1: { // BIT
+          const bool set = reg & (1 << bit);
+          // set flags
+          if (set == 0) cpu.registers().flags |= MASK_ZERO;
+          cpu.registers().flags &= ~MASK_NEGATIVE;
+          cpu.registers().flags |=  MASK_HALFCARRY;
+          return cycles;
+          }
+        case 0x2: // RESET
+          reg &= ~(1 << bit);
+          break;
+        case 0x3: // SET
+          reg |= 1 << bit;
+          break;
       }
-      else if ((opcode >> 6) == 0x2) {
-        // RESET
-        if (!HL) {
-          cpu.registers().getextr(opcode) &= ~(1 << bit);
-        }
-        else {
-          cpu.memory().write8(cpu.registers().hl, reg & ~(1 << bit));
-        }
-        return cycles;
+    }
+    else if ((opcode & 0xF0) == 0x10)
+    {
+      if (opcode & 0x8) {
+        // RR D, rotate D right, old CF to bit 7
+        const uint8_t bit0 = reg & 0x1;
+        reg = (reg >> 1) | ((cpu.registers().flags & MASK_CARRY) << 3);
+        cpu.registers().flags = bit0 << 4; // old bit0 to CF
       }
-      else if ((opcode >> 6) == 0x3) {
-        // SET
-        if (!HL) {
-          cpu.registers().getextr(opcode) |= 1 << bit;
-        }
-        else {
-          cpu.memory().write8(cpu.registers().hl, reg | (1 << bit));
-        }
-        return cycles;
+      else {
+        // RL D, rotate D left, old CF to bit 0
+        const uint8_t bit7 = reg & 0x80;
+        reg = (reg << 1) | ((cpu.registers().flags & MASK_CARRY) >> 4);
+        cpu.registers().flags = bit7 >> 3; // old bit7 to CF
       }
-      assert(0 && "Impossible location");
+      if (reg == 0) cpu.registers().flags |= MASK_ZERO;
+    }
+    else if ((opcode & 0xF0) == 0x20)
+    {
+      // TODO: fix flags
+      if (opcode & 0x8) {
+        // SRA
+        const uint8_t bit0 = reg & 0x1;
+        reg = (reg >> 1) & (reg & 0x80);
+        cpu.registers().flags = bit0 << 4; // bit0 into CF
+      }
+      else {
+        // SLA
+        const uint8_t bit7 = reg & 0x80;
+        reg <<= 1;
+        cpu.registers().flags = bit7 >> 3; // bit7 into CF
+      }
+      if (reg == 0) cpu.registers().flags |= MASK_ZERO;
+    }
+    else if ((opcode & 0xf0) == 0x30)
+    {
+      if ((opcode & 0x8) == 0x0) {
+        // SWAP D
+        const uint8_t low = reg & 0xF;
+        reg = (reg >> 4) | (low << 4);
+        cpu.registers().flags = (reg == 0) ? MASK_ZERO : 0;
+      }
+      else {
+        // SRL D
+        const uint8_t bit0 = reg & 1;
+        reg >>= 1;
+        cpu.registers().flags = (reg == 0) ? MASK_ZERO : 0;
+        cpu.registers().flags |= bit0 << 4; // bit0 into CF
+      }
     }
     else {
+      fprintf(stderr, "Missing instruction: %#x\n", opcode);
       assert(0 && "Unimplemented extended instruction");
     }
+    // all instructions on this opcode go into the same dest
+    if (!HL) cpu.registers().getdest(opcode) = reg;
+    else     cpu.write_hl(reg);
+    return cycles;
   }
-  PRINTER(CB_EXT) (char* buffer, size_t len, CPU& cpu, uint8_t) {
-    const uint8_t opcode = cpu.readop8(0);
-    const char* mnemonic = "IMPLEMENT ME";
-    if ((opcode >> 6) == 0x1) {
-      mnemonic = "BIT";
+  PRINTER(CB_EXT) (char* buffer, size_t len, CPU& cpu, uint8_t)
+  {
+    const uint8_t opcode = cpu.readop8(1);
+    if ((opcode & 0xf0) == 0x30)
+    {
+      // SWAP D & SRL D
+      const char* mnemonic = (opcode & 0x8) ? "SRL" : "SWAP";
+      return snprintf(buffer, len, "%s %s",
+                      mnemonic, cstr_dest(opcode));
     }
-    else if ((opcode >> 6) == 0x2) {
-      mnemonic = "RES";
-    }
-    else if ((opcode >> 6) == 0x3) {
-      mnemonic = "SET";
-    }
-    return snprintf(buffer, len, "%s %s, %s", mnemonic,
-            cstr_extr(opcode >> 3), cstr_dest(opcode));
+    const char* mnemonic[] = {"IMPLEMENT ME", "BIT", "RES", "SET"};
+    return snprintf(buffer, len, "%s %u, %s", mnemonic[opcode >> 6],
+                    (opcode >> 3) & 0x7, cstr_dest(opcode));
   }
 
   DEF_INSTR(NOP);
   DEF_INSTR(LD_N_SP);
   DEF_INSTR(LD_R_N);
+  DEF_INSTR(ADD_HL_R);
   DEF_INSTR(LD_R_A_R);
   DEF_INSTR(INC_DEC_R);
   DEF_INSTR(INC_DEC_D);
@@ -530,6 +661,7 @@ namespace gbc
   DEF_INSTR(JR_N);
   DEF_INSTR(RLC_RRC);
   DEF_INSTR(LDID_HL_A);
+  DEF_INSTR(CPL);
   DEF_INSTR(SCF_CCF);
   DEF_INSTR(HALT);
   DEF_INSTR(ALU_A_N_D);
@@ -540,6 +672,8 @@ namespace gbc
   DEF_INSTR(JP);
   DEF_INSTR(CALL);
   DEF_INSTR(LD_xxx_A);
+  DEF_INSTR(LD_HL_SP);
+  DEF_INSTR(LD_JP_HL);
   DEF_INSTR(DI_EI);
   DEF_INSTR(CB_EXT);
   DEF_INSTR(MISSING);

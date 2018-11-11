@@ -32,6 +32,9 @@ namespace gbc
     instruction_t& decode(uint8_t opcode);
 
     regs_t& registers() noexcept { return m_registers; }
+    // helpers for reading and writing (HL)
+    uint8_t read_hl();
+    void    write_hl(uint8_t);
 
     Memory&  memory() noexcept { return m_memory; }
     Machine& machine() noexcept { return m_machine; }
@@ -56,6 +59,7 @@ namespace gbc
   private:
     void handle_interrupts();
     void execute_interrupts(const uint8_t);
+
     regs_t   m_registers;
     Memory&  m_memory;
     Machine& m_machine;

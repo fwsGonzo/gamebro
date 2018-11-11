@@ -75,20 +75,6 @@ namespace gbc
       __builtin_unreachable();
     }
 
-    uint8_t& getextr(const uint8_t bf) {
-      switch (bf & 0x7) {
-      case 0: return accum;
-      case 1: return b;
-      case 2: return c;
-      case 3: return d;
-      case 4: return e;
-      case 5: return h;
-      case 6: return l;
-      case 7: throw std::runtime_error("getextr: (HL) not accessible here");
-      }
-      __builtin_unreachable();
-    }
-
     bool compare_flags(const uint8_t opcode) noexcept {
       const uint8_t idx = (opcode >> 3) & 0x3;
       if (idx == 0) return (flags & MASK_ZERO) == 0; // not zero

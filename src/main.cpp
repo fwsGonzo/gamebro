@@ -43,15 +43,22 @@ int main(int argc, char** args)
 	auto* m = new gbc::Machine(romdata);
 	//m->stop_when_undefined = true;
 	//m->cpu.default_pausepoint(0x485c, true);
-	//m->break_on_interrupts = true;
+	m->break_on_interrupts = true;
+	bool brk = false;
+	//m->cpu.breakpoint(0x7d19, [&brk] (gbc::CPU&, uint8_t) {brk = true;});
+
 	while (m->cpu.is_running())
 	{
 		const uint64_t t0 = m->cpu.gettime();
 		m->cpu.simulate();
 		uint64_t t1 = m->cpu.gettime() - t0;
-		usleep(t1 * 50);
+		//usleep(t1 * 50);
 		m->io.simulate();
 		//if (m->cpu.gettime() > 9000) assert(0);
+		if (brk) {
+			static int counter = 0;
+			if ((counter++ % 10) == 0) m->break_now();
+		}
 	}
 
   return 0;

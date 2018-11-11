@@ -131,35 +131,45 @@ namespace gbc
       return instr_LD_D_D;
     }
     if ((opcode & 0xcf) == 0x1)  return instr_LD_R_N;
-    if ((opcode & 0xe7) == 0x2)  return instr_LD_R_A_R;
-    if ((opcode & 0xc7) == 0x3)  return instr_INC_DEC_R;
-    if ((opcode & 0xc6) == 0x4)  return instr_INC_DEC_D;
-    if ((opcode & 0xe7) == 0x7)  return instr_RLC_RRC;
-    if (opcode == 0x10) return instr_STOP;
-    if (opcode == 0x18) return instr_JR_N;
-    if ((opcode & 0xe7) == 0x20) return instr_JR_N;
-    if ((opcode & 0xc7) == 0x6)  return instr_LD_D_N;
-    if ((opcode & 0xe7) == 0x22) return instr_LDID_HL_A;
-    if ((opcode & 0xf7) == 0x37) return instr_SCF_CCF;
-    if ((opcode & 0xc7) == 0xc6) return instr_ALU_A_N_D;
-    if ((opcode & 0xc0) == 0x80) return instr_ALU_A_N_D;
-    if ((opcode & 0xcb) == 0xc1) return instr_PUSH_POP;
-    if ((opcode & 0xe7) == 0xc0) return instr_RET; // cond ret
-    if ((opcode & 0xef) == 0xc9) return instr_RET; // ret / reti
-    if ((opcode & 0xc7) == 0xc7) return instr_RST;
-    if ((opcode & 0xff) == 0xc3) return instr_JP; // direct
-    if ((opcode & 0xe7) == 0xc2) return instr_JP; // conditional
-    if ((opcode & 0xff) == 0xc4) return instr_CALL; // direct
-    if ((opcode & 0xcd) == 0xcd) return instr_CALL; // conditional
-    if ((opcode & 0xef) == 0xea) return instr_LD_N_A_N;
-    if ((opcode & 0xef) == 0xe0) return instr_LD_xxx_A; // FF00+N
-    if ((opcode & 0xef) == 0xe2) return instr_LD_xxx_A; // C
-    if ((opcode & 0xef) == 0xea) return instr_LD_xxx_A; // N
-    if ((opcode & 0xf7) == 0xf3) return instr_DI_EI;
+    else if ((opcode & 0xe7) == 0x2)  return instr_LD_R_A_R;
+    else if ((opcode & 0xcf) == 0x9)  return instr_ADD_HL_R;
+    else if ((opcode & 0xc7) == 0x3)  return instr_INC_DEC_R;
+    else if ((opcode & 0xc6) == 0x4)  return instr_INC_DEC_D;
+    else if ((opcode & 0xe7) == 0x7)  return instr_RLC_RRC;
+    else if (opcode == 0x10) return instr_STOP;
+    else if (opcode == 0x18) return instr_JR_N;
+    else if ((opcode & 0xe7) == 0x20) return instr_JR_N;
+    else if ((opcode & 0xc7) == 0x6)  return instr_LD_D_N;
+    else if ((opcode & 0xe7) == 0x22) return instr_LDID_HL_A;
+    else if (opcode == 0x2f)          return instr_CPL;
+    else if ((opcode & 0xf7) == 0x37) return instr_SCF_CCF;
+    else if ((opcode & 0xc7) == 0xc6) return instr_ALU_A_N_D;
+    else if ((opcode & 0xc0) == 0x80) return instr_ALU_A_N_D;
+    else if ((opcode & 0xcb) == 0xc1) return instr_PUSH_POP;
+    else if ((opcode & 0xe7) == 0xc0) return instr_RET; // cond ret
+    else if ((opcode & 0xef) == 0xc9) return instr_RET; // ret / reti
+    else if ((opcode & 0xc7) == 0xc7) return instr_RST;
+    else if ((opcode & 0xff) == 0xc3) return instr_JP; // direct
+    else if ((opcode & 0xe7) == 0xc2) return instr_JP; // conditional
+    else if ((opcode & 0xff) == 0xc4) return instr_CALL; // direct
+    else if ((opcode & 0xcd) == 0xcd) return instr_CALL; // conditional
+    else if ((opcode & 0xef) == 0xea) return instr_LD_N_A_N;
+    else if ((opcode & 0xef) == 0xe0) return instr_LD_xxx_A; // FF00+N
+    else if ((opcode & 0xef) == 0xe2) return instr_LD_xxx_A; // C
+    else if ((opcode & 0xef) == 0xea) return instr_LD_xxx_A; // N
+    else if (opcode == 0xf8) return instr_LD_HL_SP; // N
+    else if ((opcode & 0xef) == 0xe9) return instr_LD_JP_HL;
+    else if ((opcode & 0xf7) == 0xf3) return instr_DI_EI;
     // instruction set extension opcodes
-    if (opcode == 0xcb) return instr_CB_EXT;
+    else if (opcode == 0xcb) return instr_CB_EXT;
+    else return instr_MISSING;
+  }
 
-    return instr_MISSING;
+  uint8_t CPU::read_hl() {
+    return memory().read8(registers().hl);
+  }
+  void CPU::write_hl(const uint8_t value) {
+    memory().write8(registers().hl, value);
   }
 
   void CPU::incr_cycles(int count)
@@ -190,7 +200,8 @@ namespace gbc
   {
     char buffer[512];
     cpu.decode(opcode).printer(buffer, sizeof(buffer), cpu, opcode);
-    printf("Breakpoint at [pc 0x%04x] opcode 0x%02x: %s\n",
+    printf("\n");
+    printf(">>> Breakpoint at [pc 0x%04x] opcode 0x%02x: %s\n",
            cpu.registers().pc, opcode, buffer);
     // CPU registers
     printf("%s\n", cpu.registers().to_string().c_str());

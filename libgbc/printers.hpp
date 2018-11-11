@@ -17,10 +17,6 @@ namespace gbc
     static const char* dest[] = {"B", "C", "D", "E", "H", "L", "(HL)", "A"};
     return dest[bf & 0x7];
   }
-  static const char* cstr_extr(const uint8_t bf) {
-    static const char* dest[] = {"A", "B", "C", "D", "E", "H", "L", "(HL)"};
-    return dest[bf & 0x7];
-  }
   static const char* cstr_flags(char buff[5], const uint8_t flags) {
     buff[0] = (flags & MASK_ZERO)      ? 'Z' : '_';
     buff[1] = (flags & MASK_NEGATIVE)  ? 'N' : '_';

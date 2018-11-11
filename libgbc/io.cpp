@@ -25,6 +25,7 @@ namespace gbc
     reg(REG_BGP)  = 0xfc;
     reg(REG_TAC)  = 0xf8;
     reg(REG_IF)   = 0xe1;
+    reg(REG_BOOT) = 0x01;
     this->m_reg_ie = 0x00;
   }
 
@@ -41,11 +42,19 @@ namespace gbc
       machine().break_now();
       */
 
+      static const int VBLANK_CYCLES = 4560;
       // vblank always when screen on
-      if (t >= vblank.last_time + 70224) {
+      if (t >= vblank.last_time + VBLANK_CYCLES)
+      {
         vblank.last_time = t;
-        this->interrupt(vblank);
+        // scanline LY increment logic
+        const int MAX_LINES = 153;
+        m_ly = (m_ly + 1) % MAX_LINES;
+        reg(REG_LY) = m_ly;
+
+        if (m_ly == 0) this->interrupt(vblank);
       }
+
 
       if (reg(REG_STAT) & 0x3) {
         // LCD status?
