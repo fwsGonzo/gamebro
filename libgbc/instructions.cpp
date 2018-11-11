@@ -317,7 +317,10 @@ namespace gbc
   {
     if ((opcode & 1) || (cpu.registers().compare_flags(opcode))) {
       cpu.registers().pc = cpu.readop16(0);
-      printf("* Jumped to 0x%04x\n", cpu.registers().pc);
+      if (UNLIKELY(cpu.machine().verbose_instructions))
+      {
+        printf("* Jumped to 0x%04x\n", cpu.registers().pc);
+      }
       return 8;
     }
     cpu.registers().pc += 2;
@@ -362,7 +365,10 @@ namespace gbc
     if ((opcode & 0xef) == 0xc9 || cpu.registers().compare_flags(opcode)) {
       cpu.registers().pc = cpu.memory().read16(cpu.registers().sp);
       cpu.registers().sp += 2;
-      printf("* Returned to 0x%04x\n", cpu.registers().pc);
+      if (UNLIKELY(cpu.machine().verbose_instructions))
+      {
+        printf("* Returned to 0x%04x\n", cpu.registers().pc);
+      }
       // RETI
       if ((opcode & 0x11) == 0x11) {
         cpu.enable_interrupts();
@@ -389,7 +395,10 @@ namespace gbc
     }
     // jump to vector area
     unsigned t = cpu.push_and_jump(dst);
-    printf("* Restarted to 0x%04x\n", cpu.registers().pc);
+    if (UNLIKELY(cpu.machine().verbose_instructions))
+    {
+      printf("* Restart vector 0x%04x\n", cpu.registers().pc);
+    }
     return t;
   }
   PRINTER(RST) (char* buffer, size_t len, CPU&, uint8_t opcode) {
@@ -409,7 +418,10 @@ namespace gbc
   {
     if ((opcode & 0x20) == 0 || (cpu.registers().compare_flags(opcode))) {
       cpu.registers().pc += 1 + (int8_t) cpu.readop8(0);
-      printf("* Jumped relative to 0x%04x\n", cpu.registers().pc);
+      if (UNLIKELY(cpu.machine().verbose_instructions))
+      {
+        printf("* Jumped relative to 0x%04x\n", cpu.registers().pc);
+      }
     } else {
       cpu.registers().pc += 1; // skip over imm8
     }
@@ -444,7 +456,10 @@ namespace gbc
       cpu.memory().write16(cpu.registers().sp, 2 + cpu.registers().pc);
       // jump to immediate address
       cpu.registers().pc = cpu.readop16(0);
-      printf("* Called 0x%04x\n", cpu.registers().pc);
+      if (UNLIKELY(cpu.machine().verbose_instructions))
+      {
+        printf("* Called 0x%04x\n", cpu.registers().pc);
+      }
       return 16;
     }
     return 12;

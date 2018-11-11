@@ -1,16 +1,15 @@
 #pragma once
 #include <array>
 #include <cstdint>
+#include "common.hpp"
 #include "interrupt.hpp"
 
 namespace gbc
 {
-  class Machine;
-
   class IO
   {
   public:
-    enum regs_t {
+    enum regnames_t {
       REG_P1    = 0xff00,
       // TIMER
       REG_TIMA  = 0xff05,
@@ -56,6 +55,12 @@ namespace gbc
 
       REG_BOOT  = 0xff50,
 
+      REG_HDMA1 = 0xff51,
+      REG_HDMA2 = 0xff52,
+      REG_HDMA3 = 0xff53,
+      REG_HDMA4 = 0xff54,
+      REG_HDMA5 = 0xff55,
+
       // INTERRUPTS
       REG_IF    = 0xff0f,
       REG_IE    = 0xffff,
@@ -80,11 +85,16 @@ namespace gbc
     uint8_t interrupt_mask();
 
     void trigger_key(key_t);
+    bool is_vblank();
 
     Machine& machine() noexcept { return m_machine; }
 
     void reset();
     void simulate();
+
+    inline uint8_t& reg(uint16_t addr) {
+      return m_ioregs.at(addr & 0xff);
+    }
 
     interrupt_t vblank;
     interrupt_t lcd_stat;
@@ -93,10 +103,7 @@ namespace gbc
     interrupt_t joypad;
   private:
     Machine& m_machine;
-    inline uint8_t& reg(uint16_t addr) {
-      return m_regs.at(addr & 0xff);
-    }
-    std::array<uint8_t, 81> m_regs = {};
+    std::array<uint8_t, 128> m_ioregs = {};
     uint8_t m_reg_ie = 0x0;
     uint8_t m_ly = 0x0;
   };

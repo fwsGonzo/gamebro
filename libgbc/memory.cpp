@@ -18,6 +18,7 @@ namespace gbc
       return m_mbc.read(address);
     }
     else if (this->is_within(address, VideoRAM)) {
+      // TODO: return 0xff when rendering
       return m_video_ram.at(address - VideoRAM.first);
     }
     else if (this->is_within(address, WorkRAM)) {
@@ -25,6 +26,10 @@ namespace gbc
     }
     else if (this->is_within(address, EchoRAM)) {
       return m_work_ram.at(address - EchoRAM.first);
+    }
+    else if (this->is_within(address, OAM_RAM)) {
+      // TODO: return 0xff when rendering
+      return m_oam_ram.at(address - OAM_RAM.first);
     }
     else if (this->is_within(address, BankRAM)) {
       return m_mbc.read(address);
@@ -61,6 +66,10 @@ namespace gbc
     }
     else if (this->is_within(address, EchoRAM)) {
       m_work_ram.at(address - EchoRAM.first) = value;
+      return;
+    }
+    else if (this->is_within(address, OAM_RAM)) {
+      m_oam_ram.at(address - OAM_RAM.first) = value;
       return;
     }
     else if (this->is_within(address, BankRAM)) {

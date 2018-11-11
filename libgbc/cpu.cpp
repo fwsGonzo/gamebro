@@ -15,8 +15,8 @@ namespace gbc
   void CPU::reset() noexcept
   {
     // gameboy Z80 initial register values
-    registers().af = 0x01b0;
-    registers().bc = 0x0013;
+    registers().af = 0x11b0;
+    registers().bc = 0x0113;
     registers().de = 0x00d8;
     registers().hl = 0x014d;
     registers().sp = 0xfffe;
@@ -38,12 +38,12 @@ namespace gbc
 
   unsigned CPU::execute(const uint8_t opcode)
   {
-    if (this->m_singlestep || this->m_break) {
+    if (UNLIKELY(this->m_singlestep || this->m_break)) {
       // pause for each instruction
       this->print_and_pause(*this, opcode);
       this->m_break = false;
     }
-    else {
+    else if (UNLIKELY(!m_breakpoints.empty())) {
       // look for breakpoints
       auto it = m_breakpoints.find(registers().pc);
       if (it != m_breakpoints.end()) {
@@ -52,22 +52,31 @@ namespace gbc
     }
     // decode into executable instruction
     auto& instr = decode(opcode);
+
     // print the instruction (when enabled)
-    char prn[128];
-    instr.printer(prn, sizeof(prn), *this, opcode);
-    printf("%9lu: [pc 0x%04x] opcode 0x%02x: %s\n",
-            gettime(), registers().pc,  opcode, prn);
+    if (UNLIKELY(machine().verbose_instructions))
+    {
+      char prn[128];
+      instr.printer(prn, sizeof(prn), *this, opcode);
+      printf("%9lu: [pc 0x%04x] opcode 0x%02x: %s\n",
+              gettime(), registers().pc,  opcode, prn);
+    }
+
     // increment program counter
     registers().pc += 1;
     // run instruction handler
     unsigned ret = instr.handler(*this, opcode);
-    // print out the resulting flags reg
-    if (m_last_flags != registers().flags)
+
+    if (UNLIKELY(machine().verbose_instructions))
     {
-      m_last_flags = registers().flags;
-      char fbuf[5];
-      printf("* Flags changed: [%s]\n",
-              cstr_flags(fbuf, registers().flags));
+      // print out the resulting flags reg
+      if (m_last_flags != registers().flags)
+      {
+        m_last_flags = registers().flags;
+        char fbuf[5];
+        printf("* Flags changed: [%s]\n",
+                cstr_flags(fbuf, registers().flags));
+      }
     }
     // return cycles used
     return ret;

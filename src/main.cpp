@@ -1,38 +1,7 @@
-#include <cstdio>
-#include <chrono>
-#include <stdexcept>
-#include <string>
-#include <vector>
-
-static inline
-std::vector<uint8_t> load_file(const std::string& filename)
-{
-	size_t size = 0;
-	FILE* f = fopen(filename.c_str(), "rb");
-	if (f == NULL) throw std::runtime_error("Could not open file: " + filename);
-
-	fseek(f, 0, SEEK_END);
-	size = ftell(f);
-	fseek(f, 0, SEEK_SET);
-
-  std::vector<uint8_t> result(size);
-	if (size != fread(result.data(), 1, size, f))
-	{
-    throw std::runtime_error("Error when reading from file: " + filename);
-	}
-	fclose(f);
-	return result;
-}
-
-inline uint64_t micros_now() {
-  using namespace std::chrono;
-  return duration_cast<microseconds>(
-      system_clock::now().time_since_epoch()
-  ).count();
-}
-
+#include "stuff.hpp"
 #include <libgbc/machine.hpp>
-#include <unistd.h>
+#include <bmp/bmp.h>
+
 int main(int argc, char** args)
 {
 	const char* romfile = "tests/bits_ram_en.gb";
@@ -47,6 +16,17 @@ int main(int argc, char** args)
 	//m->break_on_interrupts = true;
 	bool brk = false;
 	//m->cpu.breakpoint(0x7d19, [&brk] (gbc::CPU&, uint8_t) {brk = true;});
+
+	// wire up gameboy vblank
+	m->set_handler(gbc::Machine::VBLANK,
+		[] (gbc::interrupt_t& intr) {
+			// render to BMP
+			const char* filename = "screenshot.bmp";
+			std::vector<char> array(bmp_size(160, 144));
+			bmp_init(array.data(), 160, 144);
+			save_file(filename, array);
+			printf("*** Stored screenshot in %s\n", filename);
+		});
 
 	while (m->cpu.is_running())
 	{

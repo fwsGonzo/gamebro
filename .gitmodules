@@ -1,0 +1,3 @@
+[submodule "ext/bmp"]
+	path = ext/bmp
+	url = git@github.com:skeeto/bmp.git

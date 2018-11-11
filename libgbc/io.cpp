@@ -1,10 +1,10 @@
 #include "io.hpp"
 #include <cstdio>
 #include "machine.hpp"
+#include "io_regs.cpp"
 
 namespace gbc
 {
-
   IO::IO(Machine& mach)
       : vblank   {  0x1, 0x40, "V-blank" },
         lcd_stat {  0x2, 0x48, "LCD Status" },
@@ -52,7 +52,7 @@ namespace gbc
         m_ly = (m_ly + 1) % MAX_LINES;
         reg(REG_LY) = m_ly;
 
-        if (m_ly == 0) this->trigger(vblank);
+        if (is_vblank()) this->trigger(vblank);
       }
 
 
@@ -93,6 +93,12 @@ namespace gbc
         printf("[io] * I/O write 0x%04x value 0x%02x\n", addr, value);
         machine().break_now();
       }
+      auto& handler = iologic.at(addr - 0xff00);
+      if (handler.handler != nullptr) {
+        handler.handler(*this, addr, value);
+        return;
+      }
+      // default: just write...
       reg(addr) = value;
       return;
     }
@@ -107,6 +113,10 @@ namespace gbc
   void IO::trigger_key(key_t key)
   {
     reg(REG_P1) |= key;
+  }
+  bool IO::is_vblank()
+  {
+    return (this->m_ly >= 144);
   }
 
   void IO::trigger(interrupt_t& intr)
@@ -126,6 +136,7 @@ namespace gbc
     if (machine().break_on_interrupts && !machine().is_breaking()) {
       machine().break_now();
     }
+    if (intr.callback) intr.callback(intr);
   }
   uint8_t IO::interrupt_mask() {
     return this->reg(REG_IF);

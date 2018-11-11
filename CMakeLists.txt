@@ -69,3 +69,4 @@ add_executable(gamebro ${SOURCES})
 target_link_libraries(gamebro gbc)
 
 target_include_directories(gamebro PRIVATE ${CMAKE_SOURCE_DIR})
+target_include_directories(gamebro PRIVATE "${CMAKE_SOURCE_DIR}/ext")

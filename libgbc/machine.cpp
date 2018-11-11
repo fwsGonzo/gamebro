@@ -4,16 +4,25 @@
 namespace gbc
 {
   Machine::Machine(std::vector<uint8_t> rom)
-      : memory(*this, std::move(rom)), cpu(memory), io(*this),
-        ddCharacter  {Memory::Display_Chr},
-        ddBackground1{Memory::Display_BG1},
-        ddBackground2{Memory::Display_BG2}
+      : memory(*this, std::move(rom)), cpu(memory), io(*this)
   {
   }
 
   uint64_t Machine::now() noexcept
   {
     return cpu.gettime();
+  }
+
+  void Machine::set_handler(interrupt i, interrupt_handler handler)
+  {
+    switch (i) {
+      case VBLANK:
+          io.vblank.callback = handler;
+          return;
+      case TIMER:
+          io.timer.callback = handler;
+          return;
+    }
   }
 
   void Machine::break_now()
