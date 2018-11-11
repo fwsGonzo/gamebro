@@ -1,6 +1,7 @@
 #include <cstdio>
 #include <chrono>
 #include <stdexcept>
+#include <string>
 #include <vector>
 
 static inline
