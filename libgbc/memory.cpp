@@ -38,7 +38,7 @@ namespace gbc
     else if (address == InterruptEn) {
       return machine().io.read_io(address);
     }
-    printf("Invalid memory read at 0x%04x", address);
+    printf(">>> Invalid memory read at 0x%04x\n", address);
     return 0xff;
   }
 
@@ -79,7 +79,7 @@ namespace gbc
       machine().io.write_io(address, value);
       return;
     }
-    printf("Invalid memory write at 0x%04x, value 0x%x",
+    printf(">>> Invalid memory write at 0x%04x, value 0x%x\n",
            address, value);
   }
 

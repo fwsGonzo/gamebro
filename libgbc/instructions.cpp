@@ -1,5 +1,6 @@
 // only include this file once!
 #include "cpu.hpp"
+#include "common.hpp"
 #include "printers.hpp"
 #define DEF_INSTR(x) static instruction_t instr_##x {handler_##x, printer_##x}
 #define INSTRUCTION(x) static unsigned handler_##x
@@ -380,8 +381,14 @@ namespace gbc
 
   INSTRUCTION(RST) (CPU& cpu, const uint8_t opcode)
   {
+    const uint16_t dst = opcode & 0x38;
+    if (UNLIKELY(cpu.registers().pc == dst+1)) {
+      printf(">>> RST loop detected at vector 0x%04x\n", dst);
+      cpu.break_now();
+      return 4;
+    }
     // jump to vector area
-    unsigned t = cpu.push_and_jump(opcode & 0x38);
+    unsigned t = cpu.push_and_jump(dst);
     printf("* Restarted to 0x%04x\n", cpu.registers().pc);
     return t;
   }
@@ -414,8 +421,8 @@ namespace gbc
     if (opcode & 0x20) {
       char temp[128];
       fill_flag_buffer(temp, sizeof(temp), opcode, cpu.registers().flags);
-      return snprintf(buffer, len, "JRF %+hhd => 0x%04x (%s)",
-                      disp, dest, temp);
+      return snprintf(buffer, len, "JR %+hhd (%s) => 0x%04x",
+                      disp, temp, dest);
     }
     return snprintf(buffer, len, "JR %+hhd => 0x%04x", disp, dest);
   }

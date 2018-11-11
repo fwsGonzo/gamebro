@@ -52,7 +52,7 @@ namespace gbc
         m_ly = (m_ly + 1) % MAX_LINES;
         reg(REG_LY) = m_ly;
 
-        if (m_ly == 0) this->interrupt(vblank);
+        if (m_ly == 0) this->trigger(vblank);
       }
 
 

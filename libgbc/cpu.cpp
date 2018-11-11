@@ -2,7 +2,6 @@
 
 #include "machine.hpp"
 #include <cassert>
-#include <cstring>
 #include "instructions.cpp"
 
 namespace gbc
@@ -93,23 +92,18 @@ namespace gbc
       m_intr_disable_pending--;
       if (!m_intr_disable_pending) m_intr_master_enable = false;
     }
-    // check if interrupts are enabled
-    if (this->ime())
+    const uint8_t imask = machine().io.interrupt_mask();
+    // check if interrupts are enabled and pending
+    if (this->ime() && imask != 0x0)
     {
       // 5. execute pending interrupts
-      const uint8_t imask = machine().io.interrupt_mask();
-      if (imask) this->execute_interrupts(imask);
+      auto& io = machine().io;
+      if (imask &  0x1) io.interrupt(io.vblank);
+      if (imask &  0x2) io.interrupt(io.lcd_stat);
+      if (imask &  0x4) io.interrupt(io.timer);
+      if (imask &  0x8) io.interrupt(io.serial);
+      if (imask & 0x10) io.interrupt(io.joypad);
     }
-
-  }
-  void CPU::execute_interrupts(const uint8_t imask)
-  {
-    auto& io = machine().io;
-    if (imask &  0x1) io.interrupt(io.vblank);
-    if (imask &  0x2) io.interrupt(io.lcd_stat);
-    if (imask &  0x4) io.interrupt(io.timer);
-    if (imask &  0x8) io.interrupt(io.serial);
-    if (imask & 0x10) io.interrupt(io.joypad);
   }
 
   uint8_t CPU::readop8(const int dx)
