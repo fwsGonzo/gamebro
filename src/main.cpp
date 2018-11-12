@@ -2,6 +2,26 @@
 #include <libgbc/machine.hpp>
 #include <bmp/bmp.h>
 
+static void save_screenshot(gbc::Machine& machine)
+{
+	// get pixel data
+	std::vector<uint32_t> pixels;
+	machine.gpu.render_to(pixels);
+	// render to BMP
+	const char* filename = "screenshot.bmp";
+	std::array<char, BMP_SIZE(160, 144)> array;
+	bmp_init(array.data(), 160, 144);
+	for (int y = 0; y < gbc::GPU::SCREEN_H; y++)
+	for (int x = 0; x < gbc::GPU::SCREEN_W; x++)
+	{
+		const uint32_t px = pixels.at(y * gbc::GPU::SCREEN_W + x);
+		bmp_set(array.data(), x, y, px);
+	}
+	// save it!
+	save_file(filename, array);
+	printf("*** Stored screenshot in %s\n", filename);
+}
+
 int main(int argc, char** args)
 {
 	const char* romfile = "tests/bits_ram_en.gb";
@@ -19,13 +39,10 @@ int main(int argc, char** args)
 
 	// wire up gameboy vblank
 	m->set_handler(gbc::Machine::VBLANK,
-		[] (gbc::interrupt_t& intr) {
-			// render to BMP
-			const char* filename = "screenshot.bmp";
-			std::vector<char> array(bmp_size(160, 144));
-			bmp_init(array.data(), 160, 144);
-			save_file(filename, array);
-			printf("*** Stored screenshot in %s\n", filename);
+		[] (gbc::Machine& machine, gbc::interrupt_t&)
+		{
+			static int counter = 0;
+			if (counter++ % 30 == 0) save_screenshot(machine);
 		});
 
 	while (m->cpu.is_running())

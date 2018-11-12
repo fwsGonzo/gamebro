@@ -5,7 +5,7 @@
 namespace gbc
 {
   struct interrupt_t;
-  using interrupt_handler = delegate<void(interrupt_t&)>;
+  using interrupt_handler = delegate<void(Machine&, interrupt_t&)>;
 
   struct interrupt_t {
     const uint8_t  mask;

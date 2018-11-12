@@ -136,7 +136,7 @@ namespace gbc
     if (machine().break_on_interrupts && !machine().is_breaking()) {
       machine().break_now();
     }
-    if (intr.callback) intr.callback(intr);
+    if (intr.callback) intr.callback(machine(), intr);
   }
   uint8_t IO::interrupt_mask() {
     return this->reg(REG_IF);

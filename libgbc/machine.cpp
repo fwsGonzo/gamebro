@@ -4,7 +4,7 @@
 namespace gbc
 {
   Machine::Machine(std::vector<uint8_t> rom)
-      : memory(*this, std::move(rom)), cpu(memory), io(*this)
+      : cpu(*this), memory(*this, std::move(rom)), io(*this), gpu(*this)
   {
   }
 

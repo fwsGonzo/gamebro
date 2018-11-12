@@ -27,8 +27,9 @@ std::vector<uint8_t> load_file(const std::string& filename)
 	return result;
 }
 
+template <typename C>
 static inline
-void save_file(const std::string& filename, const std::vector<char>& data)
+void save_file(const std::string& filename, const C& data)
 {
 	FILE* f = fopen(filename.c_str(), "wb");
 	if (f == NULL) throw std::runtime_error("Could not open file: " + filename);

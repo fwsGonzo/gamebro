@@ -16,7 +16,7 @@ namespace gbc
   {
   public:
     using breakpoint_t = delegate<void(CPU&, uint8_t)>;
-    CPU(Memory&) noexcept;
+    CPU(Machine&) noexcept;
     void  reset() noexcept;
     void  simulate();
     uint64_t gettime() const noexcept { return m_cycles_total; }
@@ -61,8 +61,8 @@ namespace gbc
     void execute_interrupts(const uint8_t);
 
     regs_t   m_registers;
-    Memory&  m_memory;
     Machine& m_machine;
+    Memory&  m_memory;
     uint64_t m_cycles_total = 0;
     uint8_t  m_cur_opcode = 0xff;
     uint8_t  m_last_flags = 0xff;

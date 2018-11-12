@@ -1,6 +1,7 @@
 #pragma once
 
 #include "cpu.hpp"
+#include "gpu.hpp"
 #include "memory.hpp"
 #include "io.hpp"
 #include "interrupt.hpp"
@@ -12,9 +13,10 @@ namespace gbc
   public:
     Machine(std::vector<uint8_t> rom);
 
-    Memory memory;
     CPU    cpu;
+    Memory memory;
     IO     io;
+    GPU    gpu;
 
     uint64_t now() noexcept;
 

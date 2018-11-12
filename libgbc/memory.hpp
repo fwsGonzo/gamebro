@@ -3,12 +3,11 @@
 #include <cstdint>
 #include <vector>
 #include <util/delegate.hpp>
+#include "common.hpp"
 #include "mbc1.hpp"
 
 namespace gbc
 {
-  class Machine;
-
   class Memory
   {
   public:

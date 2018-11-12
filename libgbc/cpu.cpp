@@ -6,8 +6,8 @@
 
 namespace gbc
 {
-  CPU::CPU(Memory& mem) noexcept
-    : m_memory(mem), m_machine(mem.machine())
+  CPU::CPU(Machine& mach) noexcept
+    : m_machine(mach), m_memory(mach.memory)
   {
     this->reset();
   }
