@@ -23,8 +23,7 @@ namespace gbc
     static constexpr range_t EchoRAM     {0xE000, 0xFDFF}; // echo of work RAM
     static constexpr range_t OAM_RAM     {0xFE00, 0xFEFF};
 
-    static constexpr range_t IO_Ports    {0xFF00, 0xFF4B};
-    static constexpr range_t Unusable    {0xFF4C, 0xFF7F};
+    static constexpr range_t IO_Ports    {0xFF00, 0xFF7F};
     static constexpr range_t ZRAM        {0xFF80, 0xFFFE};
     static constexpr uint16_t InterruptEn = 0xFFFF;
 

@@ -1,6 +1,7 @@
 #include "stuff.hpp"
 #include <libgbc/machine.hpp>
 #include <bmp/bmp.h>
+#include <signal.h>
 
 static void save_screenshot(gbc::Machine& machine)
 {
@@ -22,6 +23,12 @@ static void save_screenshot(gbc::Machine& machine)
 	printf("*** Stored screenshot in %s\n", filename);
 }
 
+static gbc::Machine* machine = nullptr;
+static void int_handler(int) {
+	if (machine->cpu.is_breaking()) machine->cpu.stop();
+	else machine->break_now();
+}
+
 int main(int argc, char** args)
 {
 	const char* romfile = "tests/bits_ram_en.gb";
@@ -30,21 +37,24 @@ int main(int argc, char** args)
   const auto romdata = load_file(romfile);
   printf("Loaded %zu bytes ROM\n", romdata.size());
 
-	auto* m = new gbc::Machine(romdata);
-	//m->verbose_instructions = true;
-	//m->cpu.default_pausepoint(0x299a, 0, false);
-	//m->cpu.default_pausepoint(0x46e9, 10, true);
-	//m->break_on_interrupts = true;
-	//m->stop_when_undefined = true;
+	machine = new gbc::Machine(romdata);
+	//machine->verbose_instructions = true;
+	//machine->cpu.default_pausepoint(0x299a, 0, false);
+	machine->cpu.default_pausepoint(0x203, 10, true);
+	//machine->break_on_interrupts = true;
+	//machine->stop_when_undefined = true;
+	signal(SIGINT, int_handler);
+
 	bool brk = false;
-	//m->cpu.breakpoint(0x7d19, [&brk] (gbc::CPU&, uint8_t) {brk = true;});
+	//machine->cpu.breakpoint(0x7d19, [&brk] (gbc::CPU&, uint8_t) {brk = true;});
 
 	// wire up gameboy vblank
-	m->set_handler(gbc::Machine::VBLANK,
+	machine->set_handler(gbc::Machine::VBLANK,
 		[] (gbc::Machine& machine, gbc::interrupt_t&)
 		{
 			static int counter = 0;
 			if (counter++ % 60 == 0) save_screenshot(machine);
+			return;
 			// sleep on each vblank
 			static uint64_t t0 = 0;
 			const uint64_t t1 = machine.cpu.gettime();
@@ -52,10 +62,10 @@ int main(int argc, char** args)
 			t0 = t1;
 		});
 
-	while (m->cpu.is_running())
+	while (machine->cpu.is_running())
 	{
-		m->cpu.simulate();
-		m->io.simulate();
+		machine->cpu.simulate();
+		machine->io.simulate();
 
 		/*if (m->cpu.registers().pc == 0x3cd)
 		{
@@ -66,7 +76,7 @@ int main(int argc, char** args)
 
 		if (brk) {
 			static int counter = 0;
-			if ((counter++ % 10) == 0) m->break_now();
+			if ((counter++ % 10) == 0) machine->break_now();
 		}
 	}
 

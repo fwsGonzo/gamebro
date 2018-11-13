@@ -33,20 +33,41 @@ namespace gbc
     return io.reg(IO::REG_DIV);
   }
 
+  void iowrite_STAT(IO& io, uint16_t addr, uint8_t value)
+  {
+    // can only write to the upper bits 3-7
+    io.reg(addr) &= 0x7;
+    io.reg(addr) |= value & 0xC;
+  }
+  uint8_t ioread_STAT(IO& io, uint16_t addr)
+  {
+    return io.reg(addr);
+  }
+
   void iowrite_DMA(IO& io, uint16_t addr, uint8_t value)
   {
     auto& memory = io.machine().memory;
     uint16_t src = value << 8;
     uint16_t dst = 0xfe00;
-    //printf("DMA copy from 0x%04x to 0x%04x\n", src, dst);
+    printf("DMA copy from 0x%04x to 0x%04x\n", src, dst);
     for (int i = 0; i < 160; i++) {
       memory.write8(dst++, memory.read8(src++));
     }
     // it does take time to do all this work
-    io.machine().cpu.incr_cycles(671);
+    //io.machine().cpu.incr_cycles(671);
     //assert(0 && "DMA operation completed");
   }
   uint8_t ioread_DMA(IO& io, uint16_t addr)
+  {
+    return io.reg(addr);
+  }
+
+  void iowrite_KEY1(IO& io, uint16_t addr, uint8_t value)
+  {
+    printf("KEY1 0x%04x write 0x%02x\n", addr, value);
+    assert(0 && "KEY1 registers written to");
+  }
+  uint8_t ioread_KEY1(IO& io, uint16_t addr)
   {
     return io.reg(addr);
   }
@@ -73,12 +94,13 @@ namespace gbc
     return io.reg(addr);
   }
 
-
   __attribute__((constructor))
   static void set_io_handlers() {
     IOHANDLER(IO::REG_P1,    JOYP);
     IOHANDLER(IO::REG_DIV,   DIV);
     IOHANDLER(IO::REG_DMA,   DMA);
+    IOHANDLER(IO::REG_STAT,  STAT);
+    IOHANDLER(IO::REG_KEY1,  KEY1);
     IOHANDLER(IO::REG_HDMA1, HDMA);
     IOHANDLER(IO::REG_HDMA2, HDMA);
     IOHANDLER(IO::REG_HDMA3, HDMA);

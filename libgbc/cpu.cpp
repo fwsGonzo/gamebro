@@ -51,9 +51,9 @@ namespace gbc
   unsigned CPU::execute(const uint8_t opcode)
   {
     if (UNLIKELY(this->break_time())) {
+      this->m_break = false;
       // pause for each instruction
       this->print_and_pause(*this, opcode);
-      this->m_break = false;
     }
     else if (UNLIKELY(!m_breakpoints.empty())) {
       // look for breakpoints
@@ -254,12 +254,47 @@ namespace gbc
            io.read_io(IO::REG_IF), io.read_io(IO::REG_IE), cpu.ime());
     try {
       auto& mem = cpu.memory();
-      printf("\t(HL) = 0x%04x  (SP) = 0x%04x  (0xA000) = 0x%04x\n",
-            mem.read16(cpu.registers().hl), mem.read16(cpu.registers().sp),
-            mem.read16(0xA000));
-    } catch (...) {}
-    printf("Press any key to continue...\n");
-    getchar(); // press any key
+      printf("\t(HL) = 0x%02x  (SP) = 0x%04x\n",
+            cpu.read_hl(), mem.read16(cpu.registers().sp));
+    } catch (...) {
+      printf("\tUnable to read from (HL) or (SP)\n");
+    }
+    printf("Enter = cont, 1-9 = 2^n steps, R = run, Q = quit: ");
+    const int c = getchar(); // press any key
+    switch (c) {
+      case '\n':
+      case 'C':
+      case 'c':
+          // continue
+          break;
+      case '1':
+      case '2':
+      case '3':
+      case '4':
+      case '5':
+      case '6':
+      case '7':
+      case '8':
+      case '9':
+          cpu.machine().verbose_instructions = true;
+          cpu.break_on_steps(1 << (c - '1'));
+          break;
+      case 'V':
+      case 'v': {
+          bool& v = cpu.machine().verbose_instructions;
+          v = !v;
+          printf("Verbose instructions are %s\n", v ? "ON" : "OFF");
+        } break;
+      case 'R':
+      case 'r':
+          cpu.machine().verbose_instructions = false;
+          cpu.break_on_steps(0);
+          break;
+      case 'Q':
+      case 'q':
+          cpu.stop();
+          break;
+    }
+    if (c != '\n') getchar(); // remove newline
   }
-
 }

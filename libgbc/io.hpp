@@ -54,6 +54,7 @@ namespace gbc
       REG_WY    = 0xff4a,
       REG_WX    = 0xff4b,
 
+      REG_KEY1  = 0xff4d,
       REG_BOOT  = 0xff50,
 
       REG_HDMA1 = 0xff51,
@@ -107,6 +108,7 @@ namespace gbc
     std::array<uint8_t, 128> m_ioregs = {};
     uint8_t  m_reg_ie = 0x0;
     uint8_t  m_ly = 0x0;
+    uint64_t m_vblank_end = 0;
     uint64_t m_divider_time = 0;
   };
 }

@@ -92,20 +92,61 @@ namespace gbc
         m_ly = (m_ly + 1) % MAX_LINES;
         reg(REG_LY) = m_ly;
 
-        if (this->m_ly == 144) this->trigger(vblank);
+        if (this->m_ly == 144) {
+          assert(is_vblank());
+          // vblank interrupt
+          this->trigger(vblank);
+          // modify stat
+          reg(REG_STAT) &= 0xfc;
+          reg(REG_STAT) |= 0x1;
+          // if V-blank interrupt is enabled
+          if (reg(REG_STAT) & 0x10) {
+            this->trigger(lcd_stat);
+          }
+        }
+        if (this->m_ly == 0) m_vblank_end = t;
+        // STAT coincidence bit
+        if (this->m_ly == reg(REG_LYC)) {
+          reg(REG_STAT) |= 0x4;
+          // STAT interrupt (if enabled)
+          if (reg(REG_STAT) & 0x40) {
+            this->trigger(lcd_stat);
+          }
+        }
+        else {
+          reg(REG_STAT) &= ~0x4;
+        }
       }
-
-      // 3. LCD STAT
-      uint8_t stat = reg(REG_STAT);
-      stat &= 0xFC; // remove bits 0, 1
-      if (is_vblank()) {
-        stat |= 0x1;
-      }
-      else {
-        const int period = t % 456;
-        if      (period < 80)  stat |= 0x2;
-        else if (period < 170) stat |= 0x3;
-        else                   stat |= 0x0;
+      // STAT mode modulation
+      if (is_vblank() == false)
+      {
+        const int period = (t - m_vblank_end) % 456;
+        if (period == 0) // period < 80
+        {
+          // if we are setting MODE 2 now
+          if ((reg(REG_STAT) & 0x2) != 0x2) {
+            // check if need to interrupt
+            if (reg(REG_STAT) & 0x20) this->trigger(lcd_stat);
+          }
+          reg(REG_STAT) &= 0xfc;
+          reg(REG_STAT) |= 0x2;
+        }
+        else if (period == 80) // period < 170
+        {
+          reg(REG_STAT) &= 0xfc; // MODE 3
+          reg(REG_STAT) |= 0x3;
+        }
+        else if (period == 170) // remaining
+        {
+          // if we are setting MODE 0 now
+          if ((reg(REG_STAT) & 0x3) != 0x0) {
+            // check if need to interrupt
+            if (reg(REG_STAT) & 0x8) this->trigger(lcd_stat);
+          }
+          reg(REG_STAT) &= 0xfc;
+          reg(REG_STAT) |= 0x0;
+        }
+        //printf("Mode: %#x  LY: %u\n", reg(REG_STAT), m_ly);
       }
     }
   }
@@ -113,7 +154,7 @@ namespace gbc
   uint8_t IO::read_io(const uint16_t addr)
   {
     // default: just return the register value
-    if (addr >= 0xff00 && addr < 0xff4c) {
+    if (addr >= 0xff00 && addr < 0xff80) {
       if (machine().break_on_io && !machine().is_breaking()) {
         printf("[io] * I/O read 0x%04x => 0x%02x\n", addr, reg(addr));
         machine().break_now();
@@ -134,7 +175,7 @@ namespace gbc
   void IO::write_io(const uint16_t addr, uint8_t value)
   {
     // default: just write to register
-    if (addr >= 0xff00 && addr < 0xff4c) {
+    if (addr >= 0xff00 && addr < 0xff80) {
       if (machine().break_on_io && !machine().is_breaking()) {
         printf("[io] * I/O write 0x%04x value 0x%02x\n", addr, value);
         machine().break_now();
@@ -172,7 +213,7 @@ namespace gbc
   }
   void IO::interrupt(interrupt_t& intr)
   {
-    //printf("Executing interrupt %s (%#x)\n", intr.name, intr.mask);
+    printf("Executing interrupt %s (%#x)\n", intr.name, intr.mask);
     unsigned int t = 12;
     // disable interrupt
     reg(REG_IF) &= ~intr.mask;
