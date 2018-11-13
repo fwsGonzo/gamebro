@@ -84,37 +84,53 @@ namespace gbc
       __builtin_unreachable();
     }
 
+    inline static bool half_carry(const uint8_t reg, const uint8_t val) {
+      return ((reg & 0xf) + (val & 0xf)) & (0x10);
+    }
+    inline static bool half_borrow(const uint8_t reg, const uint8_t val) {
+      return (val & 0xf) < (reg & 0xf);
+    }
+
     void alu(uint8_t op, uint8_t value) noexcept
     {
       auto& reg = this->accum;
       switch (op & 0x7) {
         case 0x0: // ADD
+            flags &= ~MASK_NEGATIVE;
+            if (half_carry(reg, value)) flags |= MASK_HALFCARRY;
             reg += value;
-            if (value > reg) flags |= MASK_CARRY;
-            if ((value & 0xF) > (reg & 0xF)) flags |= MASK_HALFCARRY;
+            if (reg > reg + value) flags |= MASK_CARRY;
+            if (reg == 0) flags |= MASK_ZERO;
             return;
-        case 0x1: // ADC
-            reg += value;
-            if (flags & MASK_CARRY) reg++;
-            if (value > reg) flags |= MASK_CARRY;
-            if ((value & 0xF) > (reg & 0xF)) flags |= MASK_HALFCARRY;
-            return;
+        case 0x1: { // ADC
+            const int carry = (flags & MASK_CARRY) ? 1 : 0;
+            flags &= ~MASK_NEGATIVE;
+            if ((reg & 0xf) + (value & 0xf) + carry > 0xf)
+                flags |= MASK_HALFCARRY; // annoying!
+            reg += value + carry;
+            if (reg > reg + value + carry) flags |= MASK_CARRY;
+            if (reg == 0) flags |= MASK_ZERO;
+          } return;
         case 0x2: // SUB
+            flags |= MASK_NEGATIVE;
+            if (half_borrow(reg, value)) flags |= MASK_HALFCARRY;
+            if (reg < reg - value) flags |= MASK_CARRY;
+            if (reg == value) flags |= MASK_ZERO;
             reg -= value;
-            if (value > reg) flags |= MASK_CARRY;
-            if ((value & 0xF) > (reg & 0xF)) flags |= MASK_HALFCARRY;
             return;
-        case 0x3: // SBC
-            reg -= value;
-            if (flags & MASK_CARRY) reg--;
-            if (value > reg) flags |= MASK_CARRY;
-            if ((value & 0xF) > (reg & 0xF)) flags |= MASK_HALFCARRY;
-            return;
+        case 0x3: { // SBC
+            const int carry = (flags & MASK_CARRY) ? 1 : 0;
+            const int calc = int(reg) - value - carry; // annoying!
+            flags |= MASK_NEGATIVE;
+            if (((reg & 0xf) - (value & 0xf) - carry) < 0) flags |= MASK_HALFCARRY;
+            if (calc < 0) flags |= MASK_CARRY;
+            reg = (uint8_t) calc;
+            if (reg == 0) flags |= MASK_ZERO;
+          } return;
         case 0x4: // AND
             reg &= value;
-            flags = 0;
+            flags = MASK_HALFCARRY;
             if (reg == 0) flags |= MASK_ZERO;
-            flags |= MASK_HALFCARRY;
             return;
         case 0x5: // XOR
             reg ^= value;
@@ -126,12 +142,13 @@ namespace gbc
             flags = 0;
             if (reg == 0) flags |= MASK_ZERO;
             return;
-        case 0x7:
+        case 0x7: // CP
             //printf("\nCP 0x%02x vs 0x%02x (HL=0x%04x)\n", reg, value, hl);
             const uint8_t tmp = reg - value;
-            flags = MASK_NEGATIVE;
-            if (reg == value) flags |= MASK_ZERO;
+            flags |= MASK_NEGATIVE;
+            if (tmp == 0) flags |= MASK_ZERO;
             if (value > tmp) flags |= MASK_CARRY;
+            if (half_borrow(reg, value)) flags |= MASK_HALFCARRY;
             return;
       }
     } // alu()

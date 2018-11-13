@@ -38,26 +38,4 @@ namespace gbc
     bool     m_ram_enabled = false;
     uint8_t  m_mode_select = 0x0;
   };
-
-  inline bool MBC1::rom_valid() const noexcept
-  {
-    // TODO: implement me
-    return true;
-  }
-
-  inline void MBC1::set_rombank(int offset)
-  {
-    // cant select bank 0
-    offset = std::max(1, offset) * rombank_size();
-    printf("Setting new ROM bank offset to %#x\n", offset);
-    assert((offset + rombank_size()) <= m_rom.size());
-    this->m_rom_bank_offset = offset;
-  }
-  inline void MBC1::set_rambank(int offset)
-  {
-    offset = offset * rambank_size();
-    printf("Setting new RAM bank offset to %#x\n", offset);
-    assert((offset + rambank_size()) <= m_ram.size());
-    this->m_ram_bank_offset = offset;
-  }
 }

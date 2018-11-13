@@ -55,9 +55,9 @@ namespace gbc
       this->set_rombank(value & 0x60);
       return;
     }
-    else if (addr < 0x8000) // ROM mode select
+    else if (addr < 0x8000) // ROM/RAM mode select
     {
-      this->m_mode_select = value & 0x1;
+      this->set_mode(value);
       return;
     }
     else if (addr >= RAMbankX.first && addr < RAMbankX.second)
@@ -70,5 +70,33 @@ namespace gbc
     }
     printf("* Invalid MCB1 write: 0x%04x => 0x%02x\n", addr, value);
     assert(0);
+  }
+
+  bool MBC1::rom_valid() const noexcept
+  {
+    // TODO: implement me
+    return true;
+  }
+
+  void MBC1::set_rombank(int offset)
+  {
+    // cant select bank 0
+    offset = std::max(1, offset) * rombank_size();
+    printf("Setting new ROM bank offset to %#x\n", offset);
+    assert((offset + rombank_size()) <= m_rom.size());
+    this->m_rom_bank_offset = offset;
+  }
+  void MBC1::set_rambank(int offset)
+  {
+    offset = offset * rambank_size();
+    printf("Setting new RAM bank offset to %#x\n", offset);
+    assert((offset + rambank_size()) <= m_ram.size());
+    this->m_ram_bank_offset = offset;
+  }
+  void MBC1::set_mode(int mode)
+  {
+    this->m_mode_select = mode & 0x1;
+    printf("Mode select: 0x%02x\n", this->m_mode_select);
+    this->m_memory.machine().break_now();
   }
 }

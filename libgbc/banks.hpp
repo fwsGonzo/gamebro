@@ -47,7 +47,7 @@ namespace gbc
     }
 
   private:
-    const std::vector<uint8_t>* rom = nullptr;
+    const std::vector<uint8_t>* rom;
     size_t m_offset = 0;
   };
 }

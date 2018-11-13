@@ -25,8 +25,8 @@ namespace gbc
     const uint8_t scroll_y = memory().read8(IO::REG_SCY);
     const uint8_t scroll_x = memory().read8(IO::REG_SCX);
 
-    // get the tile id
-    TileData td{memory(), 0x8000};
+    // create tiledata object from LCDC register
+    auto td = this->create_tiledata();
 
     dest.resize(SCREEN_W * SCREEN_H);
     for (int ty = 0; ty < TILES_H; ty++)
@@ -35,19 +35,8 @@ namespace gbc
       // get the tile id
       const int t = td.tile_id(tx, ty);
       // copy the 16-byte tile into buffer
-      const uint16_t pattern_table = 0x9000 + t * 16;
       std::array<uint8_t, 64> buffer;
-      for (int i = 0; i < 8; i++)
-      {
-        uint8_t c0 = memory().read8(pattern_table + i);
-        uint8_t c1 = memory().read8(pattern_table + 8 + i);
-        for (int pix = 0; pix < 8; pix++) {
-          // in each pair of c0, c1 bytes there is 8 pixels
-          // 8 * 8 = 64 pixels, which is one tile
-          buffer.at(i * 8 + pix) = (c0 & 0x1) | ((c1 & 0x1) * 2);
-          c0 >>= 1; c1 >>= 1;
-        }
-      }
+      td.pattern(t, buffer);
       // blit 8x8 tile (64 pixels) to screen
       for (int i = 0; i < 8 * 8; i++)
       {
@@ -74,11 +63,11 @@ namespace gbc
     } // next tile
   } // render_to(...)
 
-  uint32_t GPU::tile32(int x, int y)
+  TileData GPU::create_tiledata()
   {
-    TileData td{memory(), 0x8000 + 0x1c00};
-
-    //switch (td.tile_id())
-    return 0;
+    const uint8_t lcdc = memory().read8(IO::REG_LCDC);
+    const uint16_t ttile_base = (lcdc & 0x10) ? 0x9C00 : 0x9800;
+    const uint16_t tdata_base = (lcdc & 0x08) ? 0x8000 : 0x8800;
+    return TileData{memory(), ttile_base, tdata_base};
   }
 }

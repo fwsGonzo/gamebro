@@ -1,5 +1,6 @@
 #pragma once
 #include "common.hpp"
+#include "tiledata.hpp"
 #include <cstdint>
 #include <vector>
 
@@ -15,6 +16,8 @@ namespace gbc
     void reset() noexcept;
     // the vector is resized to exactly fit the screen
     void render_to(std::vector<uint32_t>& dest);
+
+    TileData create_tiledata();
 
     Memory&  memory() noexcept { return m_memory; }
 

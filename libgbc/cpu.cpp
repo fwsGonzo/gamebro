@@ -15,8 +15,8 @@ namespace gbc
   void CPU::reset() noexcept
   {
     // gameboy Z80 initial register values
-    registers().af = 0x11b0;
-    registers().bc = 0x0113;
+    registers().af = 0x01b0;
+    registers().bc = 0x0013;
     registers().de = 0x00d8;
     registers().hl = 0x014d;
     registers().sp = 0xfffe;
@@ -26,19 +26,31 @@ namespace gbc
 
   void CPU::simulate()
   {
-    // 1. read instruction from memory
-    this->m_cur_opcode = this->readop8(0);
-    // 2. execute instruction
-    unsigned time = this->execute(this->m_cur_opcode);
-    // 3. pass the time (in T-states)
-    this->incr_cycles(time);
+    if (this->is_running())
+    {
+      // 1. read instruction from memory
+      this->m_cur_opcode = this->readop8(0);
+      // 2. execute instruction
+      unsigned time = this->execute(this->m_cur_opcode);
+      // 3. pass the time (in T-states)
+      this->incr_cycles(time);
+    }
+    else
+    {
+      if (this->m_halting == 1) {
+        // BUG: skip an instruction after halt
+        this->m_halting = 0;
+      }
+      // make sure time passes when not executing instructions
+      this->incr_cycles(4);
+    }
     // 4. handle interrupts
     this->handle_interrupts();
   }
 
   unsigned CPU::execute(const uint8_t opcode)
   {
-    if (UNLIKELY(this->m_singlestep || this->m_break)) {
+    if (UNLIKELY(this->break_time())) {
       // pause for each instruction
       this->print_and_pause(*this, opcode);
       this->m_break = false;
@@ -47,7 +59,10 @@ namespace gbc
       // look for breakpoints
       auto it = m_breakpoints.find(registers().pc);
       if (it != m_breakpoints.end()) {
-        /*unsigned ret =*/ it->second(*this, opcode);
+        auto& bp = it->second;
+        if (bp.callback) bp.callback(*this, opcode);
+        this->break_on_steps(bp.break_on_steps);
+        machine().verbose_instructions = bp.verbose_instr;
       }
     }
     // decode into executable instruction
@@ -84,10 +99,10 @@ namespace gbc
 
   // it takes 2 instruction-cycles to toggle interrupts
   void CPU::enable_interrupts() noexcept {
-    m_intr_enable_pending = 2;
+    this->m_intr_enable_pending = 2;
   }
   void CPU::disable_interrupts() noexcept {
-    m_intr_disable_pending = 2;
+    this->m_intr_disable_pending = 2;
   }
 
   void CPU::handle_interrupts()
@@ -101,17 +116,24 @@ namespace gbc
       m_intr_disable_pending--;
       if (!m_intr_disable_pending) m_intr_master_enable = false;
     }
-    const uint8_t imask = machine().io.interrupt_mask();
     // check if interrupts are enabled and pending
+    const uint8_t imask = machine().io.interrupt_mask();
     if (this->ime() && imask != 0x0)
     {
-      // 5. execute pending interrupts
+      // disable interrupts immediately
+      this->m_intr_master_enable = false;
+      this->m_intr_enable_pending = 0;
+      this->m_intr_disable_pending = 0;
+      // execute pending interrupts (sorted by priority)
       auto& io = machine().io;
-      if (imask &  0x1) io.interrupt(io.vblank);
-      if (imask &  0x2) io.interrupt(io.lcd_stat);
-      if (imask &  0x4) io.interrupt(io.timer);
-      if (imask &  0x8) io.interrupt(io.serial);
-      if (imask & 0x10) io.interrupt(io.joypad);
+      if      (imask &  0x1) io.interrupt(io.vblank);
+      else if (imask &  0x2) io.interrupt(io.lcd_stat);
+      else if (imask &  0x4) io.interrupt(io.timer);
+      else if (imask &  0x8) io.interrupt(io.serial);
+      else if (imask & 0x10) io.interrupt(io.joypad);
+      else this->break_now();
+      // resume operation if halting
+      if (this->m_halting) this->m_halting--;
     }
   }
 
@@ -188,7 +210,7 @@ namespace gbc
 
   void CPU::wait()
   {
-    this->m_waiting = true;
+    this->m_halting = 1;
   }
 
   unsigned CPU::push_and_jump(uint16_t address)
@@ -199,6 +221,24 @@ namespace gbc
     return 8;
   }
 
+  bool CPU::break_time() const
+  {
+    if (UNLIKELY(this->m_break)) return true;
+    if (UNLIKELY(m_break_steps_cnt != 0)) {
+      m_break_steps--;
+      if (m_break_steps <= 0) {
+        m_break_steps = m_break_steps_cnt;
+        return true;
+      }
+    }
+    return false;
+  }
+  void CPU::break_on_steps(int steps)
+  {
+    assert(steps >= 0);
+    this->m_break_steps_cnt = steps;
+    this->m_break_steps = steps;
+  }
   void CPU::print_and_pause(CPU& cpu, const uint8_t opcode)
   {
     char buffer[512];

@@ -51,7 +51,7 @@ namespace gbc
     auto& reg   = cpu.registers().getreg_sp(opcode);
     auto& hl    = cpu.registers().hl;
     auto& flags = cpu.registers().flags;
-    flags &= MASK_ZERO;
+    flags &= ~MASK_NEGATIVE;
     if (((hl &  0x0fff) + (reg &  0x0fff)) &  0x1000) flags |= MASK_HALFCARRY;
     if (((hl & 0x0ffff) + (reg & 0x0ffff)) & 0x10000) flags |= MASK_CARRY;
     hl += reg;
@@ -79,11 +79,16 @@ namespace gbc
 
   INSTRUCTION(INC_DEC_R) (CPU& cpu, const uint8_t opcode)
   {
+    auto& reg = cpu.registers().getreg_sp(opcode);
+    auto& flags = cpu.registers().flags;
+    flags &= ~MASK_NEGATIVE;
     if ((opcode & 0x8) == 0) {
-      cpu.registers().getreg_sp(opcode)++;
+      reg++;
     } else {
-      cpu.registers().getreg_sp(opcode)--;
+      reg--;
+      flags |= MASK_NEGATIVE; // DEC
     }
+    if (reg == 0) flags |= MASK_ZERO; // set zero
     return 8;
   }
   PRINTER(INC_DEC_R) (char* buffer, size_t len, CPU&, uint8_t opcode) {
@@ -119,7 +124,7 @@ namespace gbc
       cycles = 16;
     }
     auto& flags = cpu.registers().flags;
-    flags = (flags & MASK_CARRY); // keep carry
+    flags &= MASK_CARRY; // keep carry
     if (opcode & 0x1) flags |= MASK_NEGATIVE; // DEC
     if (value == 0) flags |= MASK_ZERO; // set zero
     return cycles;
@@ -151,37 +156,41 @@ namespace gbc
   {
     auto& accum = cpu.registers().accum;
     auto& flags = cpu.registers().flags;
+    flags &= ~MASK_NEGATIVE;
+    flags &= ~MASK_HALFCARRY;
     switch (opcode) {
       case 0x07: {
         // RLCA, rotate A left
         const uint8_t bit7 = accum & 0x80;
         accum = (accum << 1) | (bit7 >> 7);
-        flags = bit7 >> 3; // old bit7 to CF
+        flags &= ~0x80;
+        flags |= bit7 >> 3; // old bit7 to CF
       } break;
       case 0x0F: {
         // RRCA, rotate A right
         const uint8_t bit0 = accum & 0x1;
         accum = (accum >> 1) | (bit0 << 7);
-        flags = bit0 << 4; // old bit0 to CF
+        flags &= ~0x1;
+        flags |= bit0 << 4; // old bit0 to CF
       } break;
       case 0x17: {
         // RLA, rotate A left, old CF to bit 0
         const uint8_t bit7 = accum & 0x80;
         accum = (accum << 1) | ((flags & MASK_CARRY) >> 4);
-        flags = bit7 >> 3; // old bit7 to CF
+        flags &= ~0x80;
+        flags |= bit7 >> 3; // old bit7 to CF
       } break;
       case 0x1F: {
         // RRA, rotate A right, old CF to bit 7
         const uint8_t bit0 = accum & 0x1;
         accum = (accum >> 1) | ((flags & MASK_CARRY) << 3);
-        flags = bit0 << 4; // old bit0 to CF
+        flags &= ~0x1;
+        flags |= bit0 << 4; // old bit0 to CF
       } break;
       default:
         assert(0 && "Unknown opcode in RLC/RRC handler");
     }
-    if (accum == 0) {
-      cpu.registers().flags |= MASK_ZERO;
-    }
+    if (accum == 0) flags |= MASK_ZERO;
     return 4;
   }
   PRINTER(RLC_RRC) (char* buffer, size_t len, CPU& cpu, uint8_t opcode) {
@@ -370,7 +379,7 @@ namespace gbc
         printf("* Returned to 0x%04x\n", cpu.registers().pc);
       }
       // RETI
-      if ((opcode & 0x11) == 0x11) {
+      if (UNLIKELY((opcode & 0x11) == 0x11)) {
         cpu.enable_interrupts();
       }
     }
@@ -391,7 +400,7 @@ namespace gbc
     if (UNLIKELY(cpu.registers().pc == dst+1)) {
       printf(">>> RST loop detected at vector 0x%04x\n", dst);
       cpu.break_now();
-      return 4;
+      return 8;
     }
     // jump to vector area
     unsigned t = cpu.push_and_jump(dst);
@@ -399,7 +408,7 @@ namespace gbc
     {
       printf("* Restart vector 0x%04x\n", cpu.registers().pc);
     }
-    return t;
+    return 4 + t;
   }
   PRINTER(RST) (char* buffer, size_t len, CPU&, uint8_t opcode) {
     return snprintf(buffer, len, "RST 0x%02x", opcode & 0x38);
@@ -460,7 +469,7 @@ namespace gbc
       {
         printf("* Called 0x%04x\n", cpu.registers().pc);
       }
-      return 16;
+      return 20;
     }
     return 12;
   }
@@ -542,12 +551,16 @@ namespace gbc
     else {
       // JP HL
       cpu.registers().pc = cpu.registers().hl;
+      if (UNLIKELY(cpu.machine().verbose_instructions))
+      {
+        printf("* Jumped to 0x%04x\n", cpu.registers().pc);
+      }
       return 4;
     }
   }
-  PRINTER(LD_JP_HL) (char* buffer, size_t len, CPU&, uint8_t opcode) {
+  PRINTER(LD_JP_HL) (char* buffer, size_t len, CPU& cpu, uint8_t opcode) {
     const char* mnemonic = (opcode & 0x10) ? "LD SP, HL" : "JP HL";
-    return snprintf(buffer, len, "%s", mnemonic);
+    return snprintf(buffer, len, "%s = 0x%04x", mnemonic, cpu.registers().hl);
   }
 
   INSTRUCTION(DI_EI) (CPU& cpu, const uint8_t opcode)
@@ -576,7 +589,7 @@ namespace gbc
     const unsigned cycles = (HL) ? 16 : 8;
 
     // BIT, RESET, SET
-    if ((opcode >> 6) & 0x3)
+    if (opcode >> 6)
     {
       const uint8_t bit = (opcode >> 3) & 3;
       switch (opcode >> 6)
@@ -587,7 +600,8 @@ namespace gbc
           if (set == 0) cpu.registers().flags |= MASK_ZERO;
           cpu.registers().flags &= ~MASK_NEGATIVE;
           cpu.registers().flags |=  MASK_HALFCARRY;
-          return cycles;
+          // BIT only takes 12 T-cycles for (HL)
+          return (HL) ? 12 : 8;
           }
         case 0x2: // RESET
           reg &= ~(1 << bit);
@@ -599,34 +613,42 @@ namespace gbc
     }
     else if ((opcode & 0xF0) == 0x10)
     {
+      auto& flags = cpu.registers().flags;
+      flags &= ~MASK_NEGATIVE;
+      flags &= ~MASK_HALFCARRY;
+      flags &= ~MASK_CARRY;
       if (opcode & 0x8) {
         // RR D, rotate D right, old CF to bit 7
         const uint8_t bit0 = reg & 0x1;
         reg = (reg >> 1) | ((cpu.registers().flags & MASK_CARRY) << 3);
-        cpu.registers().flags = bit0 << 4; // old bit0 to CF
+        flags |= bit0 << 4; // old bit0 to CF
       }
       else {
         // RL D, rotate D left, old CF to bit 0
         const uint8_t bit7 = reg & 0x80;
         reg = (reg << 1) | ((cpu.registers().flags & MASK_CARRY) >> 4);
-        cpu.registers().flags = bit7 >> 3; // old bit7 to CF
+        flags |= bit7 >> 3; // old bit7 to CF
       }
       if (reg == 0) cpu.registers().flags |= MASK_ZERO;
     }
     else if ((opcode & 0xF0) == 0x20)
     {
+      auto& flags = cpu.registers().flags;
+      flags &= ~MASK_NEGATIVE;
+      flags &= ~MASK_HALFCARRY;
+      flags &= ~MASK_CARRY;
       // TODO: fix flags
       if (opcode & 0x8) {
         // SRA
         const uint8_t bit0 = reg & 0x1;
         reg = (reg >> 1) & (reg & 0x80);
-        cpu.registers().flags = bit0 << 4; // bit0 into CF
+        flags |= bit0 << 4; // bit0 into CF
       }
       else {
         // SLA
         const uint8_t bit7 = reg & 0x80;
         reg <<= 1;
-        cpu.registers().flags = bit7 >> 3; // bit7 into CF
+        flags |= bit7 >> 3; // bit7 into CF
       }
       if (reg == 0) cpu.registers().flags |= MASK_ZERO;
     }
@@ -636,14 +658,19 @@ namespace gbc
         // SWAP D
         const uint8_t low = reg & 0xF;
         reg = (reg >> 4) | (low << 4);
-        cpu.registers().flags = (reg == 0) ? MASK_ZERO : 0;
+        cpu.registers().flags &= MASK_ZERO;
+        if (reg == 0) cpu.registers().flags |= MASK_ZERO;
       }
       else {
         // SRL D
-        const uint8_t bit0 = reg & 1;
+        auto& flags = cpu.registers().flags;
+        flags &= ~MASK_NEGATIVE;
+        flags &= ~MASK_HALFCARRY;
+        const uint8_t bit0 = reg & 0x1;
         reg >>= 1;
-        cpu.registers().flags = (reg == 0) ? MASK_ZERO : 0;
-        cpu.registers().flags |= bit0 << 4; // bit0 into CF
+        flags &= ~MASK_CARRY;
+        flags |= bit0 << 4; // bit0 into CF
+        if (reg == 0) flags |= MASK_ZERO;
       }
     }
     else {
@@ -658,16 +685,18 @@ namespace gbc
   PRINTER(CB_EXT) (char* buffer, size_t len, CPU& cpu, uint8_t)
   {
     const uint8_t opcode = cpu.readop8(1);
-    if ((opcode & 0xf0) == 0x30)
+    if (opcode >> 6)
     {
-      // SWAP D & SRL D
-      const char* mnemonic = (opcode & 0x8) ? "SRL" : "SWAP";
-      return snprintf(buffer, len, "%s %s",
-                      mnemonic, cstr_dest(opcode));
+      const char* mnemonic[] = {"IMPLEMENT ME", "BIT", "RES", "SET"};
+      return snprintf(buffer, len, "%s %u, %s", mnemonic[opcode >> 6],
+                      (opcode >> 3) & 0x7, cstr_dest(opcode));
     }
-    const char* mnemonic[] = {"IMPLEMENT ME", "BIT", "RES", "SET"};
-    return snprintf(buffer, len, "%s %u, %s", mnemonic[opcode >> 6],
-                    (opcode >> 3) & 0x7, cstr_dest(opcode));
+    else
+    {
+      const char* mnemonic[] = {"RLC", "RRC", "RL", "RR", "SLA", "SRA", "SWAP", "SRL"};
+      return snprintf(buffer, len, "%s %s",
+                      mnemonic[opcode >> 3], cstr_dest(opcode));
+    }
   }
 
   DEF_INSTR(NOP);

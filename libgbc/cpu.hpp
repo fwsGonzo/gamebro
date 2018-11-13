@@ -3,9 +3,9 @@
 #include <map>
 #include <cassert>
 #include <cstdint>
-#include <util/delegate.hpp>
-#include "registers.hpp"
 #include "instruction.hpp"
+#include "registers.hpp"
+#include "tracing.hpp"
 
 namespace gbc
 {
@@ -15,7 +15,6 @@ namespace gbc
   class CPU
   {
   public:
-    using breakpoint_t = delegate<void(CPU&, uint8_t)>;
     CPU(Machine&) noexcept;
     void  reset() noexcept;
     void  simulate();
@@ -28,7 +27,7 @@ namespace gbc
     unsigned push_and_jump(uint16_t addr);
     void     incr_cycles(int count);
     void     stop();
-    void     wait();
+    void     wait(); // wait for interrupts
     instruction_t& decode(uint8_t opcode);
 
     regs_t& registers() noexcept { return m_registers; }
@@ -44,12 +43,12 @@ namespace gbc
     bool ime() const noexcept { return m_intr_master_enable; }
 
     bool is_running() const noexcept { return m_running; }
-    bool is_waiting() const noexcept { return m_waiting; }
+    bool is_waiting() const noexcept { return m_halting == 0; }
 
     // debugging
     void breakpoint(uint16_t address, breakpoint_t func);
-    void default_pausepoint(uint16_t address, bool single_step);
-    void single_step(bool en) { m_singlestep = en; }
+    void default_pausepoint(uint16_t address, int steps, bool verb);
+    void break_on_steps(int steps);
     void break_now() { this->m_break = true; }
     bool is_breaking() const noexcept { return this->m_break; }
     static void print_and_pause(CPU&, const uint8_t opcode);
@@ -59,6 +58,7 @@ namespace gbc
   private:
     void handle_interrupts();
     void execute_interrupts(const uint8_t);
+    bool break_time() const;
 
     regs_t   m_registers;
     Machine& m_machine;
@@ -70,25 +70,27 @@ namespace gbc
     int8_t   m_intr_enable_pending  = 0;
     int8_t   m_intr_disable_pending = 0;
     bool     m_running = true;
-    bool     m_waiting = false;
+    uint8_t  m_halting = 0;
     // debugging
-    bool     m_break         = false;
-    bool     m_singlestep    = false;
+    bool     m_break = false;
+    mutable int16_t  m_break_steps = 0;
+    mutable int16_t  m_break_steps_cnt = 0;
     std::map<uint16_t, breakpoint_t> m_breakpoints;
   };
 
   inline void CPU::breakpoint(uint16_t addr, breakpoint_t func)
   {
-    assert(func != nullptr);
     this->m_breakpoints[addr] = func;
   }
 
-  inline void CPU::default_pausepoint(const uint16_t address, bool ss)
+  inline void CPU::default_pausepoint(const uint16_t address,
+                                      int steps, bool verbose)
   {
     this->breakpoint(address,
-      [ss] (gbc::CPU& cpu, const uint8_t opcode) {
+    breakpoint_t{
+      [] (gbc::CPU& cpu, const uint8_t opcode) {
         print_and_pause(cpu, opcode);
-        cpu.single_step(ss);
-      });
+      }, steps, verbose
+    });
   }
 }

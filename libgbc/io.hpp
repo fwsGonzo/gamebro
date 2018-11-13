@@ -12,6 +12,7 @@ namespace gbc
     enum regnames_t {
       REG_P1    = 0xff00,
       // TIMER
+      REG_DIV   = 0xff04,
       REG_TIMA  = 0xff05,
       REG_TMA   = 0xff06,
       REG_TAC   = 0xff07,
@@ -104,7 +105,8 @@ namespace gbc
   private:
     Machine& m_machine;
     std::array<uint8_t, 128> m_ioregs = {};
-    uint8_t m_reg_ie = 0x0;
-    uint8_t m_ly = 0x0;
+    uint8_t  m_reg_ie = 0x0;
+    uint8_t  m_ly = 0x0;
+    uint64_t m_divider_time = 0;
   };
 }

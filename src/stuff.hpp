@@ -5,6 +5,7 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+#include <unistd.h>
 
 static inline
 std::vector<uint8_t> load_file(const std::string& filename)
