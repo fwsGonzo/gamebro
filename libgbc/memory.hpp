@@ -35,6 +35,9 @@ namespace gbc
     uint16_t read16(uint16_t address);
     void     write16(uint16_t address, uint16_t value);
 
+    uint8_t* oam_ram_ptr() noexcept { return m_oam_ram.data(); }
+    uint8_t* video_ram_ptr() noexcept { return m_video_ram.data(); }
+
     static constexpr uint16_t range_size(range_t range) { return range.second - range.first; }
 
     Machine& machine() noexcept { return m_machine; }

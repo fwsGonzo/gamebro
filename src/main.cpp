@@ -6,8 +6,7 @@
 static void save_screenshot(gbc::Machine& machine)
 {
 	// get pixel data
-	static std::vector<uint32_t> pixels;
-	machine.gpu.render_to(pixels);
+	const auto& pixels = machine.gpu.pixels();
 	// render to BMP
 	const char* filename = "screenshot.bmp";
 	std::array<char, BMP_SIZE(160, 144)> array;
@@ -38,47 +37,27 @@ int main(int argc, char** args)
   printf("Loaded %zu bytes ROM\n", romdata.size());
 
 	machine = new gbc::Machine(romdata);
+	//machine->cpu.default_pausepoint(0x203, 10, true);
 	//machine->verbose_instructions = true;
-	//machine->cpu.default_pausepoint(0x299a, 0, false);
-	machine->cpu.default_pausepoint(0x203, 10, true);
 	//machine->break_on_interrupts = true;
 	//machine->stop_when_undefined = true;
 	signal(SIGINT, int_handler);
-
-	bool brk = false;
-	//machine->cpu.breakpoint(0x7d19, [&brk] (gbc::CPU&, uint8_t) {brk = true;});
 
 	// wire up gameboy vblank
 	machine->set_handler(gbc::Machine::VBLANK,
 		[] (gbc::Machine& machine, gbc::interrupt_t&)
 		{
 			static int counter = 0;
-			if (counter++ % 60 == 0) save_screenshot(machine);
-			return;
-			// sleep on each vblank
-			static uint64_t t0 = 0;
-			const uint64_t t1 = machine.cpu.gettime();
-			usleep((t1 - t0) / 4);
-			t0 = t1;
+			if (counter++ % 120 == 0) save_screenshot(machine);
 		});
 
 	while (machine->cpu.is_running())
 	{
 		machine->cpu.simulate();
 		machine->io.simulate();
-
-		/*if (m->cpu.registers().pc == 0x3cd)
-		{
-			m->break_now();
-			m->verbose_instructions = true;
-			//m->cpu.break_on_steps(1);
-		}*/
-
-		if (brk) {
-			static int counter = 0;
-			if ((counter++ % 10) == 0) machine->break_now();
-		}
+		machine->gpu.simulate();
 	}
+	save_screenshot(*machine);
 
   return 0;
 }

@@ -19,8 +19,7 @@ namespace gbc
   void IO::reset()
   {
     // register defaults
-    reg(REG_P1)   = 0x00;
-    reg(0xff01)   = 0xcf;
+    reg(REG_P1)   = 0xcf;
     reg(REG_TIMA) = 0x00;
     reg(REG_TMA)  = 0x00;
     reg(REG_TAC)  = 0xf8;
@@ -45,42 +44,41 @@ namespace gbc
   void IO::simulate()
   {
     const uint64_t t = machine().now();
+    // 1. timers
+    static const int DIV_CYCLES = 256;
+    // divider timer
+    if (t >= this->m_divider_time + DIV_CYCLES)
+    {
+      this->m_divider_time = t;
+      this->reg(REG_DIV)++;
+    }
+    // check if timer is enabled
+    if (this->reg(REG_TAC) & 0x4)
+    {
+      const int TIMA_CYCLES[] = {1024, 16, 64, 256};
+      const int speed = this->reg(REG_TAC) & 0x3;
+      // TIMA counter timer
+      if (t >= timer.last_time + TIMA_CYCLES[speed])
+      {
+        timer.last_time = t;
+        this->reg(REG_TIMA)++;
+        // timer interrupt when overflowing to 0
+        if (this->reg(REG_TIMA) == 0) {
+          this->trigger(timer);
+          // restart at modulo
+          this->reg(REG_TIMA) = this->reg(REG_TMA);
+        }
+      }
+    }
+    if (reg(REG_TAC) & 0x4)
+    {
+      printf("TAC = 0x%02x\n", reg(REG_TAC));
+      machine().break_now();
+    }
+
     // check if LCD is operating
     if (reg(REG_LCDC) & 0x80)
     {
-      // 1. timers
-      static const int DIV_CYCLES = 256;
-      // divider timer
-      if (t >= this->m_divider_time + DIV_CYCLES)
-      {
-        this->m_divider_time = t;
-        this->reg(REG_DIV)++;
-      }
-      // check if timer is enabled
-      if (this->reg(REG_TAC) & 0x4)
-      {
-        const int TIMA_CYCLES[] = {1024, 16, 64, 256};
-        const int speed = this->reg(REG_TAC) & 0x3;
-        // TIMA counter timer
-        if (t >= timer.last_time + TIMA_CYCLES[speed])
-        {
-          timer.last_time = t;
-          this->reg(REG_TIMA)++;
-          // timer interrupt when overflowing to 0
-          if (this->reg(REG_TIMA) == 0) {
-            this->trigger(timer);
-            // restart at modulo
-            this->reg(REG_TIMA) = this->reg(REG_TMA);
-          }
-        }
-      }
-
-      if (reg(REG_TAC) & 0x4)
-      {
-        printf("TAC = 0x%02x\n", reg(REG_TAC));
-        machine().break_now();
-      }
-
       // 2. LCD
       static const int SCANLINE_CYCLES = 456;
       // vblank always when screen on
@@ -96,6 +94,8 @@ namespace gbc
           assert(is_vblank());
           // vblank interrupt
           this->trigger(vblank);
+          // set mode to 0
+          this->m_scanmode = 0;
           // modify stat
           reg(REG_STAT) &= 0xfc;
           reg(REG_STAT) |= 0x1;
@@ -117,37 +117,58 @@ namespace gbc
           reg(REG_STAT) &= ~0x4;
         }
       }
-      // STAT mode modulation
+      // STAT mode & scanline period modulation
       if (is_vblank() == false)
       {
         const int period = (t - m_vblank_end) % 456;
-        if (period == 0) // period < 80
+        if (m_scanmode == 0) // period < 80
         {
+          m_scanmode = 1;
           // if we are setting MODE 2 now
           if ((reg(REG_STAT) & 0x2) != 0x2) {
             // check if need to interrupt
             if (reg(REG_STAT) & 0x20) this->trigger(lcd_stat);
+            reg(REG_STAT) &= 0xfc;
+            reg(REG_STAT) |= 0x2;
           }
-          reg(REG_STAT) &= 0xfc;
-          reg(REG_STAT) |= 0x2;
         }
-        else if (period == 80) // period < 170
+        else if (m_scanmode == 1 && period >= 178)
         {
+          m_scanmode = 2;
           reg(REG_STAT) &= 0xfc; // MODE 3
           reg(REG_STAT) |= 0x3;
         }
-        else if (period == 170) // remaining
+        else if (m_scanmode == 2 && period >= 204)
         {
+          m_scanmode = 3; // H-blank
           // if we are setting MODE 0 now
           if ((reg(REG_STAT) & 0x3) != 0x0) {
             // check if need to interrupt
             if (reg(REG_STAT) & 0x8) this->trigger(lcd_stat);
+            reg(REG_STAT) &= 0xfc;
+            reg(REG_STAT) |= 0x0;
           }
-          reg(REG_STAT) &= 0xfc;
-          reg(REG_STAT) |= 0x0;
         }
         //printf("Mode: %#x  LY: %u\n", reg(REG_STAT), m_ly);
       }
+    }
+
+    // DMA operation
+    if (this->m_dma.bytes_left > 0)
+    {
+      uint64_t tnow = machine().cpu.gettime();
+      uint64_t diff = tnow - m_dma.cur_time;
+      m_dma.cur_time = tnow;
+      // calculate number of bytes to copy
+      int btw = diff / 4;
+      if (btw > m_dma.bytes_left) btw = m_dma.bytes_left;
+      // do the copying
+      auto& memory = machine().memory;
+      for (int i = 0; i < btw; i++) {
+        memory.write8(m_dma.dst++, memory.read8(m_dma.src++));
+      }
+      assert(m_dma.bytes_left >= btw);
+      m_dma.bytes_left -= btw;
     }
   }
 
@@ -228,5 +249,14 @@ namespace gbc
   }
   uint8_t IO::interrupt_mask() {
     return this->reg(REG_IF);
+  }
+
+  void IO::start_dma(uint16_t src)
+  {
+    m_dma.cur_time = machine().cpu.gettime();
+    m_dma.end_time = m_dma.cur_time + 1280;
+    m_dma.src = src;
+    m_dma.dst = 0xfe00;
+    m_dma.bytes_left = 160; // 160 bytes total
   }
 }

@@ -85,8 +85,10 @@ namespace gbc
     void    trigger(interrupt_t&);
     void    interrupt(interrupt_t&);
     uint8_t interrupt_mask();
+    void    start_dma(uint16_t src);
 
     void trigger_key(key_t);
+    bool is_hblank();
     bool is_vblank();
 
     Machine& machine() noexcept { return m_machine; }
@@ -108,7 +110,17 @@ namespace gbc
     std::array<uint8_t, 128> m_ioregs = {};
     uint8_t  m_reg_ie = 0x0;
     uint8_t  m_ly = 0x0;
+    uint8_t  m_scanmode = 0;
+    bool     m_scanline_start = false;
     uint64_t m_vblank_end = 0;
     uint64_t m_divider_time = 0;
+
+    struct dma_t {
+      uint64_t cur_time;
+      uint64_t end_time;
+      uint16_t src;
+      uint16_t dst;
+      uint16_t bytes_left = 0;
+    } m_dma;
   };
 }

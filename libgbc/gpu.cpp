@@ -2,7 +2,9 @@
 
 #include "machine.hpp"
 #include "tiledata.hpp"
+#include "sprite.hpp"
 #include <cassert>
+#include <unistd.h>
 
 namespace gbc
 {
@@ -10,17 +12,37 @@ namespace gbc
   static const int TILES_H = GPU::SCREEN_H / TileData::TILE_H;
 
   GPU::GPU(Machine& mach) noexcept
-    : m_memory(mach.memory)
+    : m_memory(mach.memory), m_io(mach.io)
   {
     this->reset();
   }
 
   void GPU::reset() noexcept
   {
+    m_pixels.resize(SCREEN_W * SCREEN_H);
 
   }
 
-  void GPU::render_to(std::vector<uint32_t>& dest)
+  void GPU::simulate()
+  {
+    // nothing to do with LCD being off
+    if ((io().reg(IO::REG_LCDC) & 0x80) == 0) return;
+
+    // get current scanline
+    int scanline = io().reg(IO::REG_LY);
+    if (m_current_scanline != scanline && scanline < SCREEN_H)
+    {
+      m_current_scanline = scanline;
+      //printf("Rendering scanline %u\n", scanline);
+      this->render_scanline(scanline);
+    }
+    else {
+      //printf("V-blank now %u\n", scanline);
+    }
+    //usleep(100);
+  }
+
+  void GPU::render_scanline(int scan_y)
   {
     const uint8_t scroll_y = memory().read8(IO::REG_SCY);
     const uint8_t scroll_x = memory().read8(IO::REG_SCX);
@@ -28,46 +50,46 @@ namespace gbc
     // create tiledata object from LCDC register
     auto td = this->create_tiledata();
 
-    dest.resize(SCREEN_W * SCREEN_H);
-    for (int ty = 0; ty < TILES_H; ty++)
-    for (int tx = 0; tx < TILES_W; tx++)
+    // render whole scanline
+    for (int scan_x = 0; scan_x < SCREEN_W; scan_x++)
     {
+      const int px = (scan_x + scroll_x) % SCREEN_W;
+      const int py = (scan_y + scroll_y) % SCREEN_H;
+      const int tx = px / 8;
+      const int ty = py / 8;
       // get the tile id
       const int t = td.tile_id(tx, ty);
+      //if (scan_x==0) printf("Tile value: %d\n", t);
       // copy the 16-byte tile into buffer
-      std::array<uint8_t, 64> buffer;
-      td.pattern(t, buffer);
-      // blit 8x8 tile (64 pixels) to screen
-      for (int i = 0; i < 8 * 8; i++)
-      {
-        const int x = (scroll_x + 8 * tx + (i % 8)) % SCREEN_W;
-        const int y = (scroll_y + 8 * ty + (i / 8)) % SCREEN_H;
-        // convert palette to colors
-        uint32_t color = 0;
-        switch (buffer.at(i)) {
-        case 0:
-            color = 0xFFFF00FF; // magenta
-            break;
-        case 1:
-            color = 0xFFFF0000; // red
-            break;
-        case 2:
-            color = 0xFF00FF00; // green
-            break;
-        case 3:
-            color = 0xFF0000FF; // blue
-            break;
-        }
-        dest.at(y * SCREEN_W + x) = color;
+      const int pal = td.pattern(t, tx, ty);
+      //assert(pal == 0x7F);
+      // convert palette to colors
+      uint32_t color = 0;
+      switch (pal) {
+      case 0:
+          color = 0xFFFF00FF; // magenta
+          break;
+      case 1:
+          color = 0xFFFF0000; // red
+          break;
+      case 2:
+          color = 0xFF00FF00; // green
+          break;
+      case 3:
+          color = 0xFF0000FF; // blue
+          break;
       }
-    } // next tile
+      m_pixels.at(py * SCREEN_W + px) = color;
+    } // x
   } // render_to(...)
 
   TileData GPU::create_tiledata()
   {
     const uint8_t lcdc = memory().read8(IO::REG_LCDC);
-    const uint16_t ttile_base = (lcdc & 0x10) ? 0x9C00 : 0x9800;
-    const uint16_t tdata_base = (lcdc & 0x08) ? 0x8000 : 0x8800;
-    return TileData{memory(), ttile_base, tdata_base};
+    const auto* vram = memory().video_ram_ptr();
+    const auto* ttile_base = &vram[(lcdc & 0x10) ? 0x0 : 0x800];
+    const auto* tdata_base = &vram[(lcdc & 0x08) ? 0x1C00 : 0x1800];
+    const bool is_signed = (lcdc & 0x10) == 0;
+    return TileData{ttile_base, tdata_base, is_signed};
   }
 }

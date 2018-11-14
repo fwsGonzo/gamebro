@@ -9,35 +9,49 @@ namespace gbc
     static const int TILE_W = 8;
     static const int TILE_H = 8;
 
-    TileData(Memory& mem, uint16_t tiles, uint64_t patterns)
-        : m_memory(mem), m_tile_base(tiles), m_patt_base(patterns) {}
+    TileData(const uint8_t* tile, const uint8_t* pattern, bool sign = false)
+        : m_tile_base(tile), m_patt_base(pattern), m_signed(sign) {}
 
-    uint16_t tile_id(int tx, int ty);
-    void     pattern(int t, std::array<uint8_t, 64>&);
-
-    Memory& memory() noexcept { return m_memory; }
+    int   tile_id(int tx, int ty);
+    int   pattern(int t, int dx, int dy);
+    void  pattern(int t, std::array<uint8_t, 64>&);
 
   private:
-    Memory& m_memory;
-    const uint16_t m_tile_base;
-    const uint16_t m_patt_base;
+    const uint8_t* m_tile_base;
+    const uint8_t* m_patt_base;
+    const bool m_signed;
   };
 
-  inline uint16_t TileData::tile_id(int x, int y)
+  inline int TileData::tile_id(int x, int y)
   {
-    return memory().read8(m_tile_base + y * 32 + x);
+    if (m_signed == false)
+        return m_tile_base[y * 32 + x];
+    return (int8_t) m_tile_base[y * 32 + x];
   }
+
+  inline int TileData::pattern(int t, int tx, int ty)
+  {
+    const int i = 16*t + ty * 2;
+    // get 16-bit c0, c1
+    uint8_t c0 = m_patt_base[i];
+    uint8_t c1 = m_patt_base[i + 1];
+    // return combined 4-bits, right to left
+    const int bit = 7 - tx;
+    const int v0 = (c0 >> bit) & 0x1;
+    const int v1 = (c1 >> bit) & 0x1;
+    return v0 | (v1 << 1);
+  } // pattern(...)
 
   inline void TileData::pattern(int t, std::array<uint8_t, 64>& buffer)
   {
     for (int i = 0; i < 16; i += 2)
     {
-      uint8_t c0 = memory().read8(m_patt_base + t*16 + i);
-      uint8_t c1 = memory().read8(m_patt_base + t*16 + i + 1);
-      for (int pix = 0; pix < 8; pix++) {
+      uint8_t c0 = m_patt_base[t*16 + i];
+      uint8_t c1 = m_patt_base[t*16 + i + 1];
+      // read from right to left
+      for (int pix = 7; pix >= 0; pix--) {
         // in each pair of c0, c1 bytes there is 8 pixels
-        // read from right to left
-        buffer.at(i * 4 + 7 - pix) = (c0 & 0x1) | ((c1 & 0x1) * 2);
+        buffer.at(i * 4 + pix) = (c0 & 0x1) | ((c1 & 0x1) * 2);
         c0 >>= 1; c1 >>= 1;
       }
     }

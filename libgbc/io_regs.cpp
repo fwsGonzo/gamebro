@@ -46,16 +46,10 @@ namespace gbc
 
   void iowrite_DMA(IO& io, uint16_t addr, uint8_t value)
   {
-    auto& memory = io.machine().memory;
-    uint16_t src = value << 8;
-    uint16_t dst = 0xfe00;
-    printf("DMA copy from 0x%04x to 0x%04x\n", src, dst);
-    for (int i = 0; i < 160; i++) {
-      memory.write8(dst++, memory.read8(src++));
-    }
-    // it does take time to do all this work
-    //io.machine().cpu.incr_cycles(671);
-    //assert(0 && "DMA operation completed");
+    const uint16_t src = value << 8;
+    const uint16_t dst = 0xfe00;
+    printf("DMA copy start from 0x%04x to 0x%04x\n", src, dst);
+    io.start_dma(dst);
   }
   uint8_t ioread_DMA(IO& io, uint16_t addr)
   {
