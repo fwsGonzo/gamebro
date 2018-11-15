@@ -8,8 +8,6 @@ namespace gbc
 
   struct breakpoint_t {
     delegate<void(CPU&, uint8_t)> callback;
-    int  break_on_steps = 0;
-    bool verbose_instr = false;
   };
 
 }

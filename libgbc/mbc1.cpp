@@ -82,14 +82,14 @@ namespace gbc
   {
     // cant select bank 0
     offset = std::max(1, offset) * rombank_size();
-    printf("Setting new ROM bank offset to %#x\n", offset);
+    //printf("Setting new ROM bank offset to %#x\n", offset);
     assert((offset + rombank_size()) <= m_rom.size());
     this->m_rom_bank_offset = offset;
   }
   void MBC1::set_rambank(int offset)
   {
     offset = offset * rambank_size();
-    printf("Setting new RAM bank offset to %#x\n", offset);
+    //printf("Setting new RAM bank offset to %#x\n", offset);
     assert((offset + rambank_size()) <= m_ram.size());
     this->m_ram_bank_offset = offset;
   }

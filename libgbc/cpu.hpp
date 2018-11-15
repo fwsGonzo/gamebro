@@ -43,11 +43,11 @@ namespace gbc
     bool ime() const noexcept { return m_intr_master_enable; }
 
     bool is_running() const noexcept { return m_running; }
-    bool is_waiting() const noexcept { return m_halting == 0; }
+    bool is_halting() const noexcept { return m_asleep || m_haltbug != 0; }
 
     // debugging
     void breakpoint(uint16_t address, breakpoint_t func);
-    void default_pausepoint(uint16_t address, int steps, bool verb);
+    void default_pausepoint(uint16_t address);
     void break_on_steps(int steps);
     void break_now() { this->m_break = true; }
     bool is_breaking() const noexcept { return this->m_break; }
@@ -67,10 +67,10 @@ namespace gbc
     uint8_t  m_cur_opcode = 0xff;
     uint8_t  m_last_flags = 0xff;
     bool     m_intr_master_enable = false;
-    int8_t   m_intr_enable_pending  = 0;
-    int8_t   m_intr_disable_pending = 0;
+    int8_t   m_intr_pending = 0;
     bool     m_running = true;
-    uint8_t  m_halting = 0;
+    bool     m_asleep = false;
+    uint8_t  m_haltbug = 0;
     // debugging
     bool     m_break = false;
     mutable int16_t  m_break_steps = 0;
@@ -83,14 +83,13 @@ namespace gbc
     this->m_breakpoints[addr] = func;
   }
 
-  inline void CPU::default_pausepoint(const uint16_t address,
-                                      int steps, bool verbose)
+  inline void CPU::default_pausepoint(const uint16_t addr)
   {
-    this->breakpoint(address,
+    this->breakpoint(addr,
     breakpoint_t{
       [] (gbc::CPU& cpu, const uint8_t opcode) {
         print_and_pause(cpu, opcode);
-      }, steps, verbose
+      }
     });
   }
 }

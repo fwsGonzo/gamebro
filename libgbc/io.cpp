@@ -35,6 +35,8 @@ namespace gbc
     reg(REG_DMA)  = 0x00;
     // Palette
     reg(REG_BGP)  = 0xfc;
+    reg(REG_OBP0) = 0xff;
+    reg(REG_OBP1) = 0xff;
 
     reg(REG_BOOT) = 0x01;
 
@@ -94,8 +96,6 @@ namespace gbc
           assert(is_vblank());
           // vblank interrupt
           this->trigger(vblank);
-          // set mode to 0
-          this->m_scanmode = 0;
           // modify stat
           reg(REG_STAT) &= 0xfc;
           reg(REG_STAT) |= 0x1;
@@ -104,7 +104,11 @@ namespace gbc
             this->trigger(lcd_stat);
           }
         }
-        if (this->m_ly == 0) m_vblank_end = t;
+        if (this->m_ly == 0) {
+          m_vblank_end = t;
+          // set mode to 0
+          this->m_scanmode = 0;
+        }
         // STAT coincidence bit
         if (this->m_ly == reg(REG_LYC)) {
           reg(REG_STAT) |= 0x4;
@@ -120,7 +124,7 @@ namespace gbc
       // STAT mode & scanline period modulation
       if (is_vblank() == false)
       {
-        const int period = (t - m_vblank_end) % 456;
+        const uint64_t period = t - m_vblank_end;
         if (m_scanmode == 0) // period < 80
         {
           m_scanmode = 1;
@@ -229,15 +233,20 @@ namespace gbc
 
   void IO::trigger(interrupt_t& intr)
   {
-    this->reg(REG_IF) |= intr.mask & 0x1F;
+    this->reg(REG_IF) |= intr.mask;
     //printf("Triggering interrupt: 0x%02x => 0x%02x\n", intr.mask, reg(REG_IF));
   }
   void IO::interrupt(interrupt_t& intr)
   {
-    printf("Executing interrupt %s (%#x)\n", intr.name, intr.mask);
+    if (machine().verbose_interrupts) {
+      printf("%9lu: Executing interrupt %s (%#x)\n",
+             machine().cpu.gettime(), intr.name, intr.mask);
+    }
     unsigned int t = 12;
-    // disable interrupt
+    // disable interrupt request
     reg(REG_IF) &= ~intr.mask;
+    // set interrupt bit
+    this->m_reg_ie |= intr.mask;
     // push PC and jump to INTR addr
     t += machine().cpu.push_and_jump(intr.fixed_address);
     machine().cpu.incr_cycles(t);

@@ -53,16 +53,14 @@ namespace gbc
     // render whole scanline
     for (int scan_x = 0; scan_x < SCREEN_W; scan_x++)
     {
-      const int px = (scan_x + scroll_x) % SCREEN_W;
-      const int py = (scan_y + scroll_y) % SCREEN_H;
-      const int tx = px / 8;
-      const int ty = py / 8;
+      const int sx = (scan_x + scroll_x) % 256;
+      const int sy = (scan_y + scroll_y) % 256;
+      const int tx = sx / TileData::TILE_W;
+      const int ty = sy / TileData::TILE_H;
       // get the tile id
       const int t = td.tile_id(tx, ty);
-      //if (scan_x==0) printf("Tile value: %d\n", t);
       // copy the 16-byte tile into buffer
-      const int pal = td.pattern(t, tx, ty);
-      //assert(pal == 0x7F);
+      const int pal = td.pattern(t, sx & 7, sy & 7);
       // convert palette to colors
       uint32_t color = 0;
       switch (pal) {
@@ -79,7 +77,7 @@ namespace gbc
           color = 0xFF0000FF; // blue
           break;
       }
-      m_pixels.at(py * SCREEN_W + px) = color;
+      m_pixels.at(scan_y * SCREEN_W + scan_x) = color;
     } // x
   } // render_to(...)
 
@@ -87,9 +85,9 @@ namespace gbc
   {
     const uint8_t lcdc = memory().read8(IO::REG_LCDC);
     const auto* vram = memory().video_ram_ptr();
+    const bool is_signed = (lcdc & 0x10) == 0;
     const auto* ttile_base = &vram[(lcdc & 0x10) ? 0x0 : 0x800];
     const auto* tdata_base = &vram[(lcdc & 0x08) ? 0x1C00 : 0x1800];
-    const bool is_signed = (lcdc & 0x10) == 0;
     return TileData{ttile_base, tdata_base, is_signed};
   }
 }

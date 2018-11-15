@@ -6,6 +6,7 @@ namespace gbc
   Machine::Machine(std::vector<uint8_t> rom)
       : cpu(*this), memory(*this, std::move(rom)), io(*this), gpu(*this)
   {
+    printf("Game cartridge type: 0x%02x", memory.read8(0x147));
   }
 
   uint64_t Machine::now() noexcept

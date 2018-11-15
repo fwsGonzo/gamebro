@@ -26,7 +26,7 @@ namespace gbc
 
   void CPU::simulate()
   {
-    if (this->is_running())
+    if (!this->is_halting())
     {
       // 1. read instruction from memory
       this->m_cur_opcode = this->readop8(0);
@@ -37,10 +37,6 @@ namespace gbc
     }
     else
     {
-      if (this->m_halting == 1) {
-        // BUG: skip an instruction after halt
-        this->m_halting = 0;
-      }
       // make sure time passes when not executing instructions
       this->incr_cycles(4);
     }
@@ -54,15 +50,15 @@ namespace gbc
       this->m_break = false;
       // pause for each instruction
       this->print_and_pause(*this, opcode);
+      // user can quit during break
+      if (!this->is_running()) return 0;
     }
     else if (UNLIKELY(!m_breakpoints.empty())) {
       // look for breakpoints
       auto it = m_breakpoints.find(registers().pc);
       if (it != m_breakpoints.end()) {
         auto& bp = it->second;
-        if (bp.callback) bp.callback(*this, opcode);
-        this->break_on_steps(bp.break_on_steps);
-        machine().verbose_instructions = bp.verbose_instr;
+        bp.callback(*this, opcode);
       }
     }
     // decode into executable instruction
@@ -99,31 +95,31 @@ namespace gbc
 
   // it takes 2 instruction-cycles to toggle interrupts
   void CPU::enable_interrupts() noexcept {
-    this->m_intr_enable_pending = 2;
+    this->m_intr_pending = 2;
   }
   void CPU::disable_interrupts() noexcept {
-    this->m_intr_disable_pending = 2;
+    this->m_intr_pending = -2;
   }
 
   void CPU::handle_interrupts()
   {
     // enable/disable interrupts over cycles
-    if (m_intr_enable_pending > 0) {
-      m_intr_enable_pending--;
-      if (!m_intr_enable_pending) m_intr_master_enable = true;
+    if (m_intr_pending > 0) {
+      m_intr_pending--;
+      if (!m_intr_pending) this->m_intr_master_enable = true;
     }
-    if (m_intr_disable_pending > 0) {
-      m_intr_disable_pending--;
-      if (!m_intr_disable_pending) m_intr_master_enable = false;
+    else if (m_intr_pending < 0) {
+      m_intr_pending++;
+      if (!m_intr_pending) this->m_intr_master_enable = false;
     }
     // check if interrupts are enabled and pending
     const uint8_t imask = machine().io.interrupt_mask();
     if (this->ime() && imask != 0x0)
     {
+      this->m_asleep = false;
       // disable interrupts immediately
       this->m_intr_master_enable = false;
-      this->m_intr_enable_pending = 0;
-      this->m_intr_disable_pending = 0;
+      this->m_intr_pending = 0;
       // execute pending interrupts (sorted by priority)
       auto& io = machine().io;
       if      (imask &  0x1) io.interrupt(io.vblank);
@@ -132,8 +128,10 @@ namespace gbc
       else if (imask &  0x8) io.interrupt(io.serial);
       else if (imask & 0x10) io.interrupt(io.joypad);
       else this->break_now();
-      // resume operation if halting
-      if (this->m_halting) this->m_halting--;
+    }
+    if (this->m_asleep == false) {
+      // skip instructions after halting
+      if (this->m_haltbug) this->m_haltbug--;
     }
   }
 
@@ -210,7 +208,8 @@ namespace gbc
 
   void CPU::wait()
   {
-    this->m_halting = 1;
+    this->m_asleep = true;
+    this->m_haltbug = 2;
   }
 
   unsigned CPU::push_and_jump(uint16_t address)
@@ -219,82 +218,5 @@ namespace gbc
     memory().write16(registers().sp, registers().pc);
     registers().pc = address;
     return 8;
-  }
-
-  bool CPU::break_time() const
-  {
-    if (UNLIKELY(this->m_break)) return true;
-    if (UNLIKELY(m_break_steps_cnt != 0)) {
-      m_break_steps--;
-      if (m_break_steps <= 0) {
-        m_break_steps = m_break_steps_cnt;
-        return true;
-      }
-    }
-    return false;
-  }
-  void CPU::break_on_steps(int steps)
-  {
-    assert(steps >= 0);
-    this->m_break_steps_cnt = steps;
-    this->m_break_steps = steps;
-  }
-  void CPU::print_and_pause(CPU& cpu, const uint8_t opcode)
-  {
-    char buffer[512];
-    cpu.decode(opcode).printer(buffer, sizeof(buffer), cpu, opcode);
-    printf("\n");
-    printf(">>> Breakpoint at [pc 0x%04x] opcode 0x%02x: %s\n",
-           cpu.registers().pc, opcode, buffer);
-    // CPU registers
-    printf("%s\n", cpu.registers().to_string().c_str());
-    // I/O interrupt registers
-    auto& io = cpu.machine().io;
-    printf("\tIF = 0x%02x  IE = 0x%02x  IME 0x%x\n",
-           io.read_io(IO::REG_IF), io.read_io(IO::REG_IE), cpu.ime());
-    try {
-      auto& mem = cpu.memory();
-      printf("\t(HL) = 0x%02x  (SP) = 0x%04x\n",
-            cpu.read_hl(), mem.read16(cpu.registers().sp));
-    } catch (...) {
-      printf("\tUnable to read from (HL) or (SP)\n");
-    }
-    printf("Enter = cont, 1-9 = 2^n steps, R = run, Q = quit: ");
-    const int c = getchar(); // press any key
-    switch (c) {
-      case '\n':
-      case 'C':
-      case 'c':
-          // continue
-          break;
-      case '1':
-      case '2':
-      case '3':
-      case '4':
-      case '5':
-      case '6':
-      case '7':
-      case '8':
-      case '9':
-          cpu.machine().verbose_instructions = true;
-          cpu.break_on_steps(1 << (c - '1'));
-          break;
-      case 'V':
-      case 'v': {
-          bool& v = cpu.machine().verbose_instructions;
-          v = !v;
-          printf("Verbose instructions are %s\n", v ? "ON" : "OFF");
-        } break;
-      case 'R':
-      case 'r':
-          cpu.machine().verbose_instructions = false;
-          cpu.break_on_steps(0);
-          break;
-      case 'Q':
-      case 'q':
-          cpu.stop();
-          break;
-    }
-    if (c != '\n') getchar(); // remove newline
   }
 }

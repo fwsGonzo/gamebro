@@ -2,6 +2,7 @@
 set(SOURCES
     bios.cpp
     cpu.cpp
+    debug.cpp
     gpu.cpp
     io.cpp
     machine.cpp

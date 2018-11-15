@@ -14,7 +14,7 @@ namespace gbc
   void iowrite_JOYP(IO& io, uint16_t addr, uint8_t value)
   {
     // TODO: joypad functionality
-    printf("P1/JOYP register 0x%04x write 0x%02x\n", addr, value);
+    //printf("P1/JOYP register 0x%04x write 0x%02x\n", addr, value);
   }
   uint8_t ioread_JOYP(IO& io, uint16_t)
   {
@@ -47,9 +47,9 @@ namespace gbc
   void iowrite_DMA(IO& io, uint16_t addr, uint8_t value)
   {
     const uint16_t src = value << 8;
-    const uint16_t dst = 0xfe00;
-    printf("DMA copy start from 0x%04x to 0x%04x\n", src, dst);
-    io.start_dma(dst);
+    //const uint16_t dst = 0xfe00;
+    //printf("DMA copy start from 0x%04x to 0x%04x\n", src, dst);
+    io.start_dma(src);
   }
   uint8_t ioread_DMA(IO& io, uint16_t addr)
   {
