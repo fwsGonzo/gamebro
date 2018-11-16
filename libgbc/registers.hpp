@@ -88,7 +88,7 @@ namespace gbc
       return ((reg & 0xf) + (val & 0xf)) & (0x10);
     }
     inline static bool half_borrow(const uint8_t reg, const uint8_t val) {
-      return (val & 0xf) < (reg & 0xf);
+      return (reg & 0xf) < (val & 0xf);
     }
 
     void alu(uint8_t op, uint8_t value) noexcept
@@ -98,8 +98,8 @@ namespace gbc
         case 0x0: // ADD
             flags &= ~MASK_NEGATIVE;
             setflag(half_carry(reg, value), flags, MASK_HALFCARRY);
+            setflag(reg + value < reg, flags, MASK_CARRY);
             reg += value;
-            setflag(reg > reg + value, flags, MASK_CARRY);
             setflag(reg == 0, flags, MASK_ZERO);
             return;
         case 0x1: { // ADC
@@ -107,14 +107,14 @@ namespace gbc
             flags &= ~MASK_NEGATIVE;
             setflag((reg & 0xf) + (value & 0xf) + carry > 0xf,
                     flags, MASK_HALFCARRY); // annoying!
+            setflag((int)reg + value + carry > 0xFFFF, flags, MASK_CARRY);
             reg += value + carry;
-            setflag(reg > reg + value + carry, flags, MASK_CARRY);
             setflag(reg == 0, flags, MASK_ZERO);
           } return;
         case 0x2: // SUB
             flags |= MASK_NEGATIVE;
             setflag(half_borrow(reg, value), flags, MASK_HALFCARRY);
-            setflag(value < reg - value, flags, MASK_CARRY);
+            setflag(reg < value, flags, MASK_CARRY);
             setflag(reg == value, flags, MASK_ZERO);
             reg -= value;
             return;
@@ -148,7 +148,7 @@ namespace gbc
             const uint8_t tmp = reg - value;
             flags |= MASK_NEGATIVE;
             setflag(tmp == 0, flags, MASK_ZERO);
-            setflag(value > tmp, flags, MASK_CARRY);
+            setflag(reg < value, flags, MASK_CARRY);
             setflag(half_borrow(reg, value), flags, MASK_HALFCARRY);
             return;
       }

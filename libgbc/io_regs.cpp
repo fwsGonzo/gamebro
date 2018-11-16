@@ -81,6 +81,7 @@ namespace gbc
   {
     // TODO: writing bit7 should clear all sound registers
     printf("NR52 Sound ON/OFF 0x%04x write 0x%02x\n", addr, value);
+    io.reg(IO::REG_NR52) &= 0xF;
     io.reg(IO::REG_NR52) |= value & 0x80;
     //assert(0 && "NR52 Sound ON/OFF register write");
   }
