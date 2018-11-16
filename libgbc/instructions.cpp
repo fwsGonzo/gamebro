@@ -477,6 +477,8 @@ namespace gbc
 
   INSTRUCTION(ADD_SP_N) (CPU& cpu, const uint8_t)
   {
+    // TODO: fix flags
+    cpu.registers().flags = 0;
     cpu.registers().sp += cpu.readop8(0);
     cpu.registers().pc += 1;
     return 8;
@@ -534,7 +536,8 @@ namespace gbc
 
   INSTRUCTION(LD_HL_SP) (CPU& cpu, const uint8_t)
   {
-    // LD HL, SP+N
+    // TODO: fix flags
+    cpu.registers().flags = 0;
     cpu.registers().hl = cpu.registers().sp + cpu.readop8(0);
     cpu.registers().pc++;
     return 12;
