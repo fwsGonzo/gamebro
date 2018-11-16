@@ -34,6 +34,7 @@ namespace gbc
       b, break [addr]       Breakpoint on executing [addr]
       read [addr] (len=1)   Read from [addr] (len) bytes and print
       write [addr] [value]  Write [value] to memory location [addr]
+      vblank                Render current screen and call vblank
 )V0G0N";
     printf("%s\n", help_text);
   }
@@ -124,6 +125,10 @@ namespace gbc
       int value = std::stoi(params[2]) & 0xff;
       printf("0x%04lx -> 0x%02x\n", hex, value);
       cpu.memory().write8(hex, value);
+      return true;
+    }
+    else if (cmd == "vblank") {
+      cpu.machine().gpu.render_and_vblank();
       return true;
     }
     else if (cmd == "help" || cmd == "?") {

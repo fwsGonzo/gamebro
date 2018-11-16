@@ -1,5 +1,6 @@
 #include "memory.hpp"
 #include "machine.hpp"
+#include "bios.hpp"
 
 namespace gbc
 {
@@ -8,6 +9,12 @@ namespace gbc
   {
     assert(m_mbc.rom_valid());
   }
+  void Memory::install_rom(std::vector<uint8_t> rom) {
+    m_mbc.install_rom(std::move(rom));
+  }
+  void Memory::disable_bootrom() {
+    this->m_bootrom_enabled = false;
+  }
 
   uint8_t Memory::read8(uint16_t address)
   {
@@ -15,11 +22,17 @@ namespace gbc
       func(*this, address, 0x0);
     }
     if (this->is_within(address, ProgramArea)) {
-      return m_mbc.read(address);
+      if (address >= 0x100 || this->m_bootrom_enabled == false)
+        return m_mbc.read(address);
+      else
+        return dmg0_rom.at(address);
     }
     else if (this->is_within(address, VideoRAM)) {
       // TODO: return 0xff when rendering
       return m_video_ram.at(address - VideoRAM.first);
+    }
+    else if (this->is_within(address, BankRAM)) {
+      return m_mbc.read(address);
     }
     else if (this->is_within(address, WorkRAM)) {
       return m_work_ram.at(address - WorkRAM.first);
@@ -30,9 +43,6 @@ namespace gbc
     else if (this->is_within(address, OAM_RAM)) {
       // TODO: return 0xff when rendering
       return m_oam_ram.at(address - OAM_RAM.first);
-    }
-    else if (this->is_within(address, BankRAM)) {
-      return m_mbc.read(address);
     }
     else if (this->is_within(address, IO_Ports)) {
       return machine().io.read_io(address);
@@ -60,6 +70,10 @@ namespace gbc
       m_video_ram.at(address - VideoRAM.first) = value;
       return;
     }
+    else if (this->is_within(address, BankRAM)) {
+      m_mbc.write(address, value);
+      return;
+    }
     else if (this->is_within(address, WorkRAM)) {
       m_work_ram.at(address - WorkRAM.first) = value;
       return;
@@ -70,10 +84,6 @@ namespace gbc
     }
     else if (this->is_within(address, OAM_RAM)) {
       m_oam_ram.at(address - OAM_RAM.first) = value;
-      return;
-    }
-    else if (this->is_within(address, BankRAM)) {
-      m_mbc.write(address, value);
       return;
     }
     else if (this->is_within(address, IO_Ports)) {

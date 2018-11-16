@@ -20,7 +20,6 @@ namespace gbc
   void GPU::reset() noexcept
   {
     m_pixels.resize(SCREEN_W * SCREEN_H);
-
   }
 
   void GPU::simulate()
@@ -40,6 +39,15 @@ namespace gbc
       //printf("V-blank now %u\n", scanline);
     }
     //usleep(100);
+  }
+
+  void GPU::render_and_vblank()
+  {
+    for (int y = 0; y < SCREEN_H; y++) {
+      this->render_scanline(y);
+    }
+    // call vblank handler directly
+    io().vblank.callback(io().machine(), io().vblank);
   }
 
   void GPU::render_scanline(int scan_y)
@@ -65,29 +73,40 @@ namespace gbc
       uint32_t color = 0;
       switch (pal) {
       case 0:
-          color = 0xFFFF00FF; // magenta
+          color = 0xFFFFFFFF; // white
           break;
       case 1:
-          color = 0xFFFF0000; // red
+          color = 0xFF000000; // black
           break;
       case 2:
-          color = 0xFF00FF00; // green
+          color = 0xFF777777; // gray
           break;
       case 3:
-          color = 0xFF0000FF; // blue
+          color = 0xFFA0A0A0; // light-gray
           break;
       }
       m_pixels.at(scan_y * SCREEN_W + scan_x) = color;
     } // x
   } // render_to(...)
 
+  uint16_t GPU::bg_tiles() {
+    const uint8_t lcdc = memory().read8(IO::REG_LCDC);
+    return (lcdc & 0x08) ? 0x9C00 : 0x9800;
+  }
+  uint16_t GPU::tile_data() {
+    const uint8_t lcdc = memory().read8(IO::REG_LCDC);
+    return (lcdc & 0x10) ? 0x8000 : 0x8800;
+  }
+
   TileData GPU::create_tiledata()
   {
     const uint8_t lcdc = memory().read8(IO::REG_LCDC);
-    const auto* vram = memory().video_ram_ptr();
     const bool is_signed = (lcdc & 0x10) == 0;
-    const auto* ttile_base = &vram[(lcdc & 0x10) ? 0x0 : 0x800];
-    const auto* tdata_base = &vram[(lcdc & 0x08) ? 0x1C00 : 0x1800];
+    const auto* vram = memory().video_ram_ptr();
+    //printf("Background tiles: 0x%04x  Tile data: 0x%04x\n",
+    //        bg_tiles(), tile_data());
+    const auto* ttile_base = &vram[bg_tiles() - 0x8000];
+    const auto* tdata_base = &vram[tile_data() - 0x8000];
     return TileData{ttile_base, tdata_base, is_signed};
   }
 }

@@ -17,6 +17,7 @@ namespace gbc
 
     MBC1(Memory&, std::vector<uint8_t> rom);
 
+    void   install_rom(std::vector<uint8_t> rom);
     bool   rom_valid() const noexcept;
     bool   ram_enabled() const noexcept { return m_ram_enabled; }
     size_t rombank_size() const noexcept { return 0x4000; }

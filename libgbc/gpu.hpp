@@ -19,13 +19,15 @@ namespace gbc
     const auto& pixels() const noexcept { return m_pixels; }
 
     TileData create_tiledata();
+    void render_and_vblank();
     void render_scanline(int y);
 
     Memory&  memory() noexcept { return m_memory; }
     IO&      io() noexcept { return m_io; }
 
   private:
-    uint32_t tile32(int x, int y);
+    uint16_t bg_tiles();
+    uint16_t tile_data();
 
     std::vector<uint32_t> m_pixels;
     Memory& m_memory;

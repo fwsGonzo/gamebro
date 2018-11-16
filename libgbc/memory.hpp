@@ -41,6 +41,8 @@ namespace gbc
     static constexpr uint16_t range_size(range_t range) { return range.second - range.first; }
 
     Machine& machine() noexcept { return m_machine; }
+    void install_rom(std::vector<uint8_t> rom);
+    void disable_bootrom();
 
     // debugging
     enum amode_t { READ, WRITE };
@@ -61,6 +63,7 @@ namespace gbc
     std::array<uint8_t, 128>   m_zram = {}; // high-speed RAM
     std::vector<access_t> m_read_breakpoints;
     std::vector<access_t> m_write_breakpoints;
+    bool m_bootrom_enabled = true;
   };
 
   inline void Memory::breakpoint(amode_t mode, access_t func) {

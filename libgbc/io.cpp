@@ -37,8 +37,8 @@ namespace gbc
     reg(REG_BGP)  = 0xfc;
     reg(REG_OBP0) = 0xff;
     reg(REG_OBP1) = 0xff;
-
-    reg(REG_BOOT) = 0x01;
+    // boot rom enabled at boot
+    reg(REG_BOOT) = 0x00;
 
     this->m_reg_ie = 0x00;
   }
@@ -71,11 +71,6 @@ namespace gbc
           this->reg(REG_TIMA) = this->reg(REG_TMA);
         }
       }
-    }
-    if (reg(REG_TAC) & 0x4)
-    {
-      printf("TAC = 0x%02x\n", reg(REG_TAC));
-      machine().break_now();
     }
 
     // check if LCD is operating

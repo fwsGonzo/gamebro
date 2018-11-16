@@ -4,7 +4,7 @@
 namespace gbc
 {
   Machine::Machine(std::vector<uint8_t> rom)
-      : cpu(*this), memory(*this, std::move(rom)), io(*this), gpu(*this)
+      : cpu(*this), memory(*this, rom), io(*this), gpu(*this)
   {
     printf("Game cartridge type: 0x%02x", memory.read8(0x147));
   }

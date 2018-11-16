@@ -6,7 +6,17 @@
 namespace gbc
 {
   MBC1::MBC1(Memory& m, std::vector<uint8_t> rom)
-      : m_memory(m), m_rom(std::move(rom)) {}
+      : m_memory(m), m_rom(std::move(rom))
+  {
+    m_ram.at(0x100) = 0x1;
+    m_ram.at(0x101) = 0x3;
+    m_ram.at(0x102) = 0x5;
+    m_ram.at(0x103) = 0x7;
+    m_ram.at(0x104) = 0x9;
+  }
+  void MBC1::install_rom(std::vector<uint8_t> rom) {
+    this->m_rom = std::move(rom);
+  }
 
   uint8_t MBC1::read(uint16_t addr)
   {
@@ -27,8 +37,8 @@ namespace gbc
     else if (addr >= RAMbankX.first && addr < RAMbankX.second)
     {
       if (this->ram_enabled()) {
-          addr -= RAMbankX.first;
-          return m_ram.at(m_ram_bank_offset | addr);
+          uint8_t value = m_ram.at(m_ram_bank_offset | (addr - RAMbankX.first));
+          return value;
       } else {
           return 0xff;
       }
@@ -42,12 +52,12 @@ namespace gbc
     if (addr < 0x2000) // RAM enable
     {
       this->m_ram_enabled = ((value & 0xF) == 0xA);
+      //printf("* RAM enabled: %d\n", this->m_ram_enabled);
       return;
     }
     else if (addr < 0x4000) // ROM bank number
     {
       this->set_rombank(value & 0x1F);
-      //m_memory.machine().break_now();
       return;
     }
     else if (addr < 0x6000) // ROM/RAM bank number

@@ -20,7 +20,7 @@ namespace gbc
     registers().de = 0x00d8;
     registers().hl = 0x014d;
     registers().sp = 0xfffe;
-    registers().pc = 0x0100;
+    registers().pc = 0x0;
     this->m_cycles_total = 0;
   }
 
@@ -164,6 +164,7 @@ namespace gbc
     else if ((opcode & 0xe7) == 0x20) return instr_JR_N;
     else if ((opcode & 0xc7) == 0x6)  return instr_LD_D_N;
     else if ((opcode & 0xe7) == 0x22) return instr_LDID_HL_A;
+    else if (opcode == 0x27)          return instr_DAA;
     else if (opcode == 0x2f)          return instr_CPL;
     else if ((opcode & 0xf7) == 0x37) return instr_SCF_CCF;
     else if ((opcode & 0xc7) == 0xc6) return instr_ALU_A_N_D;
@@ -176,6 +177,7 @@ namespace gbc
     else if ((opcode & 0xe7) == 0xc2) return instr_JP; // conditional
     else if ((opcode & 0xff) == 0xc4) return instr_CALL; // direct
     else if ((opcode & 0xcd) == 0xcd) return instr_CALL; // conditional
+    else if (opcode == 0xe8)          return instr_ADD_SP_N;
     else if ((opcode & 0xef) == 0xea) return instr_LD_N_A_N;
     else if ((opcode & 0xef) == 0xe0) return instr_LD_xxx_A; // FF00+N
     else if ((opcode & 0xef) == 0xe2) return instr_LD_xxx_A; // C
@@ -185,6 +187,13 @@ namespace gbc
     else if ((opcode & 0xf7) == 0xf3) return instr_DI_EI;
     // instruction set extension opcodes
     else if (opcode == 0xcb) return instr_CB_EXT;
+    // unused opcodes that do nothing
+    else if (opcode == 0xdb) return instr_UNUSED_OPS;
+    else if (opcode == 0xeb) return instr_UNUSED_OPS;
+    else if (opcode == 0xec) return instr_UNUSED_OPS;
+    else if (opcode == 0xe4) return instr_UNUSED_OPS;
+    else if (opcode == 0xfc) return instr_UNUSED_OPS;
+    else if (opcode == 0xf4) return instr_UNUSED_OPS;
     else return instr_MISSING;
   }
 

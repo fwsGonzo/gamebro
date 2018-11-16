@@ -59,7 +59,8 @@ namespace gbc
   void iowrite_KEY1(IO& io, uint16_t addr, uint8_t value)
   {
     printf("KEY1 0x%04x write 0x%02x\n", addr, value);
-    assert(0 && "KEY1 registers written to");
+    io.reg(addr) = 0x0;
+    //assert(0 && "KEY1 registers written to");
   }
   uint8_t ioread_KEY1(IO& io, uint16_t addr)
   {
@@ -88,6 +89,18 @@ namespace gbc
     return io.reg(addr);
   }
 
+  void iowrite_BOOT(IO& io, uint16_t addr, uint8_t value)
+  {
+    if (value) {
+      io.machine().memory.disable_bootrom();
+    }
+    io.reg(addr) |= value;
+  }
+  uint8_t ioread_BOOT(IO& io, uint16_t addr)
+  {
+    return io.reg(addr);
+  }
+
   __attribute__((constructor))
   static void set_io_handlers() {
     IOHANDLER(IO::REG_P1,    JOYP);
@@ -101,5 +114,6 @@ namespace gbc
     IOHANDLER(IO::REG_HDMA4, HDMA);
     IOHANDLER(IO::REG_HDMA5, HDMA);
     IOHANDLER(IO::REG_NR52,  SND_ONOFF);
+    IOHANDLER(IO::REG_BOOT,  BOOT);
   }
 }

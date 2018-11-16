@@ -1,5 +1,5 @@
 #pragma once
-#include <cstdint>
+#include "common.hpp"
 #include <string>
 
 namespace gbc
@@ -97,58 +97,59 @@ namespace gbc
       switch (op & 0x7) {
         case 0x0: // ADD
             flags &= ~MASK_NEGATIVE;
-            if (half_carry(reg, value)) flags |= MASK_HALFCARRY;
+            setflag(half_carry(reg, value), flags, MASK_HALFCARRY);
             reg += value;
-            if (reg > reg + value) flags |= MASK_CARRY;
-            if (reg == 0) flags |= MASK_ZERO;
+            setflag(reg > reg + value, flags, MASK_CARRY);
+            setflag(reg == 0, flags, MASK_ZERO);
             return;
         case 0x1: { // ADC
             const int carry = (flags & MASK_CARRY) ? 1 : 0;
             flags &= ~MASK_NEGATIVE;
-            if ((reg & 0xf) + (value & 0xf) + carry > 0xf)
-                flags |= MASK_HALFCARRY; // annoying!
+            setflag((reg & 0xf) + (value & 0xf) + carry > 0xf,
+                    flags, MASK_HALFCARRY); // annoying!
             reg += value + carry;
-            if (reg > reg + value + carry) flags |= MASK_CARRY;
-            if (reg == 0) flags |= MASK_ZERO;
+            setflag(reg > reg + value + carry, flags, MASK_CARRY);
+            setflag(reg == 0, flags, MASK_ZERO);
           } return;
         case 0x2: // SUB
             flags |= MASK_NEGATIVE;
-            if (half_borrow(reg, value)) flags |= MASK_HALFCARRY;
-            if (reg < reg - value) flags |= MASK_CARRY;
-            if (reg == value) flags |= MASK_ZERO;
+            setflag(half_borrow(reg, value), flags, MASK_HALFCARRY);
+            setflag(value < reg - value, flags, MASK_CARRY);
+            setflag(reg == value, flags, MASK_ZERO);
             reg -= value;
             return;
         case 0x3: { // SBC
             const int carry = (flags & MASK_CARRY) ? 1 : 0;
             const int calc = int(reg) - value - carry; // annoying!
             flags |= MASK_NEGATIVE;
-            if (((reg & 0xf) - (value & 0xf) - carry) < 0) flags |= MASK_HALFCARRY;
-            if (calc < 0) flags |= MASK_CARRY;
+            setflag(((reg & 0xf) - (value & 0xf) - carry) < 0,
+                    flags, MASK_HALFCARRY);
+            setflag(calc < 0, flags, MASK_CARRY);
             reg = (uint8_t) calc;
-            if (reg == 0) flags |= MASK_ZERO;
+            setflag(reg == 0, flags, MASK_ZERO);
           } return;
         case 0x4: // AND
             reg &= value;
             flags = MASK_HALFCARRY;
-            if (reg == 0) flags |= MASK_ZERO;
+            setflag(reg == 0, flags, MASK_ZERO);
             return;
         case 0x5: // XOR
             reg ^= value;
             flags = 0;
-            if (reg == 0) flags |= MASK_ZERO;
+            setflag(reg == 0, flags, MASK_ZERO);
             return;
         case 0x6: // OR
             reg |= value;
             flags = 0;
-            if (reg == 0) flags |= MASK_ZERO;
+            setflag(reg == 0, flags, MASK_ZERO);
             return;
         case 0x7: // CP
             //printf("\nCP 0x%02x vs 0x%02x (HL=0x%04x)\n", reg, value, hl);
             const uint8_t tmp = reg - value;
             flags |= MASK_NEGATIVE;
-            if (tmp == 0) flags |= MASK_ZERO;
-            if (value > tmp) flags |= MASK_CARRY;
-            if (half_borrow(reg, value)) flags |= MASK_HALFCARRY;
+            setflag(tmp == 0, flags, MASK_ZERO);
+            setflag(value > tmp, flags, MASK_CARRY);
+            setflag(half_borrow(reg, value), flags, MASK_HALFCARRY);
             return;
       }
     } // alu()

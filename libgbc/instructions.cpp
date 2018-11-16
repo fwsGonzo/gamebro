@@ -8,15 +8,6 @@
 
 namespace gbc
 {
-  INSTRUCTION(MISSING) (CPU&, const uint8_t opcode)
-  {
-    fprintf(stderr, "Missing instruction: %#x\n", opcode);
-    assert(0 && "Unimplemented instruction reached");
-  }
-  PRINTER(MISSING) (char* buffer, size_t len, CPU&, const uint8_t) {
-    return snprintf(buffer, len, "MISSING");
-  }
-
   INSTRUCTION(NOP) (CPU&, const uint8_t)
   {
     return 4; // NOP takes 4 T-states
@@ -80,15 +71,11 @@ namespace gbc
   INSTRUCTION(INC_DEC_R) (CPU& cpu, const uint8_t opcode)
   {
     auto& reg = cpu.registers().getreg_sp(opcode);
-    auto& flags = cpu.registers().flags;
-    flags &= ~MASK_NEGATIVE;
     if ((opcode & 0x8) == 0) {
       reg++;
     } else {
       reg--;
-      flags |= MASK_NEGATIVE; // DEC
     }
-    if (reg == 0) flags |= MASK_ZERO; // set zero
     return 8;
   }
   PRINTER(INC_DEC_R) (char* buffer, size_t len, CPU&, uint8_t opcode) {
@@ -124,9 +111,8 @@ namespace gbc
       cycles = 16;
     }
     auto& flags = cpu.registers().flags;
-    flags &= MASK_CARRY; // keep carry
-    if (opcode & 0x1) flags |= MASK_NEGATIVE; // DEC
-    if (value == 0) flags |= MASK_ZERO; // set zero
+    setflag(opcode & 0x1, flags, MASK_NEGATIVE);
+    setflag(value == 0, flags, MASK_ZERO); // set zero
     return cycles;
   }
   PRINTER(INC_DEC_D) (char* buffer, size_t len, CPU&, uint8_t opcode) {
@@ -156,41 +142,38 @@ namespace gbc
   {
     auto& accum = cpu.registers().accum;
     auto& flags = cpu.registers().flags;
-    flags &= ~MASK_NEGATIVE;
-    flags &= ~MASK_HALFCARRY;
     switch (opcode) {
       case 0x07: {
         // RLCA, rotate A left
         const uint8_t bit7 = accum & 0x80;
         accum = (accum << 1) | (bit7 >> 7);
-        flags &= ~0x80;
-        flags |= bit7 >> 3; // old bit7 to CF
+        flags = 0;
+        setflag(bit7, flags, MASK_CARRY); // old bit7 to CF
       } break;
       case 0x0F: {
         // RRCA, rotate A right
         const uint8_t bit0 = accum & 0x1;
         accum = (accum >> 1) | (bit0 << 7);
-        flags &= ~0x1;
-        flags |= bit0 << 4; // old bit0 to CF
+        flags = 0;
+        setflag(bit0, flags, MASK_CARRY); // old bit0 to CF
       } break;
       case 0x17: {
         // RLA, rotate A left, old CF to bit 0
         const uint8_t bit7 = accum & 0x80;
         accum = (accum << 1) | ((flags & MASK_CARRY) >> 4);
-        flags &= ~0x80;
-        flags |= bit7 >> 3; // old bit7 to CF
+        flags = 0;
+        setflag(bit7, flags, MASK_CARRY); // old bit7 to CF
       } break;
       case 0x1F: {
         // RRA, rotate A right, old CF to bit 7
         const uint8_t bit0 = accum & 0x1;
         accum = (accum >> 1) | ((flags & MASK_CARRY) << 3);
-        flags &= ~0x1;
-        flags |= bit0 << 4; // old bit0 to CF
+        flags = 0;
+        setflag(bit0, flags, MASK_CARRY); // old bit0 to CF
       } break;
       default:
         assert(0 && "Unknown opcode in RLC/RRC handler");
     }
-    if (accum == 0) flags |= MASK_ZERO;
     return 4;
   }
   PRINTER(RLC_RRC) (char* buffer, size_t len, CPU& cpu, uint8_t opcode) {
@@ -264,6 +247,15 @@ namespace gbc
       return snprintf(buffer, len, "%s (HL=0x%04x), A", mnemonic, cpu.registers().hl);
     else
       return snprintf(buffer, len, "%s A, (HL=0x%04x)", mnemonic, cpu.registers().hl);
+  }
+
+  INSTRUCTION(DAA) (CPU& cpu, const uint8_t)
+  {
+    // TODO: turn A into BCD-mode
+    return 8;
+  }
+  PRINTER(DAA) (char* buffer, size_t len, CPU&, uint8_t) {
+    return snprintf(buffer, len, "DAA");
   }
 
   INSTRUCTION(CPL) (CPU& cpu, const uint8_t)
@@ -416,7 +408,7 @@ namespace gbc
 
   INSTRUCTION(STOP) (CPU& cpu, const uint8_t)
   {
-    cpu.stop();
+    //cpu.stop();
     return 4;
   }
   PRINTER(STOP) (char* buffer, size_t len, CPU&, uint8_t) {
@@ -437,7 +429,7 @@ namespace gbc
     return 8;
   }
   PRINTER(JR_N) (char* buffer, size_t len, CPU& cpu, uint8_t opcode) {
-    const uint8_t disp = cpu.readop8(1);
+    const int8_t disp = (int8_t) cpu.readop8(1);
     const uint16_t dest = cpu.registers().pc + 2 + disp;
     if (opcode & 0x20) {
       char temp[128];
@@ -481,6 +473,17 @@ namespace gbc
     fill_flag_buffer(temp, sizeof(temp), opcode, cpu.registers().flags);
     return snprintf(buffer, len, "CALLF 0x%04x (%s)",
                     cpu.readop16(1), temp);
+  }
+
+  INSTRUCTION(ADD_SP_N) (CPU& cpu, const uint8_t)
+  {
+    cpu.registers().sp += cpu.readop8(0);
+    cpu.registers().pc += 1;
+    return 8;
+  }
+  PRINTER(ADD_SP_N) (char* buffer, size_t len, CPU& cpu, uint8_t)
+  {
+    return snprintf(buffer, len, "ADD SP, 0x%02x", cpu.readop8(1));
   }
 
   INSTRUCTION(LD_xxx_A) (CPU& cpu, const uint8_t opcode)
@@ -591,15 +594,15 @@ namespace gbc
     // BIT, RESET, SET
     if (opcode >> 6)
     {
-      const uint8_t bit = (opcode >> 3) & 3;
+      const uint8_t bit = (opcode >> 3) & 7;
       switch (opcode >> 6)
       {
         case 0x1: { // BIT
-          const bool set = reg & (1 << bit);
+          const int set = reg & (1 << bit);
           // set flags
-          if (set == 0) cpu.registers().flags |= MASK_ZERO;
           cpu.registers().flags &= ~MASK_NEGATIVE;
           cpu.registers().flags |=  MASK_HALFCARRY;
+          setflag(set == 0, cpu.registers().flags, MASK_ZERO);
           // BIT only takes 12 T-cycles for (HL)
           return (HL) ? 12 : 8;
           }
@@ -611,12 +614,28 @@ namespace gbc
           break;
       }
     }
+    else if ((opcode & 0xF0) == 0x00)
+    {
+      auto& flags = cpu.registers().flags;
+      flags = 0;
+      if (opcode & 0x8) {
+        // RRC D, rotate D right, keep old bit0
+        const uint8_t bit0 = reg & 0x1;
+        reg = (reg >> 1) | bit0;
+        flags |= bit0 << 4; // old bit0 to CF
+      }
+      else {
+        // RLC D, rotate D left, keep old bit7
+        const uint8_t bit7 = reg & 0x80;
+        reg = (reg << 1) | bit7;
+        flags |= bit7 >> 3; // old bit7 to CF
+      }
+      setflag(reg == 0, cpu.registers().flags, MASK_ZERO);
+    }
     else if ((opcode & 0xF0) == 0x10)
     {
       auto& flags = cpu.registers().flags;
-      flags &= ~MASK_NEGATIVE;
-      flags &= ~MASK_HALFCARRY;
-      flags &= ~MASK_CARRY;
+      flags = 0;
       if (opcode & 0x8) {
         // RR D, rotate D right, old CF to bit 7
         const uint8_t bit0 = reg & 0x1;
@@ -629,15 +648,12 @@ namespace gbc
         reg = (reg << 1) | ((cpu.registers().flags & MASK_CARRY) >> 4);
         flags |= bit7 >> 3; // old bit7 to CF
       }
-      if (reg == 0) cpu.registers().flags |= MASK_ZERO;
+      setflag(reg == 0, cpu.registers().flags, MASK_ZERO);
     }
     else if ((opcode & 0xF0) == 0x20)
     {
       auto& flags = cpu.registers().flags;
-      flags &= ~MASK_NEGATIVE;
-      flags &= ~MASK_HALFCARRY;
-      flags &= ~MASK_CARRY;
-      // TODO: fix flags
+      flags = 0;
       if (opcode & 0x8) {
         // SRA
         const uint8_t bit0 = reg & 0x1;
@@ -650,7 +666,7 @@ namespace gbc
         reg <<= 1;
         flags |= bit7 >> 3; // bit7 into CF
       }
-      if (reg == 0) cpu.registers().flags |= MASK_ZERO;
+      setflag(reg == 0, cpu.registers().flags, MASK_ZERO);
     }
     else if ((opcode & 0xf0) == 0x30)
     {
@@ -658,19 +674,14 @@ namespace gbc
         // SWAP D
         const uint8_t low = reg & 0xF;
         reg = (reg >> 4) | (low << 4);
-        cpu.registers().flags &= MASK_ZERO;
-        if (reg == 0) cpu.registers().flags |= MASK_ZERO;
+        setflag(reg == 0, cpu.registers().flags, MASK_ZERO);
       }
       else {
         // SRL D
-        auto& flags = cpu.registers().flags;
-        flags &= ~MASK_NEGATIVE;
-        flags &= ~MASK_HALFCARRY;
         const uint8_t bit0 = reg & 0x1;
         reg >>= 1;
-        flags &= ~MASK_CARRY;
-        flags |= bit0 << 4; // bit0 into CF
-        if (reg == 0) flags |= MASK_ZERO;
+        cpu.registers().flags = bit0 << 4; // bit0 into CF
+        setflag(reg == 0, cpu.registers().flags, MASK_ZERO);
       }
     }
     else {
@@ -699,6 +710,23 @@ namespace gbc
     }
   }
 
+  INSTRUCTION(UNUSED_OPS) (CPU&, const uint8_t)
+  {
+    return 4;
+  }
+  PRINTER(UNUSED_OPS) (char* buffer, size_t len, CPU&, const uint8_t opcode) {
+    return snprintf(buffer, len, "UNUSED 0x%02x", opcode);
+  }
+
+  INSTRUCTION(MISSING) (CPU&, const uint8_t opcode)
+  {
+    fprintf(stderr, "Missing instruction: %#x\n", opcode);
+    assert(0 && "Unimplemented instruction reached");
+  }
+  PRINTER(MISSING) (char* buffer, size_t len, CPU&, const uint8_t opcode) {
+    return snprintf(buffer, len, "MISSING opcode 0x%02x", opcode);
+  }
+
   DEF_INSTR(NOP);
   DEF_INSTR(LD_N_SP);
   DEF_INSTR(LD_R_N);
@@ -712,6 +740,7 @@ namespace gbc
   DEF_INSTR(JR_N);
   DEF_INSTR(RLC_RRC);
   DEF_INSTR(LDID_HL_A);
+  DEF_INSTR(DAA);
   DEF_INSTR(CPL);
   DEF_INSTR(SCF_CCF);
   DEF_INSTR(HALT);
@@ -722,10 +751,12 @@ namespace gbc
   DEF_INSTR(STOP);
   DEF_INSTR(JP);
   DEF_INSTR(CALL);
+  DEF_INSTR(ADD_SP_N);
   DEF_INSTR(LD_xxx_A);
   DEF_INSTR(LD_HL_SP);
   DEF_INSTR(LD_JP_HL);
   DEF_INSTR(DI_EI);
   DEF_INSTR(CB_EXT);
+  DEF_INSTR(UNUSED_OPS);
   DEF_INSTR(MISSING);
 }

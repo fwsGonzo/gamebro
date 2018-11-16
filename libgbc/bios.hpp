@@ -1,4 +1,4 @@
-#include <array>
 #include <cstdint>
+#include <vector>
 
-extern std::array<uint8_t, 256> dmg0_rom;
+extern std::vector<uint8_t> dmg0_rom;
