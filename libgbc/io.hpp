@@ -54,7 +54,9 @@ namespace gbc
       REG_WY    = 0xff4a,
       REG_WX    = 0xff4b,
 
+      // CBG I/O regs
       REG_KEY1  = 0xff4d,
+      REG_VBK   = 0xff4f,
       REG_BOOT  = 0xff50,
 
       REG_HDMA1 = 0xff51,
@@ -62,6 +64,8 @@ namespace gbc
       REG_HDMA3 = 0xff53,
       REG_HDMA4 = 0xff54,
       REG_HDMA5 = 0xff55,
+
+      REG_SVBK  = 0xff70,
 
       // INTERRUPTS
       REG_IF    = 0xff0f,
@@ -98,16 +102,24 @@ namespace gbc
       return m_ioregs.at(addr & 0xff);
     }
 
+    struct joypad_t {
+      uint8_t  ioswitch = 0;
+      uint8_t  keypad  = 0x0;
+      uint8_t  buttons = 0x0;
+    };
+    inline joypad_t& joypad() { return m_joypad; }
+
     interrupt_t vblank;
     interrupt_t lcd_stat;
-    interrupt_t timer;
-    interrupt_t serial;
-    interrupt_t joypad;
-    interrupt_t debug;
+    interrupt_t timerint;
+    interrupt_t serialint;
+    interrupt_t joypadint;
+    interrupt_t debugint;
   private:
     Machine& m_machine;
     std::array<uint8_t, 128> m_ioregs = {};
     uint8_t  m_reg_ie = 0x0;
+    joypad_t m_joypad;
     uint64_t m_divider_time = 0;
 
     struct dma_t {

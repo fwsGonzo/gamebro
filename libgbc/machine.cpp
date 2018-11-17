@@ -29,10 +29,10 @@ namespace gbc
           io.vblank.callback = handler;
           return;
       case TIMER:
-          io.timer.callback = handler;
+          io.timerint.callback = handler;
           return;
       case DEBUG:
-          io.debug.callback = handler;
+          io.debugint.callback = handler;
           return;
     }
   }

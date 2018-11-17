@@ -28,6 +28,8 @@ namespace gbc
           m_ram_bank_size = 0x10000; break;
     }
     printf("RAM bank size: 0x%05x\n", m_ram_bank_size);
+    m_wram_size = 0x2000;
+    printf("Work RAM bank size: 0x%04x\n", m_wram_size);
   }
   void MBC1::install_rom(std::vector<uint8_t> rom) {
     this->m_rom = std::move(rom);
@@ -59,6 +61,18 @@ namespace gbc
       } else {
           return 0xff;
       }
+    }
+    else if (addr >= WRAM_0.first && addr < WRAM_0.second)
+    {
+      return m_wram.at(addr - WRAM_0.first);
+    }
+    else if (addr >= WRAM_bX.first && addr < WRAM_bX.second)
+    {
+      return m_wram.at(m_wram_offset + addr - WRAM_bX.first);
+    }
+    else if (addr >= EchoRAM.first && addr < EchoRAM.second)
+    {
+      return this->read(addr - 0x2000);
     }
     printf("* Invalid MCB1 read: 0x%04x\n", addr);
     return 0xff;
@@ -104,6 +118,21 @@ namespace gbc
       }
       return;
     }
+    else if (addr >= WRAM_0.first && addr < WRAM_0.second)
+    {
+      this->m_wram.at(addr - WRAM_0.first) = value;
+      return;
+    }
+    else if (addr >= WRAM_bX.first && addr < WRAM_bX.second)
+    {
+      this->m_wram.at(m_wram_offset + addr - WRAM_bX.first) = value;
+      return;
+    }
+    else if (addr >= EchoRAM.first && addr < EchoRAM.second)
+    {
+      this->write(addr - 0x2000, value);
+      return;
+    }
     printf("* Invalid MCB1 write: 0x%04x => 0x%02x\n", addr, value);
     assert(0);
   }
@@ -137,6 +166,18 @@ namespace gbc
       return;
     }
     this->m_ram_bank_offset = offset;
+  }
+  void MBC1::set_wrambank(int reg)
+  {
+    const int offset = reg * wrambank_size();
+    if (UNLIKELY((offset + wrambank_size()) > m_wram_size))
+    {
+      printf("Invalid Work RAM bank 0x%02x offset %#x\n", reg, offset);
+      this->m_memory.machine().break_now();
+      return;
+    }
+    printf("Work RAM bank 0x%02x offset %#x\n", reg, offset);
+    this->m_wram_offset = offset;
   }
   void MBC1::set_mode(int mode)
   {

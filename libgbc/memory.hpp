@@ -29,6 +29,7 @@ namespace gbc
 
     Memory(Machine&, std::vector<uint8_t> rom);
     void    reset();
+    void    set_wram_bank(uint8_t bank);
 
     uint8_t read8(uint16_t address);
     void    write8(uint16_t address, uint8_t value);
@@ -59,8 +60,7 @@ namespace gbc
 
     Machine& m_machine;
     MBC1                       m_mbc;
-    std::array<uint8_t, 8192>  m_video_ram = {};
-    std::array<uint8_t, 8192>  m_work_ram = {};
+    std::array<uint8_t, 16384> m_video_ram = {};
     std::array<uint8_t, 256>   m_oam_ram = {};
     std::array<uint8_t, 128>   m_zram = {}; // high-speed RAM
     std::vector<access_t> m_read_breakpoints;

@@ -25,6 +25,10 @@ namespace gbc
 
     bool is_vblank() const noexcept;
     bool is_hblank() const noexcept;
+    int  current_mode() const noexcept { return m_current_mode; }
+
+    uint16_t video_offset() const noexcept { return m_video_offset; }
+    void     set_video_bank(uint8_t bank);
 
     Memory&  memory() noexcept { return m_memory; }
     IO&      io() noexcept { return m_io; }
@@ -41,6 +45,7 @@ namespace gbc
     int m_current_scanline = 0;
     int m_current_mode = 0;
     uint8_t  m_ly = 0x0;
-    uint64_t m_period_clk = 0;
+
+    uint16_t m_video_offset = 0x0;
   };
 }

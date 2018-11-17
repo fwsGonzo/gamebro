@@ -8,10 +8,10 @@ namespace gbc
   IO::IO(Machine& mach)
       : vblank   {  0x1, 0x40, "V-blank" },
         lcd_stat {  0x2, 0x48, "LCD Status" },
-        timer    {  0x4, 0x50, "Timer" },
-        serial   {  0x8, 0x58, "Serial" },
-        joypad   { 0x10, 0x60, "Joypad" },
-        debug    {  0x0,  0x0, "Debug" },
+        timerint {  0x4, 0x50, "Timer" },
+        serialint{  0x8, 0x58, "Serial" },
+        joypadint{ 0x10, 0x60, "Joypad" },
+        debugint {  0x0,  0x0, "Debug" },
         m_machine(mach)
   {
     this->reset();
@@ -58,16 +58,16 @@ namespace gbc
     // check if timer is enabled
     if (this->reg(REG_TAC) & 0x4)
     {
-      const int TIMA_CYCLES[] = {1024, 16, 64, 256};
+      const std::array<int, 4> TIMA_CYCLES = {1024, 16, 64, 256};
       const int speed = this->reg(REG_TAC) & 0x3;
       // TIMA counter timer
-      if (t >= timer.last_time + TIMA_CYCLES[speed])
+      if (t >= timerint.last_time + TIMA_CYCLES[speed])
       {
-        timer.last_time = t;
+        timerint.last_time = t;
         this->reg(REG_TIMA)++;
         // timer interrupt when overflowing to 0
         if (this->reg(REG_TIMA) == 0) {
-          this->trigger(timer);
+          this->trigger(this->timerint);
           // restart at modulo
           this->reg(REG_TIMA) = this->reg(REG_TMA);
         }

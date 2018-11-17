@@ -14,8 +14,8 @@ namespace gbc
 
   void CPU::reset() noexcept
   {
-    // gameboy Z80 initial register values
-    registers().af = 0x01b0;
+    // gameboy color CGB initial register values
+    registers().af = 0x11b0;
     registers().bc = 0x0013;
     registers().de = 0x00d8;
     registers().hl = 0x014d;
@@ -113,9 +113,9 @@ namespace gbc
       auto& io = machine().io;
       if      (imask &  0x1) io.interrupt(io.vblank);
       else if (imask &  0x2) io.interrupt(io.lcd_stat);
-      else if (imask &  0x4) io.interrupt(io.timer);
-      else if (imask &  0x8) io.interrupt(io.serial);
-      else if (imask & 0x10) io.interrupt(io.joypad);
+      else if (imask &  0x4) io.interrupt(io.timerint);
+      else if (imask &  0x8) io.interrupt(io.serialint);
+      else if (imask & 0x10) io.interrupt(io.joypadint);
       else this->break_now();
     }
     if (this->m_asleep == false) {

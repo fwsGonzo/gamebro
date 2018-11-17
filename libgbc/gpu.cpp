@@ -20,6 +20,7 @@ namespace gbc
   void GPU::reset() noexcept
   {
     m_pixels.resize(SCREEN_W * SCREEN_H);
+    this->m_video_offset = 0;
   }
 
   void GPU::simulate()
@@ -27,22 +28,28 @@ namespace gbc
     // nothing to do with LCD being off
     if ((io().reg(IO::REG_LCDC) & 0x80) == 0) return;
 
-    static const int SCANLINE_CYCLES = 456;
-    const uint64_t t = io().machine().now();
     auto& vblank   = io().vblank;
     auto& lcd_stat = io().lcd_stat;
     auto& reg_stat = io().reg(IO::REG_STAT);
 
+    const uint64_t t = io().machine().now();
+    const uint64_t period = t - vblank.last_time;
+
     // vblank always when screen on
+    static const int SCANLINE_CYCLES = 456;
     if (t >= vblank.last_time + SCANLINE_CYCLES)
     {
       vblank.last_time = t;
       // scanline LY increment logic
-      static const int MAX_LINES = 153;
+      static const int MAX_LINES = 154;
       this->m_ly = (this->m_ly + 1) % MAX_LINES;
       io().reg(IO::REG_LY) = this->m_ly;
 
-      if (this->m_ly == 144) {
+      if (this->m_ly == 0) {
+        // start of new frame
+      }
+      else if (this->m_ly == 144)
+      {
         assert(this->is_vblank());
         // vblank interrupt
         io().trigger(vblank);
@@ -52,26 +59,22 @@ namespace gbc
         // if STAT vblank interrupt is enabled
         if (reg_stat & 0x10) io().trigger(lcd_stat);
       }
-      else if (this->m_ly == 0) {
-        m_period_clk = t;
-      }
     }
     // STAT coincidence bit
     if (this->m_ly == io().reg(IO::REG_LYC)) {
       // STAT interrupt (if enabled)
       if ((reg_stat & 0x4) == 0
         && reg_stat & 0x40) io().trigger(lcd_stat);
-      reg_stat |= 0x4;
+      setflag(true, reg_stat, 0x4);
     }
     else {
-      reg_stat &= ~0x4;
+      setflag(false, reg_stat, 0x4);
     }
     m_current_mode = reg_stat & 0x3;
     // STAT mode & scanline period modulation
     if (!this->is_vblank())
     {
-      const uint64_t period = t - m_period_clk;
-      if (m_current_mode == 0 || m_current_mode == 1)
+      if (m_current_mode < 2 && period < 80+172)
       {
         // enable MODE 2: OAM search
         // check if OAM interrupt enabled
@@ -81,21 +84,19 @@ namespace gbc
       }
       else if (m_current_mode == 2 && period >= 80)
       {
-        m_period_clk = t;
         // enable MODE 3: Scanline VRAM
         reg_stat &= 0xfc;
         reg_stat |= 0x3;
       }
-      else if (m_current_mode == 3 && period >= 172)
+      else if (m_current_mode == 3 && period >= 80+172)
       {
-        m_period_clk = t;
-        // check if H-blank interrupt enabled
+        // enable MODE 0: H-blank
         if (reg_stat & 0x8) io().trigger(lcd_stat);
         reg_stat &= 0xfc;
         reg_stat |= 0x0;
       }
       //printf("Current mode: %u -> %u period %lu\n",
-      //        current_mode, reg_stat & 0x3, period);
+      //        current_mode(), reg_stat & 0x3, period);
       m_current_mode = reg_stat & 0x3;
     }
 
@@ -226,5 +227,10 @@ namespace gbc
       data.at(y * 128 + x) = this->colorize(pal, idx);
     }
     return data;
+  }
+
+  void GPU::set_video_bank(uint8_t bank)
+  {
+    this->m_video_offset = bank * 0x2000;
   }
 }

@@ -8,18 +8,22 @@ namespace gbc
     : m_machine(mach), m_mbc{*this, std::move(rom)}
   {
     assert(m_mbc.rom_valid());
+    this->m_bootrom_enabled = false;
   }
   void Memory::reset()
   {
-    this->disable_bootrom();
-    //this->m_bootrom_enabled = true;
+    //this->disable_bootrom();
     //m_mbc.reset();
   }
   void Memory::install_rom(std::vector<uint8_t> rom) {
-    m_mbc.install_rom(std::move(rom));
+    this->m_mbc.install_rom(std::move(rom));
   }
   void Memory::disable_bootrom() {
     this->m_bootrom_enabled = false;
+  }
+  void Memory::set_wram_bank(uint8_t bank)
+  {
+    this->m_mbc.set_wrambank(bank);
   }
 
   uint8_t Memory::read8(uint16_t address)
@@ -34,17 +38,20 @@ namespace gbc
         return dmg0_rom.at(address);
     }
     else if (this->is_within(address, VideoRAM)) {
-      // TODO: return 0xff when rendering
-      return m_video_ram.at(address - VideoRAM.first);
+      // cant read from Video RAM when working on scanline
+      if (UNLIKELY(machine().gpu.current_mode() == 3))
+          return 0xff;
+      const uint16_t offset = machine().gpu.video_offset();
+      return m_video_ram.at(offset + address - VideoRAM.first);
     }
     else if (this->is_within(address, BankRAM)) {
       return m_mbc.read(address);
     }
     else if (this->is_within(address, WorkRAM)) {
-      return m_work_ram.at(address - WorkRAM.first);
+      return m_mbc.read(address);
     }
     else if (this->is_within(address, EchoRAM)) {
-      return m_work_ram.at(address - EchoRAM.first);
+      return m_mbc.read(address);
     }
     else if (this->is_within(address, OAM_RAM)) {
       // TODO: return 0xff when rendering
@@ -73,7 +80,8 @@ namespace gbc
       return;
     }
     else if (this->is_within(address, VideoRAM)) {
-      m_video_ram.at(address - VideoRAM.first) = value;
+      const uint16_t offset = machine().gpu.video_offset();
+      m_video_ram.at(offset + address - VideoRAM.first) = value;
       return;
     }
     else if (this->is_within(address, BankRAM)) {
@@ -81,11 +89,11 @@ namespace gbc
       return;
     }
     else if (this->is_within(address, WorkRAM)) {
-      m_work_ram.at(address - WorkRAM.first) = value;
+      m_mbc.write(address, value);
       return;
     }
     else if (this->is_within(address, EchoRAM)) {
-      m_work_ram.at(address - EchoRAM.first) = value;
+      m_mbc.write(address, value);
       return;
     }
     else if (this->is_within(address, OAM_RAM)) {
