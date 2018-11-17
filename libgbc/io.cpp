@@ -74,85 +74,6 @@ namespace gbc
       }
     }
 
-    // check if LCD is operating
-    if (reg(REG_LCDC) & 0x80)
-    {
-      // 2. LCD
-      static const int SCANLINE_CYCLES = 456;
-      // vblank always when screen on
-      if (t >= vblank.last_time + SCANLINE_CYCLES)
-      {
-        vblank.last_time = t;
-        // scanline LY increment logic
-        const int MAX_LINES = 153;
-        m_ly = (m_ly + 1) % MAX_LINES;
-        reg(REG_LY) = m_ly;
-
-        if (this->m_ly == 144) {
-          assert(is_vblank());
-          // vblank interrupt
-          this->trigger(vblank);
-          // modify stat
-          reg(REG_STAT) &= 0xfc;
-          reg(REG_STAT) |= 0x1;
-          // if STAT vblank interrupt is enabled
-          if (reg(REG_STAT) & 0x10) {
-            this->trigger(lcd_stat);
-          }
-        }
-        else if (this->m_ly == 0) {
-          m_vblank_end = t;
-          // set mode to 0
-          this->m_scanmode = 0;
-        }
-        // STAT coincidence bit
-        if (this->m_ly == reg(REG_LYC)) {
-          reg(REG_STAT) |= 0x4;
-          // STAT interrupt (if enabled)
-          if (reg(REG_STAT) & 0x40) {
-            this->trigger(lcd_stat);
-          }
-        }
-        else {
-          reg(REG_STAT) &= ~0x4;
-        }
-      }
-      // STAT mode & scanline period modulation
-      if (is_vblank() == false)
-      {
-        const uint64_t period = t - m_vblank_end;
-        if (m_scanmode == 0) // period < 80
-        {
-          m_scanmode = 1;
-          // if we are setting MODE 2 now
-          if ((reg(REG_STAT) & 0x2) != 0x2) {
-            // check if need to interrupt
-            if (reg(REG_STAT) & 0x20) this->trigger(lcd_stat);
-            reg(REG_STAT) &= 0xfc;
-            reg(REG_STAT) |= 0x2;
-          }
-        }
-        else if (m_scanmode == 1 && period >= 178)
-        {
-          m_scanmode = 2;
-          reg(REG_STAT) &= 0xfc; // MODE 3
-          reg(REG_STAT) |= 0x3;
-        }
-        else if (m_scanmode == 2 && period >= 204)
-        {
-          m_scanmode = 3; // H-blank
-          // if we are setting MODE 0 now
-          if (reg(REG_STAT) & 0x3) {
-            // check if need to interrupt
-            if (reg(REG_STAT) & 0x8) this->trigger(lcd_stat);
-            reg(REG_STAT) &= 0xfc;
-            reg(REG_STAT) |= 0x0;
-          }
-        }
-        //printf("Mode: %#x  LY: %u\n", reg(REG_STAT), m_ly);
-      }
-    }
-
     // DMA operation
     if (this->m_dma.bytes_left > 0)
     {
@@ -221,10 +142,6 @@ namespace gbc
   void IO::trigger_key(key_t key)
   {
     reg(REG_P1) |= key;
-  }
-  bool IO::is_vblank()
-  {
-    return (this->m_ly >= 144);
   }
 
   void IO::trigger(interrupt_t& intr)

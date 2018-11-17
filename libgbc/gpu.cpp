@@ -27,18 +27,96 @@ namespace gbc
     // nothing to do with LCD being off
     if ((io().reg(IO::REG_LCDC) & 0x80) == 0) return;
 
-    // get current scanline
-    int scanline = io().reg(IO::REG_LY);
-    if (m_current_scanline != scanline && scanline < SCREEN_H)
+    static const int SCANLINE_CYCLES = 456;
+    const uint64_t t = io().machine().now();
+    auto& vblank   = io().vblank;
+    auto& lcd_stat = io().lcd_stat;
+    auto& reg_stat = io().reg(IO::REG_STAT);
+
+    // vblank always when screen on
+    if (t >= vblank.last_time + SCANLINE_CYCLES)
     {
-      m_current_scanline = scanline;
-      //printf("Rendering scanline %u\n", scanline);
-      this->render_scanline(scanline);
+      vblank.last_time = t;
+      // scanline LY increment logic
+      static const int MAX_LINES = 153;
+      this->m_ly = (this->m_ly + 1) % MAX_LINES;
+      io().reg(IO::REG_LY) = this->m_ly;
+
+      if (this->m_ly == 144) {
+        assert(this->is_vblank());
+        // vblank interrupt
+        io().trigger(vblank);
+        // modify stat
+        reg_stat &= 0xfc;
+        reg_stat |= 0x1;
+        // if STAT vblank interrupt is enabled
+        if (reg_stat & 0x10) io().trigger(lcd_stat);
+      }
+      else if (this->m_ly == 0) {
+        m_period_clk = t;
+      }
+    }
+    // STAT coincidence bit
+    if (this->m_ly == io().reg(IO::REG_LYC)) {
+      // STAT interrupt (if enabled)
+      if ((reg_stat & 0x4) == 0
+        && reg_stat & 0x40) io().trigger(lcd_stat);
+      reg_stat |= 0x4;
     }
     else {
-      //printf("V-blank now %u\n", scanline);
+      reg_stat &= ~0x4;
     }
-    //usleep(100);
+    m_current_mode = reg_stat & 0x3;
+    // STAT mode & scanline period modulation
+    if (!this->is_vblank())
+    {
+      const uint64_t period = t - m_period_clk;
+      if (m_current_mode == 0 || m_current_mode == 1)
+      {
+        // enable MODE 2: OAM search
+        // check if OAM interrupt enabled
+        if (reg_stat & 0x20) io().trigger(lcd_stat);
+        reg_stat &= 0xfc;
+        reg_stat |= 0x2;
+      }
+      else if (m_current_mode == 2 && period >= 80)
+      {
+        m_period_clk = t;
+        // enable MODE 3: Scanline VRAM
+        reg_stat &= 0xfc;
+        reg_stat |= 0x3;
+      }
+      else if (m_current_mode == 3 && period >= 172)
+      {
+        m_period_clk = t;
+        // check if H-blank interrupt enabled
+        if (reg_stat & 0x8) io().trigger(lcd_stat);
+        reg_stat &= 0xfc;
+        reg_stat |= 0x0;
+      }
+      //printf("Current mode: %u -> %u period %lu\n",
+      //        current_mode, reg_stat & 0x3, period);
+      m_current_mode = reg_stat & 0x3;
+    }
+
+    // MODE 3: Scanline VRAM
+    if (m_current_mode == 3)
+    {
+      // get current scanline
+      const int scanline = this->m_ly;
+      if (m_current_scanline != scanline && scanline < SCREEN_H)
+      {
+        m_current_scanline = scanline;
+        this->render_scanline(m_current_scanline);
+      }
+    }
+  }
+
+  bool GPU::is_vblank() const noexcept {
+    return m_ly >= 144;
+  }
+  bool GPU::is_hblank() const noexcept {
+    return m_current_mode == 3;
   }
 
   void GPU::render_and_vblank()
@@ -54,6 +132,7 @@ namespace gbc
   {
     const uint8_t scroll_y = memory().read8(IO::REG_SCY);
     const uint8_t scroll_x = memory().read8(IO::REG_SCX);
+    const uint8_t pal = memory().read8(IO::REG_BGP);
 
     // create tiledata object from LCDC register
     auto td = this->create_tiledata();
@@ -68,24 +147,25 @@ namespace gbc
       // get the tile id
       const int t = td.tile_id(tx, ty);
       // copy the 16-byte tile into buffer
-      const int pal = td.pattern(t, sx & 7, sy & 7);
-      const uint32_t color = this->colorize(pal);
+      const int idx = td.pattern(t, sx & 7, sy & 7);
+      const uint32_t color = this->colorize(pal, idx);
       m_pixels.at(scan_y * SCREEN_W + scan_x) = color;
     } // x
   } // render_to(...)
 
-  uint32_t GPU::colorize(const uint8_t pal)
+  uint32_t GPU::colorize(const uint8_t pal, const uint8_t idx)
   {
+    const uint8_t color = (pal >> (idx*2)) & 0x3;
     // convert palette to colors
-    switch (pal) {
+    switch (color) {
     case 0:
         return 0xFFFFFFFF; // white
     case 1:
-        return 0xFF000000; // black
+        return 0xFFA0A0A0; // light-gray
     case 2:
         return 0xFF777777; // gray
     case 3:
-        return 0xFFA0A0A0; // light-gray
+        return 0xFF000000; // black
     }
     return 0xFFFF00FF; // magenta = invalid
   }
@@ -114,10 +194,10 @@ namespace gbc
   std::vector<uint32_t> GPU::dump_background()
   {
     std::vector<uint32_t> data(256 * 256);
+    const uint8_t pal = memory().read8(IO::REG_BGP);
     // create tiledata object from LCDC register
     auto td = this->create_tiledata();
     const auto* vram = memory().video_ram_ptr();
-    const auto* tdata = &vram[0];
 
     for (int y = 0; y < 256; y++)
     for (int x = 0; x < 256; x++)
@@ -125,14 +205,15 @@ namespace gbc
       // get the tile id
       const int t = td.tile_id(x >> 3, y >> 3);
       // copy the 16-byte tile into buffer
-      const int pal = td.pattern(tdata, t, x & 7, y & 7);
-      data.at(y * 256 + x) = this->colorize(pal);
+      const int idx = td.pattern(t, x & 7, y & 7);
+      data.at(y * 256 + x) = this->colorize(pal, idx);
     }
     return data;
   }
   std::vector<uint32_t> GPU::dump_tiles()
   {
     std::vector<uint32_t> data(16*24 * 8*8);
+    const uint8_t pal = memory().read8(IO::REG_BGP);
     // create tiledata object from LCDC register
     auto td = this->create_tiledata();
 
@@ -141,8 +222,8 @@ namespace gbc
     {
       int tile = (y / 8) * 16 + (x / 8);
       // copy the 16-byte tile into buffer
-      const int pal = td.pattern(tile, x & 7, y & 7);
-      data.at(y * 128 + x) = this->colorize(pal);
+      const int idx = td.pattern(tile, x & 7, y & 7);
+      data.at(y * 128 + x) = this->colorize(pal, idx);
     }
     return data;
   }

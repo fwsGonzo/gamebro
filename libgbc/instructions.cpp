@@ -54,7 +54,7 @@ namespace gbc
 
   INSTRUCTION(LD_R_A_R) (CPU& cpu, const uint8_t opcode)
   {
-    if (opcode & 4) {
+    if (opcode & 0x8) {
       cpu.registers().accum = cpu.memory().read8(cpu.registers().getreg_sp(opcode));
     } else {
       cpu.memory().write8(cpu.registers().getreg_sp(opcode), cpu.registers().accum);
@@ -62,7 +62,7 @@ namespace gbc
     return 16;
   }
   PRINTER(LD_R_A_R) (char* buffer, size_t len, CPU&, uint8_t opcode) {
-    if (opcode & 4) {
+    if (opcode & 0x8) {
       return snprintf(buffer, len, "LD A, (%s)", cstr_reg(opcode, true));
     }
     return snprintf(buffer, len, "LD (%s), A", cstr_reg(opcode, true));

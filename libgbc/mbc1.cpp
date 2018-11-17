@@ -142,6 +142,5 @@ namespace gbc
   {
     this->m_mode_select = mode & 0x1;
     printf("Mode select: 0x%02x\n", this->m_mode_select);
-    this->m_memory.machine().break_now();
   }
 }

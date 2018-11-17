@@ -47,7 +47,7 @@ int main(int argc, char** args)
 
 	machine = new gbc::Machine(romdata);
 	machine->break_now();
-	//machine->cpu.default_pausepoint(0x204);
+	//machine->cpu.default_pausepoint(0x23a);
 	//machine->verbose_instructions = true;
 	//machine->break_on_interrupts = true;
 	//machine->stop_when_undefined = true;

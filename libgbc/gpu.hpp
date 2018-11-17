@@ -21,7 +21,10 @@ namespace gbc
     TileData create_tiledata();
     void render_and_vblank();
     void render_scanline(int y);
-    uint32_t colorize(uint8_t);
+    uint32_t colorize(uint8_t pal, uint8_t);
+
+    bool is_vblank() const noexcept;
+    bool is_hblank() const noexcept;
 
     Memory&  memory() noexcept { return m_memory; }
     IO&      io() noexcept { return m_io; }
@@ -36,5 +39,8 @@ namespace gbc
     Memory& m_memory;
     IO& m_io;
     int m_current_scanline = 0;
+    int m_current_mode = 0;
+    uint8_t  m_ly = 0x0;
+    uint64_t m_period_clk = 0;
   };
 }

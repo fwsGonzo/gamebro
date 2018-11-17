@@ -27,12 +27,11 @@ namespace gbc
   {
     if (m_signed == false)
         return m_tile_base[y * 32 + x];
-    return (int8_t) m_tile_base[y * 32 + x];
+    return 128 + ((int8_t*) m_tile_base)[y * 32 + x];
   }
 
   inline int TileData::pattern(const uint8_t* base, int tid, int tx, int ty)
   {
-    assert(tid >= 0 && tid < 384);
     assert(tx >= 0 && tx < 8);
     assert(ty >= 0 && ty < 8);
     const int offset = 16*tid + ty * 2;
@@ -50,19 +49,4 @@ namespace gbc
   {
     return pattern(m_patt_base, tid, tx, ty);
   }
-
-  inline void TileData::pattern(int t, std::array<uint8_t, 64>& buffer)
-  {
-    for (int i = 0; i < 16; i += 2)
-    {
-      uint8_t c0 = m_patt_base[t*16 + i];
-      uint8_t c1 = m_patt_base[t*16 + i + 1];
-      // read from right to left
-      for (int pix = 7; pix >= 0; pix--) {
-        // in each pair of c0, c1 bytes there is 8 pixels
-        buffer.at(i * 4 + pix) = (c0 & 0x1) | ((c1 & 0x1) * 2);
-        c0 >>= 1; c1 >>= 1;
-      }
-    }
-  } // pattern(...)
 }
