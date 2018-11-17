@@ -71,27 +71,16 @@ namespace gbc
       REG_IF    = 0xff0f,
       REG_IE    = 0xffff,
     };
-    enum key_t {
-      KEY_RIGHT = 0x11, // bit0, bit4
-      KEY_LEFT  = 0x12, // bit1, bit4
-      KEY_UP    = 0x14, // bit2, bit4
-      KEY_DOWN  = 0x18, // bit3, bit4
-      KEY_A     = 0x21, // bit0, bit5
-      KEY_B     = 0x22, // bit1, bit5
-      KEY_START = 0x23, // bit2, bit5
-      KEY_SELECT= 0x24, // bit3, bit5
-    };
 
     IO(Machine&);
     void    write_io(const uint16_t, uint8_t);
     uint8_t read_io(const uint16_t);
 
+    void    trigger_keys(uint8_t);
     void    trigger(interrupt_t&);
     void    interrupt(interrupt_t&);
     uint8_t interrupt_mask();
     void    start_dma(uint16_t src);
-
-    void    trigger_key(key_t);
 
     Machine& machine() noexcept { return m_machine; }
 

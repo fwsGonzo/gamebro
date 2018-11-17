@@ -396,7 +396,7 @@ namespace gbc
     if (UNLIKELY(cpu.registers().pc == dst+1)) {
       printf(">>> RST loop detected at vector 0x%04x\n", dst);
       cpu.break_now();
-      return 8;
+      return 0;
     }
     // jump to vector area
     unsigned t = cpu.push_and_jump(dst);
@@ -410,10 +410,10 @@ namespace gbc
     return snprintf(buffer, len, "RST 0x%02x", opcode & 0x38);
   }
 
-  INSTRUCTION(STOP) (CPU&, const uint8_t)
+  INSTRUCTION(STOP) (CPU& cpu, const uint8_t)
   {
     printf("Warning: Unimplemented STOP\n");
-    //cpu.stop();
+    cpu.wait();
     return 4;
   }
   PRINTER(STOP) (char* buffer, size_t len, CPU&, uint8_t) {

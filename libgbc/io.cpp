@@ -139,9 +139,10 @@ namespace gbc
     machine().undefined();
   }
 
-  void IO::trigger_key(key_t key)
+  void IO::trigger_keys(uint8_t mask)
   {
-    reg(REG_P1) |= key;
+    m_joypad.keypad  = mask & 0xF;
+    m_joypad.buttons = mask >> 4;
   }
 
   void IO::trigger(interrupt_t& intr)

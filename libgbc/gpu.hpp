@@ -6,6 +6,10 @@
 
 namespace gbc
 {
+  enum pixelmode_t {
+    PM_RGBA = 0,     // regular 32-bit RGBA
+    PM_PALETTE = 1,  // no conversion
+  };
   class GPU
   {
   public:
@@ -15,6 +19,7 @@ namespace gbc
     GPU(Machine&) noexcept;
     void reset() noexcept;
     void simulate();
+    void set_pixelmode(pixelmode_t);
     // the vector is resized to exactly fit the screen
     const auto& pixels() const noexcept { return m_pixels; }
 
@@ -42,10 +47,15 @@ namespace gbc
     std::vector<uint32_t> m_pixels;
     Memory& m_memory;
     IO& m_io;
+    pixelmode_t m_pixelmode = PM_RGBA;
     int m_current_scanline = 0;
     int m_current_mode = 0;
     uint8_t  m_ly = 0x0;
 
     uint16_t m_video_offset = 0x0;
   };
+
+  inline void GPU::set_pixelmode(pixelmode_t pm) {
+    this->m_pixelmode = pm;
+  }
 }

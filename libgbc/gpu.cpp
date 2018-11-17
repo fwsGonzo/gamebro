@@ -157,6 +157,8 @@ namespace gbc
   uint32_t GPU::colorize(const uint8_t pal, const uint8_t idx)
   {
     const uint8_t color = (pal >> (idx*2)) & 0x3;
+    // no conversion
+    if (m_pixelmode == PM_PALETTE) return color;
     // convert palette to colors
     switch (color) {
     case 0:

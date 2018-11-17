@@ -23,7 +23,7 @@ namespace gbc
     // logic
     switch (io.joypad().ioswitch) {
       case 1: return io.joypad().keypad;
-      case 0: return io.joypad().buttons | 0x7;
+      case 0: return io.joypad().buttons;
     }
     assert(0 && "Invalid joypad GPIO value");
   }

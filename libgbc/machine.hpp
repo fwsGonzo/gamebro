@@ -8,6 +8,17 @@
 
 namespace gbc
 {
+  enum keys_t {
+    DPAD_RIGHT = 0x1,
+    DPAD_LEFT  = 0x2,
+    DPAD_DOWN  = 0x4,
+    DPAD_UP    = 0x8,
+    BUTTON_A   = 0x10,
+    BUTTON_B   = 0x20,
+    BUTTON_SELECT = 0x40,
+    BUTTON_START  = 0x80
+  };
+
   class Machine
   {
   public:
@@ -28,6 +39,9 @@ namespace gbc
       DEBUG
     };
     void set_handler(interrupt, interrupt_handler);
+
+    // use keys_t to form an 8-bit mask
+    void set_inputs(uint8_t mask);
 
     /// debugging aids ///
     bool verbose_instructions = false;

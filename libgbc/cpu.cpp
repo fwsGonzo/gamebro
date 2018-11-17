@@ -178,12 +178,15 @@ namespace gbc
     // instruction set extension opcodes
     else if (opcode == 0xcb) return instr_CB_EXT;
     // unused opcodes that do nothing
+    /*
     else if (opcode == 0xdb) return instr_UNUSED_OPS;
+    else if (opcode == 0xe3) return instr_UNUSED_OPS;
+    else if (opcode == 0xe4) return instr_UNUSED_OPS;
     else if (opcode == 0xeb) return instr_UNUSED_OPS;
     else if (opcode == 0xec) return instr_UNUSED_OPS;
-    else if (opcode == 0xe4) return instr_UNUSED_OPS;
     else if (opcode == 0xfc) return instr_UNUSED_OPS;
     else if (opcode == 0xf4) return instr_UNUSED_OPS;
+    */
     else return instr_MISSING;
   }
 

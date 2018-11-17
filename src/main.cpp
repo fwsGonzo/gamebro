@@ -61,6 +61,7 @@ int main(int argc, char** args)
 			static int counter = 0;
 			if (counter++ % 120 == 0)
 			save_screenshot(filename, machine.gpu.pixels());
+			//usleep(1000000);
 		});
 	machine->set_handler(gbc::Machine::DEBUG,
 		[] (gbc::Machine& machine, gbc::interrupt_t&)

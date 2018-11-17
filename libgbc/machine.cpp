@@ -37,6 +37,11 @@ namespace gbc
     }
   }
 
+  void Machine::set_inputs(uint8_t mask)
+  {
+    io.trigger_keys(mask);
+  }
+
   void Machine::break_now()
   {
     cpu.break_now();
