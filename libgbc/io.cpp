@@ -11,6 +11,7 @@ namespace gbc
         timer    {  0x4, 0x50, "Timer" },
         serial   {  0x8, 0x58, "Serial" },
         joypad   { 0x10, 0x60, "Joypad" },
+        debug    {  0x0,  0x0, "Debug" },
         m_machine(mach)
   {
     this->reset();
@@ -94,12 +95,12 @@ namespace gbc
           // modify stat
           reg(REG_STAT) &= 0xfc;
           reg(REG_STAT) |= 0x1;
-          // if V-blank interrupt is enabled
+          // if STAT vblank interrupt is enabled
           if (reg(REG_STAT) & 0x10) {
             this->trigger(lcd_stat);
           }
         }
-        if (this->m_ly == 0) {
+        else if (this->m_ly == 0) {
           m_vblank_end = t;
           // set mode to 0
           this->m_scanmode = 0;
@@ -141,7 +142,7 @@ namespace gbc
         {
           m_scanmode = 3; // H-blank
           // if we are setting MODE 0 now
-          if ((reg(REG_STAT) & 0x3) != 0x0) {
+          if (reg(REG_STAT) & 0x3) {
             // check if need to interrupt
             if (reg(REG_STAT) & 0x8) this->trigger(lcd_stat);
             reg(REG_STAT) &= 0xfc;

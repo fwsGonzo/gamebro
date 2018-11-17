@@ -18,12 +18,14 @@ namespace gbc
     IO     io;
     GPU    gpu;
 
+    void     reset();
     uint64_t now() noexcept;
 
     // set delegates to be notified on interrupts
     enum interrupt {
       VBLANK,
-      TIMER
+      TIMER,
+      DEBUG
     };
     void set_handler(interrupt, interrupt_handler);
 

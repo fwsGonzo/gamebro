@@ -20,12 +20,16 @@ namespace gbc
     registers().de = 0x00d8;
     registers().hl = 0x014d;
     registers().sp = 0xfffe;
-    registers().pc = 0x0;
+    registers().pc =
+        memory().bootrom_enabled() ? 0x0 : 0x100;
     this->m_cycles_total = 0;
   }
 
   void CPU::simulate()
   {
+    // breakpoint handling
+    this->break_checks();
+
     if (!this->is_halting())
     {
       // 1. read instruction from memory
@@ -46,21 +50,6 @@ namespace gbc
 
   unsigned CPU::execute(const uint8_t opcode)
   {
-    if (UNLIKELY(this->break_time())) {
-      this->m_break = false;
-      // pause for each instruction
-      this->print_and_pause(*this, opcode);
-      // user can quit during break
-      if (!this->is_running()) return 0;
-    }
-    else if (UNLIKELY(!m_breakpoints.empty())) {
-      // look for breakpoints
-      auto it = m_breakpoints.find(registers().pc);
-      if (it != m_breakpoints.end()) {
-        auto& bp = it->second;
-        bp.callback(*this, opcode);
-      }
-    }
     // decode into executable instruction
     auto& instr = decode(opcode);
 
@@ -175,15 +164,16 @@ namespace gbc
     else if ((opcode & 0xc7) == 0xc7) return instr_RST;
     else if ((opcode & 0xff) == 0xc3) return instr_JP; // direct
     else if ((opcode & 0xe7) == 0xc2) return instr_JP; // conditional
-    else if ((opcode & 0xff) == 0xc4) return instr_CALL; // direct
-    else if ((opcode & 0xcd) == 0xcd) return instr_CALL; // conditional
+    else if (opcode == 0xcd)          return instr_CALL; // direct
+    else if ((opcode & 0xe7) == 0xc4) return instr_CALL; // conditional
     else if (opcode == 0xe8)          return instr_ADD_SP_N;
     else if ((opcode & 0xef) == 0xea) return instr_LD_N_A_N;
     else if ((opcode & 0xef) == 0xe0) return instr_LD_xxx_A; // FF00+N
     else if ((opcode & 0xef) == 0xe2) return instr_LD_xxx_A; // C
     else if ((opcode & 0xef) == 0xea) return instr_LD_xxx_A; // N
-    else if (opcode == 0xf8) return instr_LD_HL_SP; // N
-    else if ((opcode & 0xef) == 0xe9) return instr_LD_JP_HL;
+    else if (opcode == 0xf8)          return instr_LD_HL_SP; // N
+    else if (opcode == 0xf9)          return instr_LD_HL_SP;
+    else if (opcode == 0xe9)          return instr_JP_HL;
     else if ((opcode & 0xf7) == 0xf3) return instr_DI_EI;
     // instruction set extension opcodes
     else if (opcode == 0xcb) return instr_CB_EXT;
@@ -226,6 +216,6 @@ namespace gbc
     registers().sp -= 2;
     memory().write16(registers().sp, registers().pc);
     registers().pc = address;
-    return 8;
+    return 16;
   }
 }

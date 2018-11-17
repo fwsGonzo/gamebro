@@ -15,6 +15,7 @@ namespace gbc
     int   tile_id(int tx, int ty);
     int   pattern(int t, int dx, int dy);
     void  pattern(int t, std::array<uint8_t, 64>&);
+    int   pattern(const uint8_t* base, int t, int dx, int dy);
 
   private:
     const uint8_t* m_tile_base;
@@ -29,18 +30,26 @@ namespace gbc
     return (int8_t) m_tile_base[y * 32 + x];
   }
 
-  inline int TileData::pattern(int t, int tx, int ty)
+  inline int TileData::pattern(const uint8_t* base, int tid, int tx, int ty)
   {
-    const int i = 16*t + ty * 2;
+    assert(tid >= 0 && tid < 384);
+    assert(tx >= 0 && tx < 8);
+    assert(ty >= 0 && ty < 8);
+    const int offset = 16*tid + ty * 2;
+    //printf("Offset: 16*%d + %d*2 = %d\n", tid, ty, offset);
     // get 16-bit c0, c1
-    uint8_t c0 = m_patt_base[i];
-    uint8_t c1 = m_patt_base[i + 1];
+    uint8_t c0 = base[offset];
+    uint8_t c1 = base[offset + 1];
     // return combined 4-bits, right to left
     const int bit = 7 - tx;
     const int v0 = (c0 >> bit) & 0x1;
     const int v1 = (c1 >> bit) & 0x1;
     return v0 | (v1 << 1);
   } // pattern(...)
+  inline int TileData::pattern(int tid, int tx, int ty)
+  {
+    return pattern(m_patt_base, tid, tx, ty);
+  }
 
   inline void TileData::pattern(int t, std::array<uint8_t, 64>& buffer)
   {

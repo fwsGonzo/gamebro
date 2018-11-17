@@ -3,10 +3,6 @@
 
 namespace gbc
 {
-  static const char* cstr_reg_bc_de(const uint8_t bf) {
-    if (bf) return "DE";
-    return "BC";
-  }
   static const char* cstr_reg(const uint8_t bf, bool sp) {
     static const char* notsp[] = {"BC", "DE", "HL", "AF"};
     static const char* notaf[] = {"BC", "DE", "HL", "SP"};

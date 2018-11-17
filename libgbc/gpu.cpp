@@ -69,25 +69,26 @@ namespace gbc
       const int t = td.tile_id(tx, ty);
       // copy the 16-byte tile into buffer
       const int pal = td.pattern(t, sx & 7, sy & 7);
-      // convert palette to colors
-      uint32_t color = 0;
-      switch (pal) {
-      case 0:
-          color = 0xFFFFFFFF; // white
-          break;
-      case 1:
-          color = 0xFF000000; // black
-          break;
-      case 2:
-          color = 0xFF777777; // gray
-          break;
-      case 3:
-          color = 0xFFA0A0A0; // light-gray
-          break;
-      }
+      const uint32_t color = this->colorize(pal);
       m_pixels.at(scan_y * SCREEN_W + scan_x) = color;
     } // x
   } // render_to(...)
+
+  uint32_t GPU::colorize(const uint8_t pal)
+  {
+    // convert palette to colors
+    switch (pal) {
+    case 0:
+        return 0xFFFFFFFF; // white
+    case 1:
+        return 0xFF000000; // black
+    case 2:
+        return 0xFF777777; // gray
+    case 3:
+        return 0xFFA0A0A0; // light-gray
+    }
+    return 0xFFFF00FF; // magenta = invalid
+  }
 
   uint16_t GPU::bg_tiles() {
     const uint8_t lcdc = memory().read8(IO::REG_LCDC);
@@ -108,5 +109,41 @@ namespace gbc
     const auto* ttile_base = &vram[bg_tiles() - 0x8000];
     const auto* tdata_base = &vram[tile_data() - 0x8000];
     return TileData{ttile_base, tdata_base, is_signed};
+  }
+
+  std::vector<uint32_t> GPU::dump_background()
+  {
+    std::vector<uint32_t> data(256 * 256);
+    // create tiledata object from LCDC register
+    auto td = this->create_tiledata();
+    const auto* vram = memory().video_ram_ptr();
+    const auto* tdata = &vram[0];
+
+    for (int y = 0; y < 256; y++)
+    for (int x = 0; x < 256; x++)
+    {
+      // get the tile id
+      const int t = td.tile_id(x >> 3, y >> 3);
+      // copy the 16-byte tile into buffer
+      const int pal = td.pattern(tdata, t, x & 7, y & 7);
+      data.at(y * 256 + x) = this->colorize(pal);
+    }
+    return data;
+  }
+  std::vector<uint32_t> GPU::dump_tiles()
+  {
+    std::vector<uint32_t> data(16*24 * 8*8);
+    // create tiledata object from LCDC register
+    auto td = this->create_tiledata();
+
+    for (int y = 0; y < 24*8; y++)
+    for (int x = 0; x < 16*8; x++)
+    {
+      int tile = (y / 8) * 16 + (x / 8);
+      // copy the 16-byte tile into buffer
+      const int pal = td.pattern(tile, x & 7, y & 7);
+      data.at(y * 128 + x) = this->colorize(pal);
+    }
+    return data;
   }
 }

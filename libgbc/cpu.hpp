@@ -46,11 +46,13 @@ namespace gbc
     bool is_halting() const noexcept { return m_asleep || m_haltbug != 0; }
 
     // debugging
-    void breakpoint(uint16_t address, breakpoint_t func);
-    void default_pausepoint(uint16_t address);
-    void break_on_steps(int steps);
-    void break_now() { this->m_break = true; }
-    bool is_breaking() const noexcept { return this->m_break; }
+    void  breakpoint(uint16_t address, breakpoint_t func);
+    auto& breakpoints() { return this->m_breakpoints; }
+    void  default_pausepoint(uint16_t address);
+    void  break_on_steps(int steps);
+    void  break_now() { this->m_break = true; }
+    void  break_checks();
+    bool  is_breaking() const noexcept { return this->m_break; }
     static void print_and_pause(CPU&, const uint8_t opcode);
 
     std::string to_string() const;

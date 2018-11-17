@@ -28,12 +28,15 @@ namespace gbc
   usage: command [options]
     commands:
       ?, help               Show this informational text
-      c, continue           Continue execution
+      c, continue           Continue execution, disable stepping
       s, step [steps=1]     Run [steps] instructions, then break
       v, verbose            Toggle verbose instruction execution
       b, break [addr]       Breakpoint on executing [addr]
+      clear                 Clear all breakpoints
+      reset                 Reset the machine
       read [addr] (len=1)   Read from [addr] (len) bytes and print
       write [addr] [value]  Write [value] to memory location [addr]
+      debug                 Trigger the debug interrupt handler
       vblank                Render current screen and call vblank
 )V0G0N";
     printf("%s\n", help_text);
@@ -54,19 +57,20 @@ namespace gbc
     const auto& cmd = params[0];
 
     // continue
-    if (cmd == "" || cmd == "c" || cmd == "continue") {
+    if (cmd == "c" || cmd == "continue") {
+      cpu.break_on_steps(0);
       return false;
     }
     // stepping
+    if (cmd == "") {
+      return false;
+    }
     else if (cmd == "s" || cmd == "step") {
       cpu.machine().verbose_instructions = true; // ???
-      if (params.size() > 1) {
-        const int steps = std::stoi(params[1]);
-        cpu.break_on_steps(steps);
-      }
-      else {
-        cpu.break_now();
-      }
+      int steps = 1;
+      if (params.size() > 1) steps = std::stoi(params[1]);
+      printf("Pressing Enter will now execute %d steps\n", steps);
+      cpu.break_on_steps(steps);
       return false;
     }
     // breaking
@@ -77,7 +81,11 @@ namespace gbc
       }
       unsigned long hex = std::strtoul(params[1].c_str(), 0, 16);
       cpu.default_pausepoint(hex & 0xFFFF);
-      return false;
+      return true;
+    }
+    else if (cmd == "clear") {
+      cpu.breakpoints().clear();
+      return true;
     }
     // verbose instructions
     else if (cmd == "v" || cmd == "verbose") {
@@ -93,6 +101,11 @@ namespace gbc
     }
     else if (cmd == "q" || cmd == "quit" || cmd == "exit") {
       cpu.stop();
+      return false;
+    }
+    else if (cmd == "reset") {
+      cpu.machine().reset();
+      cpu.break_now();
       return false;
     }
     // read 0xAddr size
@@ -129,6 +142,11 @@ namespace gbc
     }
     else if (cmd == "vblank") {
       cpu.machine().gpu.render_and_vblank();
+      return true;
+    }
+    else if (cmd == "debug") {
+      auto& io = cpu.machine().io;
+      io.debug.callback(cpu.machine(), io.debug);
       return true;
     }
     else if (cmd == "help" || cmd == "?") {
@@ -184,5 +202,26 @@ namespace gbc
     assert(steps >= 0);
     this->m_break_steps_cnt = steps;
     this->m_break_steps = steps;
+  }
+
+  void CPU::break_checks()
+  {
+    if (UNLIKELY(this->break_time())) {
+      this->m_break = false;
+      // pause for each instruction
+      this->print_and_pause(*this, this->readop8(0));
+      // user can quit during break
+      if (!this->is_running()) return;
+    }
+    else if (UNLIKELY(!m_breakpoints.empty())) {
+      // look for breakpoints
+      auto it = m_breakpoints.find(registers().pc);
+      if (it != m_breakpoints.end()) {
+        auto& bp = it->second;
+        bp.callback(*this, this->readop8(0));
+        // user can quit during break
+        if (!this->is_running()) return;
+      }
+    }
   }
 }

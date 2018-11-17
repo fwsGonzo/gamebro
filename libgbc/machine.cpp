@@ -9,6 +9,14 @@ namespace gbc
     printf("Game cartridge type: 0x%02x", memory.read8(0x147));
   }
 
+  void Machine::reset()
+  {
+    cpu.reset();
+    memory.reset();
+    io.reset();
+    gpu.reset();
+  }
+
   uint64_t Machine::now() noexcept
   {
     return cpu.gettime();
@@ -22,6 +30,9 @@ namespace gbc
           return;
       case TIMER:
           io.timer.callback = handler;
+          return;
+      case DEBUG:
+          io.debug.callback = handler;
           return;
     }
   }

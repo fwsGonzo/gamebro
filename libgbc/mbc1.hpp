@@ -35,8 +35,10 @@ namespace gbc
     std::vector<uint8_t> m_rom;
     std::array<uint8_t, 32768> m_ram;
     uint32_t m_rom_bank_offset = 0x4000;
+    uint32_t m_ram_bank_size   = 0x0;
     uint16_t m_ram_bank_offset = 0x0;
     bool     m_ram_enabled = false;
+    uint8_t  m_rom_bank_reg    = 0x1;
     uint8_t  m_mode_select = 0x0;
   };
 }

@@ -21,9 +21,12 @@ namespace gbc
     TileData create_tiledata();
     void render_and_vblank();
     void render_scanline(int y);
+    uint32_t colorize(uint8_t);
 
     Memory&  memory() noexcept { return m_memory; }
     IO&      io() noexcept { return m_io; }
+    std::vector<uint32_t> dump_background();
+    std::vector<uint32_t> dump_tiles();
 
   private:
     uint16_t bg_tiles();

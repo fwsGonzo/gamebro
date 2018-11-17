@@ -14,12 +14,12 @@ namespace gbc
   void iowrite_JOYP(IO& io, uint16_t addr, uint8_t value)
   {
     // TODO: joypad functionality
-    //printf("P1/JOYP register 0x%04x write 0x%02x\n", addr, value);
+    printf("P1/JOYP register 0x%04x write 0x%02x\n", addr, value);
   }
   uint8_t ioread_JOYP(IO& io, uint16_t)
   {
     // logic
-    return 0x0f;
+    return 0x0;
   }
 
   void iowrite_DIV(IO& io, uint16_t, uint8_t)

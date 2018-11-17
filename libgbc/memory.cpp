@@ -9,6 +9,12 @@ namespace gbc
   {
     assert(m_mbc.rom_valid());
   }
+  void Memory::reset()
+  {
+    this->disable_bootrom();
+    //this->m_bootrom_enabled = true;
+    //m_mbc.reset();
+  }
   void Memory::install_rom(std::vector<uint8_t> rom) {
     m_mbc.install_rom(std::move(rom));
   }

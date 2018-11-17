@@ -20,7 +20,7 @@ namespace gbc
   {
     cpu.registers().sp = cpu.readop16(0);
     cpu.registers().pc += 2;
-    return 4;
+    return 20;
   }
   PRINTER(LD_N_SP) (char* buffer, size_t len, CPU& cpu, const uint8_t) {
     return snprintf(buffer, len, "LD (0x%04x), SP", cpu.readop16(1));
@@ -30,7 +30,7 @@ namespace gbc
   {
     cpu.registers().getreg_sp(opcode) = cpu.readop16(0);
     cpu.registers().pc += 2;
-    return 4;
+    return 12;
   }
   PRINTER(LD_R_N) (char* buffer, size_t len, CPU& cpu, uint8_t opcode) {
     return snprintf(buffer, len, "LD %s, 0x%04x",
@@ -55,17 +55,17 @@ namespace gbc
   INSTRUCTION(LD_R_A_R) (CPU& cpu, const uint8_t opcode)
   {
     if (opcode & 4) {
-      cpu.memory().write16(cpu.registers().getreg_sp(opcode), cpu.registers().accum);
+      cpu.registers().accum = cpu.memory().read8(cpu.registers().getreg_sp(opcode));
     } else {
-      cpu.registers().accum = cpu.memory().read16(cpu.registers().getreg_sp(opcode));
+      cpu.memory().write8(cpu.registers().getreg_sp(opcode), cpu.registers().accum);
     }
-    return 8;
+    return 16;
   }
   PRINTER(LD_R_A_R) (char* buffer, size_t len, CPU&, uint8_t opcode) {
     if (opcode & 4) {
-      return snprintf(buffer, len, "LD (%s), A", cstr_reg(opcode, true));
+      return snprintf(buffer, len, "LD A, (%s)", cstr_reg(opcode, true));
     }
-    return snprintf(buffer, len, "LD A, (%s)", cstr_reg(opcode, true));
+    return snprintf(buffer, len, "LD (%s), A", cstr_reg(opcode, true));
   }
 
   INSTRUCTION(INC_DEC_R) (CPU& cpu, const uint8_t opcode)
@@ -99,7 +99,7 @@ namespace gbc
         cpu.registers().getdest(dst)--;
       }
       value = cpu.registers().getdest(dst);
-      cycles = 8;
+      cycles = 4;
     }
     else {
       if ((opcode & 0x1) == 0) {
@@ -108,7 +108,7 @@ namespace gbc
         cpu.write_hl(cpu.read_hl() - 1);
       }
       value = cpu.read_hl();
-      cycles = 16;
+      cycles = 12;
     }
     auto& flags = cpu.registers().flags;
     setflag(opcode & 0x1, flags, MASK_NEGATIVE);
@@ -122,12 +122,14 @@ namespace gbc
 
   INSTRUCTION(LD_D_N) (CPU& cpu, const uint8_t opcode)
   {
-    if (((opcode >> 3) & 0x7) != 0x6)
-      cpu.registers().getdest(opcode >> 3) = cpu.readop8(0);
-    else
-      cpu.write_hl(cpu.readop8(0));
+    const uint8_t imm8 = cpu.readop8(0);
     cpu.registers().pc += 1;
-    return 4;
+    if (((opcode >> 3) & 0x7) != 0x6) {
+      cpu.registers().getdest(opcode >> 3) = imm8;
+      return 8;
+    }
+    cpu.write_hl(imm8);
+    return 12;
   }
   PRINTER(LD_D_N) (char* buffer, size_t len, CPU& cpu, uint8_t opcode) {
     if (((opcode >> 3) & 0x7) != 0x6)
@@ -188,14 +190,13 @@ namespace gbc
     uint8_t reg;
     if (!HL) reg = cpu.registers().getdest(opcode);
     else     reg = cpu.read_hl();
-    const unsigned cycles = (HL) ? 8 : 4;
 
     if (((opcode >> 3) & 0x7) != 0x6) {
         cpu.registers().getdest(opcode >> 3) = reg;
-        return cycles;
+        return (HL) ? 8 : 4;
     }
     cpu.write_hl(reg);
-    return cycles + 4;
+    return 8;
   }
   PRINTER(LD_D_D) (char* buffer, size_t len, CPU&, uint8_t opcode) {
     return snprintf(buffer, len, "LD %s, %s",
@@ -214,7 +215,7 @@ namespace gbc
       // load into A from (N)
       cpu.registers().accum = cpu.memory().read8(addr);
     }
-    return 4;
+    return 16;
   }
   PRINTER(LD_N_A_N) (char* buffer, size_t len, CPU& cpu, uint8_t opcode) {
     if ((opcode & 0x10) == 0)
@@ -249,10 +250,10 @@ namespace gbc
       return snprintf(buffer, len, "%s A, (HL=0x%04x)", mnemonic, cpu.registers().hl);
   }
 
-  INSTRUCTION(DAA) (CPU& cpu, const uint8_t)
+  INSTRUCTION(DAA) (CPU&, const uint8_t)
   {
     // TODO: turn A into BCD-mode
-    return 8;
+    return 4;
   }
   PRINTER(DAA) (char* buffer, size_t len, CPU&, uint8_t) {
     return snprintf(buffer, len, "DAA");
@@ -291,11 +292,12 @@ namespace gbc
     if ((opcode & 0x40) == 0)
     {
       // <alu> A, D
-      if ((opcode & 0x7) != 0x6)
+      if ((opcode & 0x7) != 0x6) {
         cpu.registers().alu(alu_op, cpu.registers().getdest(opcode));
-      else
-        cpu.registers().alu(alu_op, cpu.read_hl());
-      return 4;
+        return 4;
+      }
+      cpu.registers().alu(alu_op, cpu.read_hl());
+      return 8;
     }
     // <alu> A, N
     cpu.registers().alu(alu_op, cpu.readop8());
@@ -322,10 +324,10 @@ namespace gbc
       {
         printf("* Jumped to 0x%04x\n", cpu.registers().pc);
       }
-      return 8;
+      return 16;
     }
     cpu.registers().pc += 2;
-    return 8;
+    return 12;
   }
   PRINTER(JP) (char* buffer, size_t len, CPU& cpu, uint8_t opcode) {
     if (opcode & 1) {
@@ -374,6 +376,8 @@ namespace gbc
       if (UNLIKELY((opcode & 0x11) == 0x11)) {
         cpu.enable_interrupts();
       }
+      if ((opcode & 0xef) == 0xc9) return 16;
+      return 20;
     }
     return 8;
   }
@@ -400,14 +404,15 @@ namespace gbc
     {
       printf("* Restart vector 0x%04x\n", cpu.registers().pc);
     }
-    return 4 + t;
+    return t;
   }
   PRINTER(RST) (char* buffer, size_t len, CPU&, uint8_t opcode) {
     return snprintf(buffer, len, "RST 0x%02x", opcode & 0x38);
   }
 
-  INSTRUCTION(STOP) (CPU& cpu, const uint8_t)
+  INSTRUCTION(STOP) (CPU&, const uint8_t)
   {
+    printf("Warning: Unimplemented STOP\n");
     //cpu.stop();
     return 4;
   }
@@ -423,9 +428,9 @@ namespace gbc
       {
         printf("* Jumped relative to 0x%04x\n", cpu.registers().pc);
       }
-    } else {
-      cpu.registers().pc += 1; // skip over imm8
+      return 12;
     }
+    cpu.registers().pc += 1; // skip over imm8
     return 8;
   }
   PRINTER(JR_N) (char* buffer, size_t len, CPU& cpu, uint8_t opcode) {
@@ -461,7 +466,7 @@ namespace gbc
       {
         printf("* Called 0x%04x\n", cpu.registers().pc);
       }
-      return 20;
+      return 24;
     }
     return 12;
   }
@@ -481,7 +486,7 @@ namespace gbc
     cpu.registers().flags = 0;
     cpu.registers().sp += cpu.readop8(0);
     cpu.registers().pc += 1;
-    return 8;
+    return 16;
   }
   PRINTER(ADD_SP_N) (char* buffer, size_t len, CPU& cpu, uint8_t)
   {
@@ -505,7 +510,7 @@ namespace gbc
     else {
       addr = cpu.readop16(0);
       cpu.registers().pc += 2;
-      cycles = 8;
+      cycles = 16;
     }
     if (from_a)
         cpu.memory().write8(addr, cpu.registers().accum);
@@ -534,39 +539,41 @@ namespace gbc
       return snprintf(buffer, len, "LD A, (0x%04x)", cpu.readop16(1));
   }
 
-  INSTRUCTION(LD_HL_SP) (CPU& cpu, const uint8_t)
+  INSTRUCTION(LD_HL_SP) (CPU& cpu, const uint8_t opcode)
   {
-    // TODO: fix flags
-    cpu.registers().flags = 0;
-    cpu.registers().hl = cpu.registers().sp + cpu.readop8(0);
-    cpu.registers().pc++;
-    return 12;
+    if ((opcode & 0x1) == 0x0)
+    {
+      // TODO: fix flags
+      cpu.registers().flags = 0;
+      cpu.registers().hl = cpu.registers().sp + cpu.readop8(0);
+      cpu.registers().pc++;
+      return 12;
+    }
+    cpu.registers().sp = cpu.registers().hl;
+    return 8;
   }
-  PRINTER(LD_HL_SP) (char* buffer, size_t len, CPU& cpu, uint8_t) {
+  PRINTER(LD_HL_SP) (char* buffer, size_t len, CPU& cpu, uint8_t opcode) {
+    if ((opcode & 0x1) == 0x0)
+    {
+      return snprintf(buffer, len,
+                      "LD HL, SP + 0x%02x", cpu.readop8(1));
+    }
     return snprintf(buffer, len,
-                    "LD HL, SP + 0x%02x", cpu.readop8(1));
+                    "LD SP, HL (HL=0x%04x)", cpu.registers().hl);
   }
 
-  INSTRUCTION(LD_JP_HL) (CPU& cpu, const uint8_t opcode)
+  INSTRUCTION(JP_HL) (CPU& cpu, const uint8_t)
   {
-    if (opcode & 0x10) {
-      // LD SP, HL
-      cpu.registers().sp = cpu.registers().hl;
-      return 8;
+    // JP HL
+    cpu.registers().pc = cpu.registers().hl;
+    if (UNLIKELY(cpu.machine().verbose_instructions))
+    {
+      printf("* Jumped to 0x%04x\n", cpu.registers().pc);
     }
-    else {
-      // JP HL
-      cpu.registers().pc = cpu.registers().hl;
-      if (UNLIKELY(cpu.machine().verbose_instructions))
-      {
-        printf("* Jumped to 0x%04x\n", cpu.registers().pc);
-      }
-      return 4;
-    }
+    return 4;
   }
-  PRINTER(LD_JP_HL) (char* buffer, size_t len, CPU& cpu, uint8_t opcode) {
-    const char* mnemonic = (opcode & 0x10) ? "LD SP, HL" : "JP HL";
-    return snprintf(buffer, len, "%s = 0x%04x", mnemonic, cpu.registers().hl);
+  PRINTER(JP_HL) (char* buffer, size_t len, CPU& cpu, uint8_t) {
+    return snprintf(buffer, len, "JP HL (HL=0x%04x)", cpu.registers().hl);
   }
 
   INSTRUCTION(DI_EI) (CPU& cpu, const uint8_t opcode)
@@ -721,10 +728,12 @@ namespace gbc
     return snprintf(buffer, len, "UNUSED 0x%02x", opcode);
   }
 
-  INSTRUCTION(MISSING) (CPU&, const uint8_t opcode)
+  INSTRUCTION(MISSING) (CPU& cpu, const uint8_t opcode)
   {
     fprintf(stderr, "Missing instruction: %#x\n", opcode);
-    assert(0 && "Unimplemented instruction reached");
+    // pause for each instruction
+    cpu.print_and_pause(cpu, opcode);
+    return 4;
   }
   PRINTER(MISSING) (char* buffer, size_t len, CPU&, const uint8_t opcode) {
     return snprintf(buffer, len, "MISSING opcode 0x%02x", opcode);
@@ -757,7 +766,7 @@ namespace gbc
   DEF_INSTR(ADD_SP_N);
   DEF_INSTR(LD_xxx_A);
   DEF_INSTR(LD_HL_SP);
-  DEF_INSTR(LD_JP_HL);
+  DEF_INSTR(JP_HL);
   DEF_INSTR(DI_EI);
   DEF_INSTR(CB_EXT);
   DEF_INSTR(UNUSED_OPS);

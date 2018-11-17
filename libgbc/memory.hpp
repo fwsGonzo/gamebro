@@ -28,6 +28,7 @@ namespace gbc
     static constexpr uint16_t InterruptEn = 0xFFFF;
 
     Memory(Machine&, std::vector<uint8_t> rom);
+    void    reset();
 
     uint8_t read8(uint16_t address);
     void    write8(uint16_t address, uint8_t value);
@@ -42,6 +43,7 @@ namespace gbc
 
     Machine& machine() noexcept { return m_machine; }
     void install_rom(std::vector<uint8_t> rom);
+    bool bootrom_enabled() const noexcept { return m_bootrom_enabled; }
     void disable_bootrom();
 
     // debugging

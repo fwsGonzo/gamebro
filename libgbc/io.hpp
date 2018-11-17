@@ -105,6 +105,7 @@ namespace gbc
     interrupt_t timer;
     interrupt_t serial;
     interrupt_t joypad;
+    interrupt_t debug;
   private:
     Machine& m_machine;
     std::array<uint8_t, 128> m_ioregs = {};
