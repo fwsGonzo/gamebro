@@ -3,20 +3,31 @@
 
 namespace gbc
 {
+  struct sprite_config_t
+  {
+    const uint8_t* patterns;
+    uint8_t palette[2];
+    int  scan_x;
+    int  scan_y;
+    bool mode8x16;
+
+    int height() const noexcept {
+      return mode8x16 ? 16 : 8;
+    }
+  };
+
   class Sprite
   {
   public:
     static const int SPRITE_W = 8;
     static const int SPRITE_H = 8;
 
-    Sprite() {}
-    void draw(int idx, Memory&, std::vector<uint32_t>&);
+    Sprite() = delete;
 
     bool hidden() const noexcept {
       return ypos == 0 || ypos >= 160 || xpos == 0 || xpos >= 168;
     }
-
-    bool above() const noexcept {
+    bool behind() const noexcept {
       return attr & 0x80;
     }
     bool flipx() const noexcept {
@@ -35,11 +46,14 @@ namespace gbc
       return attr & 0x3;
     }
 
-    int x() const noexcept { return xpos - 8; }
-    int y() const noexcept { return ypos - 16; }
+    uint8_t pixel(const sprite_config_t&) const;
 
-    bool is_within_scanline(int scan_y) const noexcept {
-      return scan_y >= y() && scan_y < y() + SPRITE_H;
+    int start_x() const noexcept { return xpos - 8; }
+    int start_y() const noexcept { return ypos - 16; }
+
+    bool is_within_scanline(const sprite_config_t& config) const noexcept {
+      return config.scan_y >= start_y()
+          && config.scan_y <  start_y() + config.height();
     }
 
   private:
@@ -49,9 +63,21 @@ namespace gbc
     uint8_t attr;
   };
 
-  inline void Sprite::draw(int i, Memory& mem, std::vector<uint32_t>& buffer)
+  inline uint8_t Sprite::pixel(const sprite_config_t& config) const
   {
-    uint8_t pattern = mem.read8(0x8000 + i);
-    
+    int tx = config.scan_x - start_x();
+    int ty = config.scan_y - start_y();
+    if (tx < 0 || tx >= SPRITE_W) return 0;
+    if (this->flipx()) tx = SPRITE_W-1 - tx;
+    if (this->flipy()) ty = config.height()-1 - ty;
+
+    const int offset = this->pattern*16 + ty*2;
+    uint8_t c0 = config.patterns[offset];
+    uint8_t c1 = config.patterns[offset + 1];
+    // return combined 4-bits, right to left
+    const int bit = 7 - tx;
+    const int v0 = (c0 >> bit) & 0x1;
+    const int v1 = (c1 >> bit) & 0x1;
+    return v0 | (v1 << 1);
   }
 }

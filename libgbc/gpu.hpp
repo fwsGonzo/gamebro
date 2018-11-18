@@ -1,6 +1,7 @@
 #pragma once
 #include "common.hpp"
 #include "tiledata.hpp"
+#include "sprite.hpp"
 #include <cstdint>
 #include <vector>
 
@@ -23,11 +24,7 @@ namespace gbc
     // the vector is resized to exactly fit the screen
     const auto& pixels() const noexcept { return m_pixels; }
 
-    TileData create_tiledata();
     void render_and_vblank();
-    void render_scanline(int y);
-    uint32_t colorize(uint8_t pal, uint8_t);
-
     bool is_vblank() const noexcept;
     bool is_hblank() const noexcept;
     int  current_mode() const noexcept { return m_current_mode; }
@@ -41,6 +38,11 @@ namespace gbc
     std::vector<uint32_t> dump_tiles();
 
   private:
+    void render_scanline(int y);
+    TileData create_tiledata();
+    sprite_config_t sprite_config();
+    std::vector<const Sprite*> find_sprites(const sprite_config_t&);
+    uint32_t colorize(uint8_t pal, uint8_t);
     uint16_t bg_tiles();
     uint16_t tile_data();
 
@@ -49,8 +51,7 @@ namespace gbc
     IO& m_io;
     pixelmode_t m_pixelmode = PM_RGBA;
     int m_current_scanline = 0;
-    int m_current_mode = 0;
-    uint8_t  m_ly = 0x0;
+    int m_current_mode = 2;
 
     uint16_t m_video_offset = 0x0;
   };

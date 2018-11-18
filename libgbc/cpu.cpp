@@ -116,7 +116,6 @@ namespace gbc
       else if (imask &  0x4) io.interrupt(io.timerint);
       else if (imask &  0x8) io.interrupt(io.serialint);
       else if (imask & 0x10) io.interrupt(io.joypadint);
-      else this->break_now();
     }
     if (this->m_asleep == false) {
       // skip instructions after halting

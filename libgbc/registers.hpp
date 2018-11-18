@@ -144,12 +144,12 @@ namespace gbc
             setflag(reg == 0, flags, MASK_ZERO);
             return;
         case 0x7: // CP
-            //printf("\nCP 0x%02x vs 0x%02x (HL=0x%04x)\n", reg, value, hl);
             const uint8_t tmp = reg - value;
             flags |= MASK_NEGATIVE;
             setflag(tmp == 0, flags, MASK_ZERO);
             setflag(reg < value, flags, MASK_CARRY);
             setflag(half_borrow(reg, value), flags, MASK_HALFCARRY);
+            //printf("CP %02x vs %02x (F => %02x)\n", reg, value, flags);
             return;
       }
     } // alu()

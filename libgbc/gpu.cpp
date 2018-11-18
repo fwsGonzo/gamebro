@@ -25,30 +25,37 @@ namespace gbc
 
   void GPU::simulate()
   {
+    static const int SCANLINE_CYCLES = 456*4;
+    static const int OAM_CYCLES      = 80*4;
+    static const int VRAM_CYCLES     = 172*4;
+
     // nothing to do with LCD being off
-    if ((io().reg(IO::REG_LCDC) & 0x80) == 0) return;
+    if ((io().reg(IO::REG_LCDC) & 0x80) == 0) {
+      return;
+    }
 
     auto& vblank   = io().vblank;
     auto& lcd_stat = io().lcd_stat;
     auto& reg_stat = io().reg(IO::REG_STAT);
+    auto& reg_ly   = io().reg(IO::REG_LY);
 
     const uint64_t t = io().machine().now();
-    const uint64_t period = t - vblank.last_time;
+    const uint64_t period = t - lcd_stat.last_time;
 
-    // vblank always when screen on
-    static const int SCANLINE_CYCLES = 456;
-    if (t >= vblank.last_time + SCANLINE_CYCLES)
+    // scanline logic when screen on
+    if (t >= lcd_stat.last_time + SCANLINE_CYCLES)
     {
-      vblank.last_time = t;
+      lcd_stat.last_time = t;
       // scanline LY increment logic
       static const int MAX_LINES = 154;
-      this->m_ly = (this->m_ly + 1) % MAX_LINES;
-      io().reg(IO::REG_LY) = this->m_ly;
+      reg_ly = (reg_ly + 1) % MAX_LINES;
+      this->m_current_scanline = reg_ly;
+      //printf("LY is now %#x\n", this->m_current_scanline);
 
-      if (this->m_ly == 0) {
+      if (reg_ly == 0) {
         // start of new frame
       }
-      else if (this->m_ly == 144)
+      else if (reg_ly == 144)
       {
         assert(this->is_vblank());
         // vblank interrupt
@@ -61,7 +68,7 @@ namespace gbc
       }
     }
     // STAT coincidence bit
-    if (this->m_ly == io().reg(IO::REG_LYC)) {
+    if (reg_ly == io().reg(IO::REG_LYC)) {
       // STAT interrupt (if enabled)
       if ((reg_stat & 0x4) == 0
         && reg_stat & 0x40) io().trigger(lcd_stat);
@@ -74,7 +81,7 @@ namespace gbc
     // STAT mode & scanline period modulation
     if (!this->is_vblank())
     {
-      if (m_current_mode < 2 && period < 80+172)
+      if (m_current_mode < 2 && period < OAM_CYCLES+VRAM_CYCLES)
       {
         // enable MODE 2: OAM search
         // check if OAM interrupt enabled
@@ -82,13 +89,16 @@ namespace gbc
         reg_stat &= 0xfc;
         reg_stat |= 0x2;
       }
-      else if (m_current_mode == 2 && period >= 80)
+      else if (m_current_mode == 2 && period >= OAM_CYCLES)
       {
         // enable MODE 3: Scanline VRAM
         reg_stat &= 0xfc;
         reg_stat |= 0x3;
+        // render a scanline
+        this->render_scanline(m_current_scanline);
+        // TODO: perform HDMA transfers here!
       }
-      else if (m_current_mode == 3 && period >= 80+172)
+      else if (m_current_mode == 3 && period >= OAM_CYCLES+VRAM_CYCLES)
       {
         // enable MODE 0: H-blank
         if (reg_stat & 0x8) io().trigger(lcd_stat);
@@ -99,22 +109,10 @@ namespace gbc
       //        current_mode(), reg_stat & 0x3, period);
       m_current_mode = reg_stat & 0x3;
     }
-
-    // MODE 3: Scanline VRAM
-    if (m_current_mode == 3)
-    {
-      // get current scanline
-      const int scanline = this->m_ly;
-      if (m_current_scanline != scanline && scanline < SCREEN_H)
-      {
-        m_current_scanline = scanline;
-        this->render_scanline(m_current_scanline);
-      }
-    }
   }
 
   bool GPU::is_vblank() const noexcept {
-    return m_ly >= 144;
+    return m_current_scanline >= 144;
   }
   bool GPU::is_hblank() const noexcept {
     return m_current_mode == 3;
@@ -133,10 +131,15 @@ namespace gbc
   {
     const uint8_t scroll_y = memory().read8(IO::REG_SCY);
     const uint8_t scroll_x = memory().read8(IO::REG_SCX);
-    const uint8_t pal = memory().read8(IO::REG_BGP);
+    const uint8_t pal  = memory().read8(IO::REG_BGP);
 
     // create tiledata object from LCDC register
     auto td = this->create_tiledata();
+    // create sprite configuration structure
+    auto sprconf = this->sprite_config();
+    sprconf.scan_y = scan_y;
+    // create list of sprites that are on this scanline
+    auto sprites = this->find_sprites(sprconf);
 
     // render whole scanline
     for (int scan_x = 0; scan_x < SCREEN_W; scan_x++)
@@ -148,8 +151,19 @@ namespace gbc
       // get the tile id
       const int t = td.tile_id(tx, ty);
       // copy the 16-byte tile into buffer
-      const int idx = td.pattern(t, sx & 7, sy & 7);
-      const uint32_t color = this->colorize(pal, idx);
+      const int tidx = td.pattern(t, sx & 7, sy & 7);
+      uint32_t color = this->colorize(pal, tidx);
+
+      // render sprites within this x
+      sprconf.scan_x = scan_x;
+      for (const auto* sprite : sprites) {
+        const uint8_t idx = sprite->pixel(sprconf);
+        if (idx != 0) {
+          if (!sprite->behind() || tidx == 0) {
+            color = this->colorize(sprconf.palette[sprite->pal()], idx);
+          }
+        }
+      }
       m_pixels.at(scan_y * SCREEN_W + scan_x) = color;
     } // x
   } // render_to(...)
@@ -192,6 +206,33 @@ namespace gbc
     const auto* ttile_base = &vram[bg_tiles() - 0x8000];
     const auto* tdata_base = &vram[tile_data() - 0x8000];
     return TileData{ttile_base, tdata_base, is_signed};
+  }
+  sprite_config_t GPU::sprite_config()
+  {
+    const uint8_t lcdc = memory().read8(IO::REG_LCDC);
+    sprite_config_t config;
+    config.patterns = memory().video_ram_ptr();
+    config.palette[0] = memory().read8(IO::REG_OBP0);
+    config.palette[1] = memory().read8(IO::REG_OBP1);
+    config.scan_x = 0;
+    config.scan_y = 0;
+    config.mode8x16 = lcdc & 0x4;
+    return config;
+  }
+
+  std::vector<const Sprite*> GPU::find_sprites(const sprite_config_t& config)
+  {
+    const auto* oam = memory().oam_ram_ptr();
+    const Sprite* sprite = (Sprite*) oam;
+    const Sprite* sprite_end = sprite + 40;
+    std::vector<const Sprite*> results;
+
+    while (sprite < sprite_end) {
+      if (sprite->hidden() == false)
+      if (sprite->is_within_scanline(config)) results.push_back(sprite);
+      sprite++;
+    }
+    return results;
   }
 
   std::vector<uint32_t> GPU::dump_background()

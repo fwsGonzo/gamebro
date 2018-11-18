@@ -156,7 +156,7 @@ namespace gbc
       printf("%9lu: Executing interrupt %s (%#x)\n",
              machine().cpu.gettime(), intr.name, intr.mask);
     }
-    unsigned int t = 12;
+    unsigned int t = 4;
     // disable interrupt request
     reg(REG_IF) &= ~intr.mask;
     // set interrupt bit

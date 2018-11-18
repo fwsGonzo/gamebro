@@ -17,13 +17,16 @@ namespace gbc
     value &= 0x30;
     if      (value == 0x10) io.joypad().ioswitch = 0;
     else if (value == 0x20) io.joypad().ioswitch = 1;
+    else printf("JOYP strange write: 0x%02x\n", value);
   }
   uint8_t ioread_JOYP(IO& io, uint16_t)
   {
     // logic
     switch (io.joypad().ioswitch) {
-      case 1: return io.joypad().keypad;
-      case 0: return io.joypad().buttons;
+      //case 0: return 0xD0 | (~io.joypad().keypad  & 0xF);
+      //case 1: return 0xE0 | (~io.joypad().buttons & 0xF);
+      case 0: return 0xD0 | (~io.joypad().buttons & 0xF);
+      case 1: return 0xE0 | (~io.joypad().keypad  & 0xF);
     }
     assert(0 && "Invalid joypad GPIO value");
   }
@@ -32,7 +35,6 @@ namespace gbc
   {
     // writing to DIV resets it to 0
     io.reg(IO::REG_DIV) = 0;
-    io.machine().break_now();
   }
   uint8_t ioread_DIV(IO& io, uint16_t)
   {

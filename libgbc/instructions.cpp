@@ -113,6 +113,10 @@ namespace gbc
     auto& flags = cpu.registers().flags;
     setflag(opcode & 0x1, flags, MASK_NEGATIVE);
     setflag(value == 0, flags, MASK_ZERO); // set zero
+    if ((opcode & 0x1) == 0)
+        setflag((value & 0xF) == 0x0, flags, MASK_HALFCARRY);
+    else
+        setflag((value & 0xF) == 0xF, flags, MASK_HALFCARRY);
     return cycles;
   }
   PRINTER(INC_DEC_D) (char* buffer, size_t len, CPU&, uint8_t opcode) {
@@ -288,7 +292,7 @@ namespace gbc
   // ALU A, D / A, N
   INSTRUCTION(ALU_A_N_D) (CPU& cpu, const uint8_t opcode)
   {
-    const uint8_t alu_op = opcode >> 3;
+    const uint8_t alu_op = (opcode >> 3) & 0x7;
     if ((opcode & 0x40) == 0)
     {
       // <alu> A, D
@@ -300,7 +304,8 @@ namespace gbc
       return 8;
     }
     // <alu> A, N
-    cpu.registers().alu(alu_op, cpu.readop8());
+    const uint8_t imm8 = cpu.readop8();
+    cpu.registers().alu(alu_op, imm8);
     cpu.registers().pc++;
     return 8;
   }
@@ -587,7 +592,7 @@ namespace gbc
     return 4;
   }
   PRINTER(DI_EI) (char* buffer, size_t len, CPU&, uint8_t opcode) {
-    const char* mnemonic = (opcode & 0x10) ? "DI" : "EI";
+    const char* mnemonic = (opcode & 0x08) ? "EI" : "DI";
     return snprintf(buffer, len, "%s", mnemonic);
   }
 
@@ -684,6 +689,7 @@ namespace gbc
         // SWAP D
         const uint8_t low = reg & 0xF;
         reg = (reg >> 4) | (low << 4);
+        cpu.registers().flags = 0;
         setflag(reg == 0, cpu.registers().flags, MASK_ZERO);
       }
       else {
