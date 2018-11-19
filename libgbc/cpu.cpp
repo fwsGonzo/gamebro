@@ -6,16 +6,17 @@
 
 namespace gbc
 {
-  CPU::CPU(Machine& mach) noexcept
+  CPU::CPU(Machine& mach, bool init) noexcept
     : m_machine(mach), m_memory(mach.memory)
   {
-    this->reset();
+    if (init) this->reset();
+    else m_registers = {};
   }
 
   void CPU::reset() noexcept
   {
     // gameboy color CGB initial register values
-    registers().af = 0x11b0;
+    registers().af = 0x01b0;
     registers().bc = 0x0013;
     registers().de = 0x00d8;
     registers().hl = 0x014d;

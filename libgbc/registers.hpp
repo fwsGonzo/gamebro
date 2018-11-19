@@ -107,7 +107,7 @@ namespace gbc
             flags &= ~MASK_NEGATIVE;
             setflag((reg & 0xf) + (value & 0xf) + carry > 0xf,
                     flags, MASK_HALFCARRY); // annoying!
-            setflag((int)reg + value + carry > 0xFFFF, flags, MASK_CARRY);
+            setflag((int)reg + value + carry > 0xFF, flags, MASK_CARRY);
             reg += value + carry;
             setflag(reg == 0, flags, MASK_ZERO);
           } return;
@@ -157,12 +157,9 @@ namespace gbc
     std::string to_string() const {
       char buffer[512];
       int len = snprintf(buffer, sizeof(buffer),
-          "\tAF = 0x%04x  BC = 0x%04x  A = 0x%02x  F = 0x%02x  B = 0x%02x\n"
-          "\tDE = 0x%04x  HL = 0x%04x  C = 0x%02x  D = 0x%02x  E = 0x%02x\n"
-          "\tSP = 0x%04x  PC = 0x%04x  H = 0x%02x  L = 0x%02x",
-          af, bc, accum, flags, b,
-          de, hl, c, d, e,
-          sp, pc, h, l);
+          "\tAF = %04X  BC = %04X  DE = %04X\n"
+          "\tHL = %04X  SP = %04X  PC = %04X\n",
+          af, bc, de, hl, sp, pc);
       return std::string(buffer, len);
     }
   };

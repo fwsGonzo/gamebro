@@ -93,8 +93,8 @@ namespace gbc
 
     struct joypad_t {
       uint8_t  ioswitch = 0;
-      uint8_t  keypad  = 0x0;
-      uint8_t  buttons = 0x0;
+      uint8_t  keypad  = 0xFF;
+      uint8_t  buttons = 0xFF;
     };
     inline joypad_t& joypad() { return m_joypad; }
 

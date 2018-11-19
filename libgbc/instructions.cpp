@@ -650,17 +650,19 @@ namespace gbc
     else if ((opcode & 0xF0) == 0x10)
     {
       auto& flags = cpu.registers().flags;
-      flags = 0;
+      // NOTE: dont reset flags here
       if (opcode & 0x8) {
         // RR D, rotate D right, old CF to bit 7
         const uint8_t bit0 = reg & 0x1;
         reg = (reg >> 1) | ((cpu.registers().flags & MASK_CARRY) << 3);
+        flags = 0;
         flags |= bit0 << 4; // old bit0 to CF
       }
       else {
         // RL D, rotate D left, old CF to bit 0
         const uint8_t bit7 = reg & 0x80;
         reg = (reg << 1) | ((cpu.registers().flags & MASK_CARRY) >> 4);
+        flags = 0;
         flags |= bit7 >> 3; // old bit7 to CF
       }
       setflag(reg == 0, cpu.registers().flags, MASK_ZERO);

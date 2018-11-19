@@ -167,17 +167,18 @@ namespace gbc
     char buffer[512];
     cpu.decode(opcode).printer(buffer, sizeof(buffer), cpu, opcode);
     printf("\n");
-    printf(">>> Breakpoint at [pc 0x%04x] opcode 0x%02x: %s\n",
+    printf(">>> Breakpoint at [pc %04X] opcode %02X: %s\n",
            cpu.registers().pc, opcode, buffer);
     // CPU registers
-    printf("%s\n", cpu.registers().to_string().c_str());
+    printf("%s", cpu.registers().to_string().c_str());
     // I/O interrupt registers
     auto& io = cpu.machine().io;
-    printf("\tIF = 0x%02x  IE = 0x%02x  IME 0x%x\n",
-           io.read_io(IO::REG_IF), io.read_io(IO::REG_IE), cpu.ime());
+    printf("\tIF %02X  IE %02X  IME %X  LY %u  LCDC 0x%X\n",
+           io.read_io(IO::REG_IF), io.read_io(IO::REG_IE), cpu.ime(),
+           io.read_io(IO::REG_LY), io.read_io(IO::REG_LCDC));
     try {
       auto& mem = cpu.memory();
-      printf("\t(HL) = 0x%02x  (SP) = 0x%04x\n",
+      printf("\t(HL) = %02X  (SP) = %04X\n",
             cpu.read_hl(), mem.read16(cpu.registers().sp));
     } catch (...) {
       printf("\tUnable to read from (HL) or (SP)\n");

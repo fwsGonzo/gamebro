@@ -141,8 +141,13 @@ namespace gbc
 
   void IO::trigger_keys(uint8_t mask)
   {
-    m_joypad.keypad  = mask & 0xF;
-    m_joypad.buttons = mask >> 4;
+    m_joypad.keypad  = ~(mask & 0xF);
+    m_joypad.buttons = ~(mask >> 4);
+    // trigger joypad interrupt on every change
+    if (joypadint.last_time != mask) {
+      joypadint.last_time = mask;
+      this->trigger(joypadint);
+    }
   }
 
   void IO::trigger(interrupt_t& intr)

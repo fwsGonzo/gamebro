@@ -16,6 +16,7 @@ namespace gbc
     int   pattern(int t, int dx, int dy);
     void  pattern(int t, std::array<uint8_t, 64>&);
     int   pattern(const uint8_t* base, int t, int dx, int dy);
+    void  set_tilebase(const uint8_t* new_base) { m_tile_base = new_base; }
 
   private:
     const uint8_t* m_tile_base;

@@ -13,20 +13,14 @@ namespace gbc
 
   void iowrite_JOYP(IO& io, uint16_t, uint8_t value)
   {
-    //printf("JOYP write 0x%02x\n", value);
-    value &= 0x30;
-    if      (value == 0x10) io.joypad().ioswitch = 0;
-    else if (value == 0x20) io.joypad().ioswitch = 1;
-    else printf("JOYP strange write: 0x%02x\n", value);
+    if      (value & 0x10) io.joypad().ioswitch = 0;
+    else if (value & 0x20) io.joypad().ioswitch = 1;
   }
   uint8_t ioread_JOYP(IO& io, uint16_t)
   {
-    // logic
     switch (io.joypad().ioswitch) {
-      //case 0: return 0xD0 | (~io.joypad().keypad  & 0xF);
-      //case 1: return 0xE0 | (~io.joypad().buttons & 0xF);
-      case 0: return 0xD0 | (~io.joypad().buttons & 0xF);
-      case 1: return 0xE0 | (~io.joypad().keypad  & 0xF);
+      case 0: return 0xD0 | io.joypad().buttons;
+      case 1: return 0xE0 | io.joypad().keypad;
     }
     assert(0 && "Invalid joypad GPIO value");
   }

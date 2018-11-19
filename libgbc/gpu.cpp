@@ -241,7 +241,6 @@ namespace gbc
     const uint8_t pal = memory().read8(IO::REG_BGP);
     // create tiledata object from LCDC register
     auto td = this->create_tiledata();
-    const auto* vram = memory().video_ram_ptr();
 
     for (int y = 0; y < 256; y++)
     for (int x = 0; x < 256; x++)
@@ -260,6 +259,8 @@ namespace gbc
     const uint8_t pal = memory().read8(IO::REG_BGP);
     // create tiledata object from LCDC register
     auto td = this->create_tiledata();
+    // tiles start at the beginning of video RAM
+    td.set_tilebase(memory().video_ram_ptr());
 
     for (int y = 0; y < 24*8; y++)
     for (int x = 0; x < 16*8; x++)

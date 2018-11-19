@@ -22,6 +22,7 @@ void Service::start()
   });
   auto& filesys = fs::memdisk().fs();
   auto rombuffer = filesys.read_file("/tloz_la.gb");
+  assert(rombuffer.is_valid());
   auto romdata = std::move(*rombuffer.get());
 
   static gbc::Machine* machine = nullptr;
@@ -68,28 +69,28 @@ void Service::start()
     switch (key) {
     case hw::KBM::VK_ENTER:
     case hw::KBM::VK_SPACE:
-        setflag(pressed, keys, gbc::BUTTON_START);
+        gbc::setflag(pressed, keys, gbc::BUTTON_START);
         break;
     case hw::KBM::VK_BACK:
-        setflag(pressed, keys, gbc::BUTTON_SELECT);
+        gbc::setflag(pressed, keys, gbc::BUTTON_SELECT);
         break;
     case hw::KBM::VK_Z:
-        setflag(pressed, keys, gbc::BUTTON_B);
+        gbc::setflag(pressed, keys, gbc::BUTTON_B);
         break;
     case hw::KBM::VK_X:
-        setflag(pressed, keys, gbc::BUTTON_A);
+        gbc::setflag(pressed, keys, gbc::BUTTON_A);
         break;
     case hw::KBM::VK_UP:
-        setflag(pressed, keys, gbc::DPAD_UP);
+        gbc::setflag(pressed, keys, gbc::DPAD_UP);
         break;
     case hw::KBM::VK_DOWN:
-        setflag(pressed, keys, gbc::DPAD_DOWN);
+        gbc::setflag(pressed, keys, gbc::DPAD_DOWN);
         break;
     case hw::KBM::VK_RIGHT:
-        setflag(pressed, keys, gbc::DPAD_RIGHT);
+        gbc::setflag(pressed, keys, gbc::DPAD_RIGHT);
         break;
     case hw::KBM::VK_LEFT:
-        setflag(pressed, keys, gbc::DPAD_LEFT);
+        gbc::setflag(pressed, keys, gbc::DPAD_LEFT);
         break;
     }
     machine->set_inputs(keys);

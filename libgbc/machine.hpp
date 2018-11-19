@@ -11,8 +11,8 @@ namespace gbc
   enum keys_t {
     DPAD_RIGHT = 0x1,
     DPAD_LEFT  = 0x2,
-    DPAD_DOWN  = 0x4,
-    DPAD_UP    = 0x8,
+    DPAD_UP    = 0x4,
+    DPAD_DOWN  = 0x8,
     BUTTON_A   = 0x10,
     BUTTON_B   = 0x20,
     BUTTON_SELECT = 0x40,
@@ -22,7 +22,7 @@ namespace gbc
   class Machine
   {
   public:
-    Machine(std::vector<uint8_t> rom);
+    Machine(std::vector<uint8_t> rom, bool init = true);
 
     CPU    cpu;
     Memory memory;

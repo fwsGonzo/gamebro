@@ -3,10 +3,9 @@
 
 namespace gbc
 {
-  Machine::Machine(std::vector<uint8_t> rom)
-      : cpu(*this), memory(*this, rom), io(*this), gpu(*this)
+  Machine::Machine(std::vector<uint8_t> rom, bool init)
+      : cpu(*this, init), memory(*this, std::move(rom)), io(*this), gpu(*this)
   {
-    printf("Game cartridge type: 0x%02x", memory.read8(0x147));
   }
 
   void Machine::reset()

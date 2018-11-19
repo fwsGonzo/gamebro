@@ -47,7 +47,7 @@ int main(int argc, char** args)
 
 	machine = new gbc::Machine(romdata);
 	machine->break_now();
-	//machine->cpu.default_pausepoint(0x23a);
+	//machine->cpu.default_pausepoint(0x2cb5);
 	//machine->verbose_instructions = true;
 	//machine->break_on_interrupts = true;
 	//machine->stop_when_undefined = true;
@@ -72,11 +72,19 @@ int main(int argc, char** args)
 			save_screenshot(tilefile, machine.gpu.dump_tiles());
 		});
 
+	extern void do_test_machine();
+	//do_test_machine();
+
 	while (machine->cpu.is_running())
 	{
 		machine->cpu.simulate();
 		machine->io.simulate();
 		machine->gpu.simulate();
+
+		static int counter = 0;
+		std::array<uint8_t, 8> inputs = {0x80, 0x10, 0x10, 0x80, 0x10, 0x80, 0x0, 0x0};
+		machine->set_inputs(inputs.at(counter));
+		counter = (counter + 1) % inputs.size();
 	}
 	save_screenshot("exitshot.bmp", machine->gpu.pixels());
 

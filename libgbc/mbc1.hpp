@@ -47,6 +47,7 @@ namespace gbc
     uint16_t m_wram_size   = 0x2000;
     bool     m_ram_enabled = false;
     uint8_t  m_rom_bank_reg    = 0x1;
-    uint8_t  m_mode_select = 0x0;
+    uint8_t  m_mode_select = 0;
+    uint8_t  m_version = 1;
   };
 }

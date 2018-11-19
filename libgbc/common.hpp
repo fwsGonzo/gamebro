@@ -1,4 +1,5 @@
 #pragma once
+#include <cstdint>
 
 #ifndef LIKELY
 #define LIKELY(x)       __builtin_expect((x),1)
@@ -13,10 +14,9 @@ namespace gbc
   class Machine;
   class Memory;
   class IO;
-}
 
-#include <cstdint>
-inline void setflag(bool expr, uint8_t& flg, uint8_t mask) {
-  if (expr) flg |= mask;
-  else      flg &= ~mask;
+  inline void setflag(bool expr, uint8_t& flg, uint8_t mask) {
+    if (expr) flg |= mask;
+    else      flg &= ~mask;
+  }
 }

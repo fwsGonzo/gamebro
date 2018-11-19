@@ -13,6 +13,38 @@ namespace gbc
     m_ram.at(0x102) = 0x5;
     m_ram.at(0x103) = 0x7;
     m_ram.at(0x104) = 0x9;
+    // test ROMs are just instruction arrays
+    if (m_rom.size() < 0x150) return;
+    // parse ROM header
+    switch (m.read8(0x147)) {
+      case 0x0:
+      case 0x1: // MBC 1
+      case 0x2:
+      case 0x3:
+          this->m_version = 1;
+          break;
+      case 0x5:
+      case 0x6:
+          this->m_version = 2;
+          assert(0 && "MBC2 is a weirdo!");
+          break;
+      case 0x0F:
+      case 0x10: // MBC 3
+      case 0x12:
+      case 0x13:
+          this->m_version = 3;
+          break;
+      case 0x19:
+      case 0x1A: // MBC 5
+      case 0x1B:
+      case 0x1C:
+      case 0x1D:
+      case 0x1E:
+          this->m_version = 5;
+          break;
+      default:
+          assert(0 && "Unknown cartridge type");
+    }
     switch (m.read8(0x149)) {
       case 0x0:
           m_ram_bank_size = 0; break;
@@ -82,20 +114,30 @@ namespace gbc
   {
     if (addr < 0x2000) // RAM enable
     {
-      this->m_ram_enabled = ((value & 0xF) == 0xA);
+      if (m_version == 2)
+          this->m_ram_enabled = value != 0;
+      else
+          this->m_ram_enabled = ((value & 0xF) == 0xA);
       //printf("* RAM enabled: %d\n", this->m_ram_enabled);
       return;
     }
     else if (addr < 0x4000) // ROM bank number
     {
-      this->m_rom_bank_reg &= 0x60;
-      this->m_rom_bank_reg |= value & 0x1F;
+      if (this->m_version < 3) {
+        this->m_rom_bank_reg &= 0x60;
+        this->m_rom_bank_reg |= value & 0x1F;
+        //printf("Selecting ROM bank lower bits: 0x%02x\n", value);
+      }
+      else {
+        this->m_rom_bank_reg = value;
+      }
       this->set_rombank(this->m_rom_bank_reg);
       return;
     }
     else if (addr < 0x6000) // ROM/RAM bank number
     {
-      if (this->m_ram_bank_size > 0) {
+      //printf("Selecting ROM bank upper bits: 0x%02x\n", value);
+      if (this->m_mode_select == 1 || m_version > 2) {
         this->set_rambank(value & 0x3);
       }
       else {
@@ -145,9 +187,13 @@ namespace gbc
 
   void MBC1::set_rombank(int reg)
   {
-    if (reg == 0x0 || reg == 0x20 || reg == 0x40 || reg == 0x60) reg++;
+    if (reg == 0) reg++;
+    if (this->m_version < 3) { // bug!
+      if (reg == 0x20 || reg == 0x40 || reg == 0x60) reg++;
+    }
     // cant select bank 0
     const int offset = reg * rombank_size();
+    printf("Selecting ROM bank 0x%02x offset %#x max %#zx\n", reg, offset, m_rom.size());
     if (UNLIKELY((offset + rombank_size()) > m_rom.size()))
     {
       printf("Invalid ROM bank 0x%02x offset %#x max %#zx\n", reg, offset, m_rom.size());
