@@ -80,8 +80,11 @@ namespace gbc
       return;
     }
     else if (this->is_within(address, VideoRAM)) {
-      const uint16_t offset = machine().gpu.video_offset();
-      m_video_ram.at(offset + address - VideoRAM.first) = value;
+      if (machine().gpu.video_writable())
+      {
+        const uint16_t offset = machine().gpu.video_offset();
+        m_video_ram.at(offset + address - VideoRAM.first) = value;
+      }
       return;
     }
     else if (this->is_within(address, BankRAM)) {
@@ -122,5 +125,26 @@ namespace gbc
   void Memory::write16(uint16_t address, uint16_t value) {
     write8(address+0, value & 0xff);
     write8(address+1, value >> 8);
+  }
+
+  bool Memory::double_speed() const noexcept
+  {
+    return m_speed_factor != 1;
+  }
+  int  Memory::speed_factor() const noexcept
+  {
+    return m_speed_factor;
+  }
+  void Memory::do_switch_speed()
+  {
+    auto& speed = machine().io.reg(IO::REG_KEY1);
+    if (speed) {
+      speed = 0x0;
+      this->m_speed_factor = 1;
+    }
+    else {
+      speed = 0x80;
+      this->m_speed_factor = 2;
+    }
   }
 }

@@ -47,6 +47,10 @@ namespace gbc
     bool bootrom_enabled() const noexcept { return m_bootrom_enabled; }
     void disable_bootrom();
 
+    bool double_speed() const noexcept;
+    int  speed_factor() const noexcept;
+    void do_switch_speed();
+
     // debugging
     enum amode_t { READ, WRITE };
     using access_t = delegate<void(Memory&, uint16_t, uint8_t)>;
@@ -65,7 +69,8 @@ namespace gbc
     std::array<uint8_t, 128>   m_zram = {}; // high-speed RAM
     std::vector<access_t> m_read_breakpoints;
     std::vector<access_t> m_write_breakpoints;
-    bool m_bootrom_enabled = true;
+    bool   m_bootrom_enabled = true;
+    int8_t m_speed_factor = 1;
   };
 
   inline void Memory::breakpoint(amode_t mode, access_t func) {

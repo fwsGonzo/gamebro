@@ -193,7 +193,9 @@ namespace gbc
     }
     // cant select bank 0
     const int offset = reg * rombank_size();
-    printf("Selecting ROM bank 0x%02x offset %#x max %#zx\n", reg, offset, m_rom.size());
+    if (verbose_banking()) {
+      printf("Selecting ROM bank 0x%02x offset %#x max %#zx\n", reg, offset, m_rom.size());
+    }
     if (UNLIKELY((offset + rombank_size()) > m_rom.size()))
     {
       printf("Invalid ROM bank 0x%02x offset %#x max %#zx\n", reg, offset, m_rom.size());
@@ -205,6 +207,9 @@ namespace gbc
   void MBC1::set_rambank(int reg)
   {
     const int offset = reg * rambank_size();
+    if (verbose_banking()) {
+      printf("Selecting RAM bank 0x%02x offset %#x max %#zx\n", reg, offset, m_ram_bank_size);
+    }
     if (UNLIKELY((offset + rambank_size()) > m_ram_bank_size))
     {
       printf("Invalid RAM bank 0x%02x offset %#x\n", reg, offset);
@@ -216,18 +221,25 @@ namespace gbc
   void MBC1::set_wrambank(int reg)
   {
     const int offset = reg * wrambank_size();
+    if (verbose_banking()) {
+      printf("Selecting WRAM bank 0x%02x offset %#x max %#zx\n", reg, offset, m_wram_size);
+    }
     if (UNLIKELY((offset + wrambank_size()) > m_wram_size))
     {
       printf("Invalid Work RAM bank 0x%02x offset %#x\n", reg, offset);
       this->m_memory.machine().break_now();
       return;
     }
-    printf("Work RAM bank 0x%02x offset %#x\n", reg, offset);
+    if (verbose_banking()) {
+      printf("Work RAM bank 0x%02x offset %#x\n", reg, offset);
+    }
     this->m_wram_offset = offset;
   }
   void MBC1::set_mode(int mode)
   {
+    if (verbose_banking()) {
+      printf("Mode select: 0x%02x\n", this->m_mode_select);
+    }
     this->m_mode_select = mode & 0x1;
-    printf("Mode select: 0x%02x\n", this->m_mode_select);
   }
 }

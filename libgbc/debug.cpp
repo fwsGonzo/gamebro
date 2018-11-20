@@ -100,7 +100,7 @@ namespace gbc
       return false;
     }
     else if (cmd == "q" || cmd == "quit" || cmd == "exit") {
-      cpu.stop();
+      cpu.machine().stop();
       return false;
     }
     else if (cmd == "reset") {
@@ -213,7 +213,7 @@ namespace gbc
       // pause for each instruction
       this->print_and_pause(*this, this->readop8(0));
       // user can quit during break
-      if (!this->is_running()) return;
+      if (!machine().is_running()) return;
     }
     else if (UNLIKELY(!m_breakpoints.empty())) {
       // look for breakpoints
@@ -222,7 +222,7 @@ namespace gbc
         auto& bp = it->second;
         bp.callback(*this, this->readop8(0));
         // user can quit during break
-        if (!this->is_running()) return;
+        if (!machine().is_running()) return;
       }
     }
   }

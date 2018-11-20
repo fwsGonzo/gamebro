@@ -42,7 +42,7 @@ namespace gbc
     void disable_interrupts() noexcept;
     bool ime() const noexcept { return m_intr_master_enable; }
 
-    bool is_running() const noexcept { return m_running; }
+    bool is_stopping() const noexcept { return m_stopped; }
     bool is_halting() const noexcept { return m_asleep || m_haltbug != 0; }
 
     // debugging
@@ -70,7 +70,7 @@ namespace gbc
     uint8_t  m_last_flags = 0xff;
     bool     m_intr_master_enable = false;
     int8_t   m_intr_pending = 0;
-    bool     m_running = true;
+    bool     m_stopped = false;
     bool     m_asleep = false;
     uint8_t  m_haltbug = 0;
     // debugging

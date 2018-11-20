@@ -5,6 +5,10 @@
 #define DEF_INSTR(x) static instruction_t instr_##x {handler_##x, printer_##x}
 #define INSTRUCTION(x) static unsigned handler_##x
 #define PRINTER(x) static int printer_##x
+union imm8_t {
+  uint8_t u8;
+  int8_t  s8;
+};
 
 namespace gbc
 {
@@ -42,9 +46,9 @@ namespace gbc
     auto& reg   = cpu.registers().getreg_sp(opcode);
     auto& hl    = cpu.registers().hl;
     auto& flags = cpu.registers().flags;
-    flags &= ~MASK_NEGATIVE;
-    if (((hl &  0x0fff) + (reg &  0x0fff)) &  0x1000) flags |= MASK_HALFCARRY;
-    if (((hl & 0x0ffff) + (reg & 0x0ffff)) & 0x10000) flags |= MASK_CARRY;
+    setflag(false, flags, MASK_NEGATIVE);
+    setflag(((hl &  0x0fff) + (reg &  0x0fff)) &  0x1000, flags, MASK_HALFCARRY);
+    setflag(((hl & 0x0ffff) + (reg & 0x0ffff)) & 0x10000, flags, MASK_CARRY);
     hl += reg;
     return 8;
   }
@@ -254,9 +258,13 @@ namespace gbc
       return snprintf(buffer, len, "%s A, (HL=0x%04x)", mnemonic, cpu.registers().hl);
   }
 
-  INSTRUCTION(DAA) (CPU&, const uint8_t)
+  INSTRUCTION(DAA) (CPU& cpu, const uint8_t)
   {
     // TODO: turn A into BCD-mode
+    auto& regs = cpu.registers();
+    setflag(regs.accum == 0, regs.flags, MASK_ZERO);
+    setflag(false, regs.flags, MASK_HALFCARRY);
+    setflag(false, regs.flags, MASK_CARRY);
     return 4;
   }
   PRINTER(DAA) (char* buffer, size_t len, CPU&, uint8_t) {
@@ -266,8 +274,9 @@ namespace gbc
   INSTRUCTION(CPL) (CPU& cpu, const uint8_t)
   {
     cpu.registers().accum = ~cpu.registers().accum;
-    cpu.registers().flags |= MASK_NEGATIVE;
-    cpu.registers().flags |= MASK_HALFCARRY;
+    auto& regs = cpu.registers();
+    setflag(true, regs.flags, MASK_NEGATIVE);
+    setflag(true, regs.flags, MASK_HALFCARRY);
     return 4;
   }
   PRINTER(CPL) (char* buffer, size_t len, CPU&, uint8_t) {
@@ -418,7 +427,18 @@ namespace gbc
   INSTRUCTION(STOP) (CPU& cpu, const uint8_t)
   {
     printf("Warning: Unimplemented STOP\n");
-    cpu.wait();
+    // STOP is a weirdo two-byte instruction
+    cpu.registers().pc++;
+    cpu.incr_cycles(4);
+    // disable screen etc.
+    cpu.machine().io.perform_stop();
+    // on CGB we can do a speed switch
+    if (cpu.machine().is_cgb())
+    {
+      // TODO: CGB speed switch
+    }
+    // enter stopped state
+    cpu.stop();
     return 4;
   }
   PRINTER(STOP) (char* buffer, size_t len, CPU&, uint8_t) {
@@ -487,10 +507,12 @@ namespace gbc
 
   INSTRUCTION(ADD_SP_N) (CPU& cpu, const uint8_t)
   {
-    // TODO: fix flags
+    imm8_t imm;
+    imm.u8 = cpu.readop8(0);
     cpu.registers().flags = 0;
-    cpu.registers().sp += cpu.readop8(0);
+    cpu.registers().sp += imm.s8;
     cpu.registers().pc += 1;
+    // TODO: fix flags
     return 16;
   }
   PRINTER(ADD_SP_N) (char* buffer, size_t len, CPU& cpu, uint8_t)
@@ -548,9 +570,12 @@ namespace gbc
   {
     if ((opcode & 0x1) == 0x0)
     {
+      imm8_t imm; // the ADD operation is signed
+      imm.u8 = cpu.readop8(0);
       // TODO: fix flags
       cpu.registers().flags = 0;
-      cpu.registers().hl = cpu.registers().sp + cpu.readop8(0);
+      setflag((cpu.registers().sp & 0xff) + (imm.u8 & 0x100), cpu.registers().flags, MASK_CARRY);
+      cpu.registers().hl = cpu.registers().sp + imm.s8;
       cpu.registers().pc++;
       return 12;
     }

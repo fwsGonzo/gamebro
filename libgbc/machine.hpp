@@ -31,6 +31,8 @@ namespace gbc
 
     void     reset();
     uint64_t now() noexcept;
+    bool     is_running() const noexcept;
+    bool     is_cgb() const noexcept;
 
     // set delegates to be notified on interrupts
     enum interrupt {
@@ -53,5 +55,9 @@ namespace gbc
     void break_now();
     bool is_breaking() const noexcept;
     void undefined();
+    void stop() noexcept;
+  private:
+    bool m_running = true;
+    bool m_cgb_mode = false;
   };
 }

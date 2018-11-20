@@ -25,9 +25,9 @@ namespace gbc
 
   void GPU::simulate()
   {
-    static const int SCANLINE_CYCLES = 456*4;
-    static const int OAM_CYCLES      = 80*4;
-    static const int VRAM_CYCLES     = 172*4;
+    const int SCANLINE_CYCLES = memory().speed_factor() * 454;
+    static const int OAM_CYCLES      = 80;
+    static const int VRAM_CYCLES     = 172;
 
     // nothing to do with LCD being off
     if ((io().reg(IO::REG_LCDC) & 0x80) == 0) {
@@ -45,7 +45,7 @@ namespace gbc
     // scanline logic when screen on
     if (t >= lcd_stat.last_time + SCANLINE_CYCLES)
     {
-      lcd_stat.last_time = t;
+      lcd_stat.last_time += SCANLINE_CYCLES;
       // scanline LY increment logic
       static const int MAX_LINES = 154;
       reg_ly = (reg_ly + 1) % MAX_LINES;
@@ -276,5 +276,33 @@ namespace gbc
   void GPU::set_video_bank(uint8_t bank)
   {
     this->m_video_offset = bank * 0x2000;
+  }
+  bool GPU::video_writable() noexcept
+  {
+    const uint8_t lcdc = memory().read8(IO::REG_LCDC);
+    if (lcdc & 0x80) {
+      return is_vblank() || is_hblank();
+    }
+    return true; // when LCD is off, always writable
+  }
+  void GPU::lcd_power_changed(const bool online)
+  {
+    printf("Screen turned %s\n", online ? "ON" : "OFF");
+    auto& lcd_stat = io().lcd_stat;
+    if (online)
+    {
+      // at the start of a new frame
+      lcd_stat.last_time = io().machine().now();
+      lcd_stat.last_time -= 456*4 * memory().speed_factor();
+      m_current_scanline = 153;
+      io().reg(IO::REG_LY) = m_current_scanline;
+    }
+    else
+    {
+      // LCD off, just reset to LY 0
+      lcd_stat.last_time = io().machine().now();
+      io().reg(IO::REG_LY) = 0;
+      m_current_scanline = 0;
+    }
   }
 }

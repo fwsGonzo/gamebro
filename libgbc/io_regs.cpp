@@ -35,6 +35,27 @@ namespace gbc
     return io.reg(IO::REG_DIV);
   }
 
+  void iowrite_LCDC(IO& io, uint16_t addr, uint8_t value)
+  {
+    const bool was_enabled = io.reg(addr) & 0x80;
+    io.reg(addr) = value;
+    const bool is_enabled = io.reg(addr) & 0x80;
+    // check if LCD just turned on
+    if (!was_enabled && is_enabled)
+    {
+      io.machine().gpu.lcd_power_changed(true);
+    }
+    // check if LCD was just turned off
+    else if (was_enabled && !is_enabled)
+    {
+      io.machine().gpu.lcd_power_changed(false);
+    }
+  }
+  uint8_t ioread_LCDC(IO& io, uint16_t addr)
+  {
+    return io.reg(addr);
+  }
+
   void iowrite_STAT(IO& io, uint16_t addr, uint8_t value)
   {
     // can only write to the upper bits 3-7
@@ -59,7 +80,17 @@ namespace gbc
 
   void iowrite_HDMA(IO& io, uint16_t addr, uint8_t value)
   {
-    printf("HDMA 0x%04x write 0x%02x\n", addr, value);
+    switch (addr) {
+      case IO::REG_HDMA1:
+      case IO::REG_HDMA3:
+          io.reg(addr) = value;
+          return;
+      case IO::REG_HDMA2:
+      case IO::REG_HDMA4:
+          io.reg(addr) = value & 0xF0;
+          return;
+    }
+    // HDMA 5: start DMA operation
     uint16_t src = (io.reg(IO::REG_HDMA1) << 8) | io.reg(IO::REG_HDMA2);
     src &= 0xFFF0;
     uint16_t dst = (io.reg(IO::REG_HDMA3) << 8) | io.reg(IO::REG_HDMA4);
@@ -93,12 +124,12 @@ namespace gbc
   void iowrite_KEY1(IO& io, uint16_t addr, uint8_t value)
   {
     printf("KEY1 0x%04x write 0x%02x\n", addr, value);
-    io.reg(addr) = 0x0;
-    //assert(0 && "KEY1 registers written to");
+    io.reg(addr) &= 0x80;
+    io.reg(addr) |= value & 1;
   }
   uint8_t ioread_KEY1(IO& io, uint16_t addr)
   {
-    return io.reg(addr);
+    return io.reg(addr) | (io.machine().is_cgb() ? 0x7E : 0xFF);
   }
 
   void iowrite_VBK(IO& io, uint16_t addr, uint8_t value)
@@ -109,7 +140,7 @@ namespace gbc
   }
   uint8_t ioread_VBK(IO& io, uint16_t addr)
   {
-    return io.reg(addr);
+    return io.reg(addr) | 0xfe;
   }
 
   void iowrite_BOOT(IO& io, uint16_t addr, uint8_t value)
@@ -139,8 +170,9 @@ namespace gbc
   static void set_io_handlers() {
     IOHANDLER(IO::REG_P1,    JOYP);
     IOHANDLER(IO::REG_DIV,   DIV);
-    IOHANDLER(IO::REG_DMA,   DMA);
+    IOHANDLER(IO::REG_LCDC,  LCDC);
     IOHANDLER(IO::REG_STAT,  STAT);
+    IOHANDLER(IO::REG_DMA,   DMA);
     IOHANDLER(IO::REG_KEY1,  KEY1);
     IOHANDLER(IO::REG_VBK,   VBK);
     IOHANDLER(IO::REG_HDMA1, HDMA);

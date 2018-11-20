@@ -61,9 +61,9 @@ namespace gbc
       const std::array<int, 4> TIMA_CYCLES = {1024, 16, 64, 256};
       const int speed = this->reg(REG_TAC) & 0x3;
       // TIMA counter timer
-      if (t >= timerint.last_time + TIMA_CYCLES[speed])
+      while (t >= timerint.last_time + TIMA_CYCLES[speed])
       {
-        timerint.last_time = t;
+        timerint.last_time += TIMA_CYCLES[speed];
         this->reg(REG_TIMA)++;
         // timer interrupt when overflowing to 0
         if (this->reg(REG_TIMA) == 0) {
@@ -146,7 +146,7 @@ namespace gbc
     // trigger joypad interrupt on every change
     if (joypadint.last_time != mask) {
       joypadint.last_time = mask;
-      this->trigger(joypadint);
+      //this->trigger(joypadint);
     }
   }
 
@@ -186,5 +186,15 @@ namespace gbc
     m_dma.src = src;
     m_dma.dst = 0xfe00;
     m_dma.bytes_left = 160; // 160 bytes total
+  }
+  void IO::perform_stop()
+  {
+    this->m_stop_reg = 0x1;
+    // remember previous LCD on/off value
+    this->m_stop_reg |= reg(REG_LCDC) & 0x80;
+    // disable LCD
+    reg(REG_LCDC) &= ~0x80;
+    // enable joypad interrupts
+    this->m_reg_ie |= joypadint.mask;
   }
 }

@@ -30,8 +30,11 @@ namespace gbc
     int  current_mode() const noexcept { return m_current_mode; }
 
     uint16_t video_offset() const noexcept { return m_video_offset; }
+    bool     video_writable() noexcept;
     void     set_video_bank(uint8_t bank);
+    void     lcd_power_changed(bool state);
 
+    Machine& machine() noexcept { return m_memory.machine(); }
     Memory&  memory() noexcept { return m_memory; }
     IO&      io() noexcept { return m_io; }
     std::vector<uint32_t> dump_background();

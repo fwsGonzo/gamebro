@@ -205,7 +205,7 @@ namespace gbc
 
   void CPU::stop()
   {
-    this->m_running = false;
+    this->m_stopped = true;
   }
 
   void CPU::wait()
