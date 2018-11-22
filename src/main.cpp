@@ -75,7 +75,7 @@ int main(int argc, char** args)
 	extern void do_test_machine();
 	//do_test_machine();
 
-	while (machine->cpu.is_running())
+	while (machine->is_running())
 	{
 		machine->cpu.simulate();
 		machine->io.simulate();

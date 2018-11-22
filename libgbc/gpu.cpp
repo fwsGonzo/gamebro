@@ -22,10 +22,12 @@ namespace gbc
     m_pixels.resize(SCREEN_W * SCREEN_H);
     this->m_video_offset = 0;
   }
-
+  uint64_t GPU::scanline_cycles()
+  {
+    return memory().speed_factor() * 456;
+  }
   void GPU::simulate()
   {
-    const int SCANLINE_CYCLES = memory().speed_factor() * 454;
     static const int OAM_CYCLES      = 80;
     static const int VRAM_CYCLES     = 172;
 
@@ -41,24 +43,23 @@ namespace gbc
 
     const uint64_t t = io().machine().now();
     const uint64_t period = t - lcd_stat.last_time;
+    bool new_scanline = false;
 
     // scanline logic when screen on
-    if (t >= lcd_stat.last_time + SCANLINE_CYCLES)
+    if (t >= lcd_stat.last_time + scanline_cycles())
     {
-      lcd_stat.last_time += SCANLINE_CYCLES;
+      lcd_stat.last_time += scanline_cycles();
       // scanline LY increment logic
       static const int MAX_LINES = 154;
       reg_ly = (reg_ly + 1) % MAX_LINES;
       this->m_current_scanline = reg_ly;
+      new_scanline = true;
       //printf("LY is now %#x\n", this->m_current_scanline);
 
-      if (reg_ly == 0) {
-        // start of new frame
-      }
-      else if (reg_ly == 144)
+      if (reg_ly == 144)
       {
         assert(this->is_vblank());
-        // vblank interrupt
+        // MODE 1: vblank interrupt
         io().trigger(vblank);
         // modify stat
         reg_stat &= 0xfc;
@@ -66,22 +67,14 @@ namespace gbc
         // if STAT vblank interrupt is enabled
         if (reg_stat & 0x10) io().trigger(lcd_stat);
       }
-    }
-    // STAT coincidence bit
-    if (reg_ly == io().reg(IO::REG_LYC)) {
-      // STAT interrupt (if enabled)
-      if ((reg_stat & 0x4) == 0
-        && reg_stat & 0x40) io().trigger(lcd_stat);
-      setflag(true, reg_stat, 0x4);
-    }
-    else {
-      setflag(false, reg_stat, 0x4);
+      // LY == LYC comparison on each line
+      this->do_ly_comparison();
     }
     m_current_mode = reg_stat & 0x3;
     // STAT mode & scanline period modulation
     if (!this->is_vblank())
     {
-      if (m_current_mode < 2 && period < OAM_CYCLES+VRAM_CYCLES)
+      if (m_current_mode < 2 && new_scanline)
       {
         // enable MODE 2: OAM search
         // check if OAM interrupt enabled
@@ -116,6 +109,16 @@ namespace gbc
   }
   bool GPU::is_hblank() const noexcept {
     return m_current_mode == 3;
+  }
+
+  void GPU::do_ly_comparison()
+  {
+    auto& reg_stat = io().reg(IO::REG_STAT);
+    const bool equal = io().reg(IO::REG_LY) == io().reg(IO::REG_LYC);
+    // STAT coincidence bit
+    setflag(equal, reg_stat, 0x4);
+    // STAT interrupt (if enabled) when LY == LYC
+    if (equal && (reg_stat & 0x40)) io().trigger(io().lcd_stat);
   }
 
   void GPU::render_and_vblank()
@@ -292,8 +295,7 @@ namespace gbc
     if (online)
     {
       // at the start of a new frame
-      lcd_stat.last_time = io().machine().now();
-      lcd_stat.last_time -= 456*4 * memory().speed_factor();
+      lcd_stat.last_time = io().machine().now() - scanline_cycles();
       m_current_scanline = 153;
       io().reg(IO::REG_LY) = m_current_scanline;
     }

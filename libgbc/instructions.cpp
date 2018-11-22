@@ -27,7 +27,7 @@ namespace gbc
     return 20;
   }
   PRINTER(LD_N_SP) (char* buffer, size_t len, CPU& cpu, const uint8_t) {
-    return snprintf(buffer, len, "LD (0x%04x), SP", cpu.readop16(1));
+    return snprintf(buffer, len, "LD (%04x), SP", cpu.readop16(1));
   }
 
   INSTRUCTION(LD_R_N) (CPU& cpu, const uint8_t opcode)
@@ -37,7 +37,7 @@ namespace gbc
     return 12;
   }
   PRINTER(LD_R_N) (char* buffer, size_t len, CPU& cpu, uint8_t opcode) {
-    return snprintf(buffer, len, "LD %s, 0x%04x",
+    return snprintf(buffer, len, "LD %s, %04x",
                     cstr_reg(opcode, true), cpu.readop16(1));
   }
 
@@ -188,7 +188,7 @@ namespace gbc
   }
   PRINTER(RLC_RRC) (char* buffer, size_t len, CPU& cpu, uint8_t opcode) {
     const char* mnemonic[4] = {"RLC", "RRC", "RL", "RR"};
-    return snprintf(buffer, len, "%s A (A = 0x%02x)",
+    return snprintf(buffer, len, "%s A (A = %02x)",
                     mnemonic[opcode >> 3], cpu.registers().accum);
   }
 
@@ -215,7 +215,7 @@ namespace gbc
   {
     const uint16_t addr = cpu.readop16(0);
     cpu.registers().pc += 2;
-    if ((opcode & 0x10) == 0) {
+    if (opcode == 0xEA) {
       // load into (N) from A
       cpu.memory().write8(addr, cpu.registers().accum);
     }
@@ -226,7 +226,7 @@ namespace gbc
     return 16;
   }
   PRINTER(LD_N_A_N) (char* buffer, size_t len, CPU& cpu, uint8_t opcode) {
-    if ((opcode & 0x10) == 0)
+    if (opcode == 0xEA)
       return snprintf(buffer, len, "LD (0x%04x), A", cpu.readop16(1));
     else
       return snprintf(buffer, len, "LD A, (0x%04x)", cpu.readop16(1));
@@ -260,18 +260,31 @@ namespace gbc
 
   INSTRUCTION(DAA) (CPU& cpu, const uint8_t)
   {
-    // TODO: turn A into BCD-mode
     auto& regs = cpu.registers();
+    if (regs.flags & MASK_NEGATIVE)
+    {
+      if (regs.flags & MASK_CARRY) regs.accum -= 0x60;
+      if (regs.flags & MASK_HALFCARRY) regs.accum -= 0x06;
+    }
+    else
+    {
+      if ((regs.flags & MASK_CARRY) || regs.accum > 0x99) {
+        regs.accum += 0x60;
+        setflag(true, regs.flags, MASK_CARRY);
+      }
+      if ((regs.flags & MASK_HALFCARRY) || (regs.accum & 0xF) > 0x9) {
+        regs.accum += 0x06;
+      }
+    }
     setflag(regs.accum == 0, regs.flags, MASK_ZERO);
     setflag(false, regs.flags, MASK_HALFCARRY);
-    setflag(false, regs.flags, MASK_CARRY);
     return 4;
   }
   PRINTER(DAA) (char* buffer, size_t len, CPU&, uint8_t) {
     return snprintf(buffer, len, "DAA");
   }
 
-  INSTRUCTION(CPL) (CPU& cpu, const uint8_t)
+  INSTRUCTION(CPL_A) (CPU& cpu, const uint8_t)
   {
     cpu.registers().accum = ~cpu.registers().accum;
     auto& regs = cpu.registers();
@@ -279,19 +292,22 @@ namespace gbc
     setflag(true, regs.flags, MASK_HALFCARRY);
     return 4;
   }
-  PRINTER(CPL) (char* buffer, size_t len, CPU&, uint8_t) {
-    return snprintf(buffer, len, "CPL");
+  PRINTER(CPL_A) (char* buffer, size_t len, CPU&, uint8_t) {
+    return snprintf(buffer, len, "CPL A");
   }
 
   INSTRUCTION(SCF_CCF) (CPU& cpu, const uint8_t opcode)
   {
-    if ((opcode & 0x8) == 0) { // Set CF
-      cpu.registers().flags |= MASK_CARRY;
-    } else { // Complement CF
-      cpu.registers().flags ^= MASK_CARRY;
+    auto& flags = cpu.registers().flags;
+    if ((opcode & 0x8) == 0) {
+      // Set CF
+      flags |= MASK_CARRY;
+    } else {
+      // Complement CF
+      setflag(not (flags & MASK_CARRY), flags, MASK_CARRY);
     }
-    cpu.registers().flags &= ~MASK_NEGATIVE;
-    cpu.registers().flags &= ~MASK_HALFCARRY;
+    setflag(false, flags, MASK_NEGATIVE);
+    setflag(false, flags, MASK_HALFCARRY);
     return 4;
   }
   PRINTER(SCF_CCF) (char* buffer, size_t len, CPU&, uint8_t opcode) {
@@ -299,35 +315,36 @@ namespace gbc
   }
 
   // ALU A, D / A, N
-  INSTRUCTION(ALU_A_N_D) (CPU& cpu, const uint8_t opcode)
+  INSTRUCTION(ALU_A_D) (CPU& cpu, const uint8_t opcode)
   {
     const uint8_t alu_op = (opcode >> 3) & 0x7;
-    if ((opcode & 0x40) == 0)
-    {
-      // <alu> A, D
-      if ((opcode & 0x7) != 0x6) {
-        cpu.registers().alu(alu_op, cpu.registers().getdest(opcode));
-        return 4;
-      }
-      cpu.registers().alu(alu_op, cpu.read_hl());
-      return 8;
+    // <alu> A, D
+    if ((opcode & 0x7) != 0x6) {
+      cpu.registers().alu(alu_op, cpu.registers().getdest(opcode));
+      return 4;
     }
+    cpu.registers().alu(alu_op, cpu.read_hl());
+    return 8;
+  }
+  PRINTER(ALU_A_D) (char* buffer, size_t len, CPU&, uint8_t opcode)
+  {
+    return snprintf(buffer, len, "%s A, %s",
+                    cstr_alu(opcode >> 3), cstr_dest(opcode));
+  }
+
+  INSTRUCTION(ALU_A_N) (CPU& cpu, const uint8_t opcode)
+  {
+    const uint8_t alu_op = (opcode >> 3) & 0x7;
     // <alu> A, N
     const uint8_t imm8 = cpu.readop8();
     cpu.registers().alu(alu_op, imm8);
     cpu.registers().pc++;
     return 8;
   }
-  PRINTER(ALU_A_N_D) (char* buffer, size_t len, CPU& cpu, uint8_t opcode)
+  PRINTER(ALU_A_N) (char* buffer, size_t len, CPU& cpu, uint8_t opcode)
   {
-    const uint8_t alu_op = opcode >> 3;
-    if ((opcode & 0x40) == 0)
-    {
-      return snprintf(buffer, len, "%s A, %s",
-                      cstr_alu(alu_op), cstr_dest(opcode));
-    }
     return snprintf(buffer, len, "%s A, 0x%02x",
-                    cstr_alu(alu_op), cpu.readop8(1));
+                    cstr_alu(opcode >> 3), cpu.readop8(1));
   }
 
   INSTRUCTION(JP) (CPU& cpu, const uint8_t opcode)
@@ -520,7 +537,7 @@ namespace gbc
     return snprintf(buffer, len, "ADD SP, 0x%02x", cpu.readop8(1));
   }
 
-  INSTRUCTION(LD_xxx_A) (CPU& cpu, const uint8_t opcode)
+  INSTRUCTION(LD_FF00_A) (CPU& cpu, const uint8_t opcode)
   {
     const bool from_a = (opcode & 0x10) == 0;
     uint16_t addr;
@@ -530,14 +547,9 @@ namespace gbc
       cpu.registers().pc += 1;
       cycles = 12;
     }
-    else if ((opcode & 0xa) == 0x2) {
+    else {
       addr = 0xFF00 + cpu.registers().c;
       cycles = 8;
-    }
-    else {
-      addr = cpu.readop16(0);
-      cpu.registers().pc += 2;
-      cycles = 16;
     }
     if (from_a)
         cpu.memory().write8(addr, cpu.registers().accum);
@@ -545,30 +557,24 @@ namespace gbc
         cpu.registers().accum = cpu.memory().read8(addr);
     return cycles;
   }
-  PRINTER(LD_xxx_A) (char* buffer, size_t len, CPU& cpu, uint8_t opcode)
+  PRINTER(LD_FF00_A) (char* buffer, size_t len, CPU& cpu, uint8_t opcode)
   {
-    const bool from_a = (opcode & 0x10) == 0;
-    if ((opcode & 0xa) == 0x0) {
-      if (from_a)
-        return snprintf(buffer, len, "LD (FF00+0x%02x), A", cpu.readop8(1));
-      else
-        return snprintf(buffer, len, "LD A, (FF00+0x%02x)", cpu.readop8(1));
+    switch (opcode) {
+      case 0xE2:
+        return snprintf(buffer, len, "LD (FF00+C=%02x), A", cpu.registers().c);
+      case 0xF2:
+        return snprintf(buffer, len, "LD A, (FF00+C=%02x)", cpu.registers().c);
+      case 0xE0:
+        return snprintf(buffer, len, "LD (FF00+%02x), A", cpu.readop8(1));
+      case 0xF0:
+        return snprintf(buffer, len, "LD A, (FF00+%02x)", cpu.readop8(1));
     }
-    else if ((opcode & 0xa) == 0x2) {
-      if (from_a)
-        return snprintf(buffer, len, "LD (FF00+0x%02x), A", cpu.registers().c);
-      else
-        return snprintf(buffer, len, "LD A, (FF00+0x%02x)", cpu.registers().c);
-    }
-    if (from_a)
-      return snprintf(buffer, len, "LD (0x%04x), A", cpu.readop16(1));
-    else
-      return snprintf(buffer, len, "LD A, (0x%04x)", cpu.readop16(1));
+    assert(0);
   }
 
   INSTRUCTION(LD_HL_SP) (CPU& cpu, const uint8_t opcode)
   {
-    if ((opcode & 0x1) == 0x0)
+    if (opcode == 0xF8)
     {
       imm8_t imm; // the ADD operation is signed
       imm.u8 = cpu.readop8(0);
@@ -583,13 +589,13 @@ namespace gbc
     return 8;
   }
   PRINTER(LD_HL_SP) (char* buffer, size_t len, CPU& cpu, uint8_t opcode) {
-    if ((opcode & 0x1) == 0x0)
+    if (opcode == 0xF8)
     {
       return snprintf(buffer, len,
-                      "LD HL, SP + 0x%02x", cpu.readop8(1));
+                      "LD HL, SP + %02x", cpu.readop8(1));
     }
     return snprintf(buffer, len,
-                    "LD SP, HL (HL=0x%04x)", cpu.registers().hl);
+                    "LD SP, HL (HL=%04x)", cpu.registers().hl);
   }
 
   INSTRUCTION(JP_HL) (CPU& cpu, const uint8_t)
@@ -660,15 +666,13 @@ namespace gbc
       flags = 0;
       if (opcode & 0x8) {
         // RRC D, rotate D right, keep old bit0
-        const uint8_t bit0 = reg & 0x1;
-        reg = (reg >> 1) | bit0;
-        flags |= bit0 << 4; // old bit0 to CF
+        setflag(reg & 0x1, flags, MASK_CARRY); // old bit0 to CF
+        reg = (reg >> 1) | (reg << 7);
       }
       else {
         // RLC D, rotate D left, keep old bit7
-        const uint8_t bit7 = reg & 0x80;
-        reg = (reg << 1) | bit7;
-        flags |= bit7 >> 3; // old bit7 to CF
+        setflag(reg & 0x80, flags, MASK_CARRY); // old bit7 to CF
+        reg = (reg << 1) | (reg >> 7);
       }
       setflag(reg == 0, cpu.registers().flags, MASK_ZERO);
     }
@@ -677,36 +681,35 @@ namespace gbc
       auto& flags = cpu.registers().flags;
       // NOTE: dont reset flags here
       if (opcode & 0x8) {
-        // RR D, rotate D right, old CF to bit 7
+        // RR D, rotate D right through carry, old CF to bit 7
         const uint8_t bit0 = reg & 0x1;
-        reg = (reg >> 1) | ((cpu.registers().flags & MASK_CARRY) << 3);
+        reg = (reg >> 1) | ((flags & MASK_CARRY) << 3);
         flags = 0;
-        flags |= bit0 << 4; // old bit0 to CF
+        setflag(bit0, flags, MASK_CARRY); // old bit0 to CF
       }
       else {
-        // RL D, rotate D left, old CF to bit 0
+        // RL D, rotate D left through carry, old CF to bit 0
         const uint8_t bit7 = reg & 0x80;
-        reg = (reg << 1) | ((cpu.registers().flags & MASK_CARRY) >> 4);
+        reg = (reg << 1) | ((flags & MASK_CARRY) >> 4);
         flags = 0;
-        flags |= bit7 >> 3; // old bit7 to CF
+        setflag(bit7, flags, MASK_CARRY); // old bit7 to CF
       }
-      setflag(reg == 0, cpu.registers().flags, MASK_ZERO);
+      setflag(reg == 0, flags, MASK_ZERO);
     }
     else if ((opcode & 0xF0) == 0x20)
     {
       auto& flags = cpu.registers().flags;
       flags = 0;
       if (opcode & 0x8) {
-        // SRA
-        const uint8_t bit0 = reg & 0x1;
-        reg = (reg >> 1) & (reg & 0x80);
-        flags |= bit0 << 4; // bit0 into CF
+        // SRA D
+        setflag(reg & 0x1, flags, MASK_CARRY);
+        reg >>= 1;
+        reg |= (reg & 0x40) << 1;
       }
       else {
-        // SLA
-        const uint8_t bit7 = reg & 0x80;
+        // SLA D
+        setflag(reg & 0x80, flags, MASK_CARRY);
         reg <<= 1;
-        flags |= bit7 >> 3; // bit7 into CF
       }
       setflag(reg == 0, cpu.registers().flags, MASK_ZERO);
     }
@@ -714,16 +717,15 @@ namespace gbc
     {
       if ((opcode & 0x8) == 0x0) {
         // SWAP D
-        const uint8_t low = reg & 0xF;
-        reg = (reg >> 4) | (low << 4);
+        reg = (reg >> 4) | (reg << 4);
         cpu.registers().flags = 0;
         setflag(reg == 0, cpu.registers().flags, MASK_ZERO);
       }
       else {
-        // SRL D
-        const uint8_t bit0 = reg & 0x1;
+        // SRL D (logical)
+        cpu.registers().flags = 0;
+        setflag(reg & 0x1, cpu.registers().flags, MASK_CARRY);
         reg >>= 1;
-        cpu.registers().flags = bit0 << 4; // bit0 into CF
         setflag(reg == 0, cpu.registers().flags, MASK_ZERO);
       }
     }
@@ -786,10 +788,11 @@ namespace gbc
   DEF_INSTR(RLC_RRC);
   DEF_INSTR(LDID_HL_A);
   DEF_INSTR(DAA);
-  DEF_INSTR(CPL);
+  DEF_INSTR(CPL_A);
   DEF_INSTR(SCF_CCF);
   DEF_INSTR(HALT);
-  DEF_INSTR(ALU_A_N_D);
+  DEF_INSTR(ALU_A_D);
+  DEF_INSTR(ALU_A_N);
   DEF_INSTR(PUSH_POP);
   DEF_INSTR(RST);
   DEF_INSTR(RET);
@@ -797,7 +800,7 @@ namespace gbc
   DEF_INSTR(JP);
   DEF_INSTR(CALL);
   DEF_INSTR(ADD_SP_N);
-  DEF_INSTR(LD_xxx_A);
+  DEF_INSTR(LD_FF00_A);
   DEF_INSTR(LD_HL_SP);
   DEF_INSTR(JP_HL);
   DEF_INSTR(DI_EI);

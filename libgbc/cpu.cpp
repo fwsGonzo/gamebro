@@ -30,6 +30,8 @@ namespace gbc
   {
     // breakpoint handling
     this->break_checks();
+    // handle interrupts
+    this->handle_interrupts();
 
     if (!this->is_halting())
     {
@@ -44,9 +46,11 @@ namespace gbc
     {
       // make sure time passes when not executing instructions
       this->incr_cycles(4);
+      // skip instructions after halting
+      if (this->m_asleep == false) {
+        if (this->m_haltbug) this->m_haltbug--;
+      }
     }
-    // 4. handle interrupts
-    this->handle_interrupts();
   }
 
   unsigned CPU::execute(const uint8_t opcode)
@@ -104,12 +108,15 @@ namespace gbc
     }
     // check if interrupts are enabled and pending
     const uint8_t imask = machine().io.interrupt_mask();
-    if (this->ime() && imask != 0x0)
+    // HALT bug: resume operation
+    if (this->is_halting() && imask != 0)
     {
       this->m_asleep = false;
+    }
+    if (this->ime() && imask != 0x0)
+    {
       // disable interrupts immediately
       this->m_intr_master_enable = false;
-      this->m_intr_pending = 0;
       // execute pending interrupts (sorted by priority)
       auto& io = machine().io;
       if      (imask &  0x1) io.interrupt(io.vblank);
@@ -117,10 +124,6 @@ namespace gbc
       else if (imask &  0x4) io.interrupt(io.timerint);
       else if (imask &  0x8) io.interrupt(io.serialint);
       else if (imask & 0x10) io.interrupt(io.joypadint);
-    }
-    if (this->m_asleep == false) {
-      // skip instructions after halting
-      if (this->m_haltbug) this->m_haltbug--;
     }
   }
 
@@ -135,59 +138,162 @@ namespace gbc
 
   instruction_t& CPU::decode(const uint8_t opcode)
   {
-    if (opcode == 0) return instr_NOP;
-    if (opcode == 0x08) return instr_LD_N_SP;
-
-    if ((opcode & 0xc0) == 0x40) {
-      if (opcode == 0x76) return instr_HALT;
-      return instr_LD_D_D;
+    switch (opcode) {
+      case 0x00: // NOP
+          return instr_NOP;
+      case 0x08: // LD SP, imm16
+          return instr_LD_N_SP;
+      case 0x10: // STOP
+          return instr_STOP;
+      case 0x76: // HALT
+          return instr_HALT;
+      // LD D, imm8
+      case 0x06: case 0x16: case 0x26: case 0x36:
+      case 0x0E: case 0x1E: case 0x2E: case 0x3E:
+          return instr_LD_D_N;
+      // LD B, D
+      case 0x40: case 0x41: case 0x42: case 0x43: case 0x44: case 0x45: case 0x46: case 0x47:
+      // LD C, D
+      case 0x48: case 0x49: case 0x4A: case 0x4B: case 0x4C: case 0x4D: case 0x4E: case 0x4F:
+      // LD D, D
+      case 0x50: case 0x51: case 0x52: case 0x53: case 0x54: case 0x55: case 0x56: case 0x57:
+      // LD E, D
+      case 0x58: case 0x59: case 0x5A: case 0x5B: case 0x5C: case 0x5D: case 0x5E: case 0x5F:
+      // LD H, D
+      case 0x60: case 0x61: case 0x62: case 0x63: case 0x64: case 0x65: case 0x66: case 0x67:
+      // LD L, D
+      case 0x68: case 0x69: case 0x6A: case 0x6B: case 0x6C: case 0x6D: case 0x6E: case 0x6F:
+      // LD (HL), D
+      // NOTE: 0x76: is HALT and *not* LD (HL), (HL)
+      case 0x70: case 0x71: case 0x72: case 0x73: case 0x74: case 0x75: case 0x77:
+      // LD A, D
+      case 0x78: case 0x79: case 0x7A: case 0x7B: case 0x7C: case 0x7D: case 0x7E: case 0x7F:
+          return instr_LD_D_D;
+      // LD A, R
+      case 0x02: case 0x12:
+      case 0x0A: case 0x1A:
+          return instr_LD_R_A_R;
+      case 0xEA: // LD (imm16), A
+      case 0xFA: // LD A, (imm16)
+          return instr_LD_N_A_N;
+      case 0x22: // LDI (HL), A
+      case 0x32: // LDD (HL), A
+      case 0x2A: // LDI A, (HL)
+      case 0x3A: // LDD A, (HL)
+          return instr_LDID_HL_A;
+      case 0xE2: // LD (FF00+C), A
+      case 0xF2: // LD A, (FF00+C)
+      case 0xE0: // LD (FF00+imm8), A
+      case 0xF0: // LD A, (FF00+imm8)
+          return instr_LD_FF00_A;
+      // LD R, imm16
+      case 0x01: case 0x11: case 0x21: case 0x31:
+          return instr_LD_R_N;
+      case 0xE8:
+          return instr_ADD_SP_N;
+      case 0xF8: // LD HL, SP+imm8
+      case 0xF9: // LD SP, HL
+          return instr_LD_HL_SP;
+      // POP R
+      case 0xC1: case 0xD1: case 0xE1: case 0xF1:
+      // PUSH R
+      case 0xC5: case 0xD5: case 0xE5: case 0xF5:
+          return instr_PUSH_POP;
+      // ALU operations
+      // ADD A, D
+      case 0x80: case 0x81: case 0x82: case 0x83: case 0x84: case 0x85: case 0x86: case 0x87:
+          return instr_ALU_A_D;
+      // ADC A, D
+      case 0x88: case 0x89: case 0x8A: case 0x8B: case 0x8C: case 0x8D: case 0x8E: case 0x8F:
+          return instr_ALU_A_D;
+      // SUB A, D
+      case 0x90: case 0x91: case 0x92: case 0x93: case 0x94: case 0x95: case 0x96: case 0x97:
+          return instr_ALU_A_D;
+      // SBC A, D
+      case 0x98: case 0x99: case 0x9A: case 0x9B: case 0x9C: case 0x9D: case 0x9E: case 0x9F:
+          return instr_ALU_A_D;
+      // AND A, D
+      case 0xA0: case 0xA1: case 0xA2: case 0xA3: case 0xA4: case 0xA5: case 0xA6: case 0xA7:
+          return instr_ALU_A_D;
+      // XOR A, D
+      case 0xA8: case 0xA9: case 0xAA: case 0xAB: case 0xAC: case 0xAD: case 0xAE: case 0xAF:
+          return instr_ALU_A_D;
+      // OR  A, D
+      case 0xB0: case 0xB1: case 0xB2: case 0xB3: case 0xB4: case 0xB5: case 0xB6: case 0xB7:
+          return instr_ALU_A_D;
+      // CP A, D
+      case 0xB8: case 0xB9: case 0xBA: case 0xBB: case 0xBC: case 0xBD: case 0xBE: case 0xBF:
+          return instr_ALU_A_D;
+      // ALU OP A, im8
+      case 0xC6: case 0xCE: case 0xD6: case 0xDE: case 0xE6: case 0xEE: case 0xF6: case 0xFE:
+          return instr_ALU_A_N;
+      // INC R, DEC R
+      case 0x03: case 0x0B:
+      case 0x13: case 0x1B:
+      case 0x23: case 0x2B:
+      case 0x33: case 0x3B:
+          return instr_INC_DEC_R;
+      // INC D, DEC D
+      case 0x04: case 0x05: case 0x0C: case 0x0D:
+      case 0x14: case 0x15: case 0x1C: case 0x1D:
+      case 0x24: case 0x25: case 0x2C: case 0x2D:
+      case 0x34: case 0x35: case 0x3C: case 0x3D:
+          return instr_INC_DEC_D;
+      // ADD HL, R
+      case 0x09: case 0x19: case 0x29: case 0x39:
+          return instr_ADD_HL_R;
+      case 0x27: // DA A
+          return instr_DAA;
+      case 0x2F: // CPL A
+          return instr_CPL_A;
+      case 0x37: // SCF
+      case 0x3F: // CCF
+          return instr_SCF_CCF;
+      case 0x07: // RLC A
+      case 0x17: // RL A
+      case 0x0F: // RRC A
+      case 0x1F: // RR A
+          return instr_RLC_RRC;
+      case 0xC3: // JP imm16
+      case 0xC2: // JP nz, imm16
+      case 0xCA: // JP z, imm16
+      case 0xD2: // JP nc, imm16
+      case 0xDA: // JP c, imm16
+          return instr_JP;
+      case 0xE9: // JP HL
+          return instr_JP_HL;
+      case 0x18: // JR imm8
+      case 0x20: // JR nz, imm8
+      case 0x28: // JR z, imm8
+      case 0x30: // JR nc, imm8
+      case 0x38: // JR c, imm8
+          return instr_JR_N;
+      case 0xCD: // CALL imm16
+      case 0xC4: // CALL nz, imm16
+      case 0xCC: // CALL z, imm16
+      case 0xD4: // CALL nc, imm16
+      case 0xDC: // CALL c, imm16
+          return instr_CALL;
+      case 0xC9: // RET
+      case 0xC0: // RET nz
+      case 0xC8: // RET z
+      case 0xD0: // RET nc
+      case 0xD8: // RET c
+          return instr_RET;
+      case 0xD9: // RETI
+          return instr_RET;
+      // RST 0x0, 0x08, 0x10, 0x18
+      case 0xC7: case 0xCF: case 0xD7: case 0xDF:
+      // RST 0x20, 0x028, 0x30, 0x38
+      case 0xE7: case 0xEF: case 0xF7: case 0xFF: 
+          return instr_RST;
+      case 0xF3: // DI
+      case 0xFB: // EI
+          return instr_DI_EI;
+      case 0xCB:
+          return instr_CB_EXT;
     }
-    if ((opcode & 0xcf) == 0x1)  return instr_LD_R_N;
-    else if ((opcode & 0xe7) == 0x2)  return instr_LD_R_A_R;
-    else if ((opcode & 0xcf) == 0x9)  return instr_ADD_HL_R;
-    else if ((opcode & 0xc7) == 0x3)  return instr_INC_DEC_R;
-    else if ((opcode & 0xc6) == 0x4)  return instr_INC_DEC_D;
-    else if ((opcode & 0xe7) == 0x7)  return instr_RLC_RRC;
-    else if (opcode == 0x10) return instr_STOP;
-    else if (opcode == 0x18) return instr_JR_N;
-    else if ((opcode & 0xe7) == 0x20) return instr_JR_N;
-    else if ((opcode & 0xc7) == 0x6)  return instr_LD_D_N;
-    else if ((opcode & 0xe7) == 0x22) return instr_LDID_HL_A;
-    else if (opcode == 0x27)          return instr_DAA;
-    else if (opcode == 0x2f)          return instr_CPL;
-    else if ((opcode & 0xf7) == 0x37) return instr_SCF_CCF;
-    else if ((opcode & 0xc7) == 0xc6) return instr_ALU_A_N_D;
-    else if ((opcode & 0xc0) == 0x80) return instr_ALU_A_N_D;
-    else if ((opcode & 0xcb) == 0xc1) return instr_PUSH_POP;
-    else if ((opcode & 0xe7) == 0xc0) return instr_RET; // cond ret
-    else if ((opcode & 0xef) == 0xc9) return instr_RET; // ret / reti
-    else if ((opcode & 0xc7) == 0xc7) return instr_RST;
-    else if ((opcode & 0xff) == 0xc3) return instr_JP; // direct
-    else if ((opcode & 0xe7) == 0xc2) return instr_JP; // conditional
-    else if (opcode == 0xcd)          return instr_CALL; // direct
-    else if ((opcode & 0xe7) == 0xc4) return instr_CALL; // conditional
-    else if (opcode == 0xe8)          return instr_ADD_SP_N;
-    else if ((opcode & 0xef) == 0xea) return instr_LD_N_A_N;
-    else if ((opcode & 0xef) == 0xe0) return instr_LD_xxx_A; // FF00+N
-    else if ((opcode & 0xef) == 0xe2) return instr_LD_xxx_A; // C
-    else if ((opcode & 0xef) == 0xea) return instr_LD_xxx_A; // N
-    else if (opcode == 0xf8)          return instr_LD_HL_SP; // N
-    else if (opcode == 0xf9)          return instr_LD_HL_SP;
-    else if (opcode == 0xe9)          return instr_JP_HL;
-    else if ((opcode & 0xf7) == 0xf3) return instr_DI_EI;
-    // instruction set extension opcodes
-    else if (opcode == 0xcb) return instr_CB_EXT;
-    // unused opcodes that do nothing
-    /*
-    else if (opcode == 0xdb) return instr_UNUSED_OPS;
-    else if (opcode == 0xe3) return instr_UNUSED_OPS;
-    else if (opcode == 0xe4) return instr_UNUSED_OPS;
-    else if (opcode == 0xeb) return instr_UNUSED_OPS;
-    else if (opcode == 0xec) return instr_UNUSED_OPS;
-    else if (opcode == 0xfc) return instr_UNUSED_OPS;
-    else if (opcode == 0xf4) return instr_UNUSED_OPS;
-    */
-    else return instr_MISSING;
+    return instr_MISSING;
   }
 
   uint8_t CPU::read_hl() {

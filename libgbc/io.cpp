@@ -46,13 +46,13 @@ namespace gbc
 
   void IO::simulate()
   {
-    const uint64_t t = machine().now();
+    const uint64_t tnow = machine().now();
     // 1. timers
     static const int DIV_CYCLES = 256;
     // divider timer
-    if (t >= this->m_divider_time + DIV_CYCLES)
+    if (tnow >= this->m_divider_time + DIV_CYCLES)
     {
-      this->m_divider_time = t;
+      this->m_divider_time += DIV_CYCLES;
       this->reg(REG_DIV)++;
     }
     // check if timer is enabled
@@ -61,7 +61,7 @@ namespace gbc
       const std::array<int, 4> TIMA_CYCLES = {1024, 16, 64, 256};
       const int speed = this->reg(REG_TAC) & 0x3;
       // TIMA counter timer
-      while (t >= timerint.last_time + TIMA_CYCLES[speed])
+      while (tnow >= timerint.last_time + TIMA_CYCLES[speed])
       {
         timerint.last_time += TIMA_CYCLES[speed];
         this->reg(REG_TIMA)++;
@@ -77,7 +77,6 @@ namespace gbc
     // DMA operation
     if (this->m_dma.bytes_left > 0)
     {
-      uint64_t tnow = machine().cpu.gettime();
       uint64_t diff = tnow - m_dma.cur_time;
       m_dma.cur_time = tnow;
       // calculate number of bytes to copy
@@ -146,14 +145,17 @@ namespace gbc
     // trigger joypad interrupt on every change
     if (joypadint.last_time != mask) {
       joypadint.last_time = mask;
-      //this->trigger(joypadint);
+      this->trigger(joypadint);
     }
   }
 
   void IO::trigger(interrupt_t& intr)
   {
-    this->reg(REG_IF) |= intr.mask;
     //printf("Triggering interrupt: 0x%02x => 0x%02x\n", intr.mask, reg(REG_IF));
+    this->reg(REG_IF) |= intr.mask;
+  }
+  uint8_t IO::interrupt_mask() const {
+    return this->m_reg_ie & this->reg(REG_IF);
   }
   void IO::interrupt(interrupt_t& intr)
   {
@@ -165,7 +167,7 @@ namespace gbc
     // disable interrupt request
     reg(REG_IF) &= ~intr.mask;
     // set interrupt bit
-    this->m_reg_ie |= intr.mask;
+    //this->m_reg_ie |= intr.mask;
     // push PC and jump to INTR addr
     t += machine().cpu.push_and_jump(intr.fixed_address);
     machine().cpu.incr_cycles(t);
@@ -174,9 +176,6 @@ namespace gbc
       machine().break_now();
     }
     if (intr.callback) intr.callback(machine(), intr);
-  }
-  uint8_t IO::interrupt_mask() {
-    return this->reg(REG_IF);
   }
 
   void IO::start_dma(uint16_t src)

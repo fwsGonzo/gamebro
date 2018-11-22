@@ -79,7 +79,7 @@ namespace gbc
     void    trigger_keys(uint8_t);
     void    trigger(interrupt_t&);
     void    interrupt(interrupt_t&);
-    uint8_t interrupt_mask();
+    uint8_t interrupt_mask() const;
     void    start_dma(uint16_t src);
     void    perform_stop();
 
@@ -89,6 +89,9 @@ namespace gbc
     void simulate();
 
     inline uint8_t& reg(uint16_t addr) {
+      return m_ioregs.at(addr & 0xff);
+    }
+    inline const uint8_t& reg(uint16_t addr) const {
       return m_ioregs.at(addr & 0xff);
     }
 

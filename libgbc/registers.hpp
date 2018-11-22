@@ -96,7 +96,7 @@ namespace gbc
       auto& reg = this->accum;
       switch (op & 0x7) {
         case 0x0: // ADD
-            flags &= ~MASK_NEGATIVE;
+            setflag(false, flags, MASK_NEGATIVE);
             setflag(half_carry(reg, value), flags, MASK_HALFCARRY);
             setflag(reg + value < reg, flags, MASK_CARRY);
             reg += value;
@@ -104,7 +104,7 @@ namespace gbc
             return;
         case 0x1: { // ADC
             const int carry = (flags & MASK_CARRY) ? 1 : 0;
-            flags &= ~MASK_NEGATIVE;
+            setflag(true, flags, MASK_NEGATIVE);
             setflag((reg & 0xf) + (value & 0xf) + carry > 0xf,
                     flags, MASK_HALFCARRY); // annoying!
             setflag((int)reg + value + carry > 0xFF, flags, MASK_CARRY);
@@ -112,7 +112,7 @@ namespace gbc
             setflag(reg == 0, flags, MASK_ZERO);
           } return;
         case 0x2: // SUB
-            flags |= MASK_NEGATIVE;
+            setflag(true, flags, MASK_NEGATIVE);
             setflag(half_borrow(reg, value), flags, MASK_HALFCARRY);
             setflag(reg < value, flags, MASK_CARRY);
             setflag(reg == value, flags, MASK_ZERO);
@@ -120,12 +120,11 @@ namespace gbc
             return;
         case 0x3: { // SBC
             const int carry = (flags & MASK_CARRY) ? 1 : 0;
-            const int calc = int(reg) - value - carry; // annoying!
-            flags |= MASK_NEGATIVE;
+            flags = MASK_NEGATIVE;
             setflag(((reg & 0xf) - (value & 0xf) - carry) < 0,
                     flags, MASK_HALFCARRY);
-            setflag(calc < 0, flags, MASK_CARRY);
-            reg = (uint8_t) calc;
+            setflag(reg < value + carry, flags, MASK_CARRY);
+            reg -= value + carry;
             setflag(reg == 0, flags, MASK_ZERO);
           } return;
         case 0x4: // AND

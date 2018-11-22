@@ -58,9 +58,9 @@ namespace gbc
 
   void iowrite_STAT(IO& io, uint16_t addr, uint8_t value)
   {
-    // can only write to the upper bits 3-7
-    io.reg(addr) &= 0x7;
-    io.reg(addr) |= value & 0xC;
+    // can only write to the upper bits 3-6
+    io.reg(addr) &= 0x87;
+    io.reg(addr) |= value & 0x78;
   }
   uint8_t ioread_STAT(IO& io, uint16_t addr)
   {

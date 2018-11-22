@@ -22,6 +22,7 @@ void Service::start()
   });
   auto& filesys = fs::memdisk().fs();
   auto rombuffer = filesys.read_file("/tloz_la.gb");
+  //auto rombuffer = filesys.read_file("/tetris.gb");
   assert(rombuffer.is_valid());
   auto romdata = std::move(*rombuffer.get());
 
@@ -44,7 +45,7 @@ void Service::start()
       	{
           const auto& pixels = machine.gpu.pixels();
           const uint8_t idx = pixels.at(W * y + x) & 0x3;
-          uint8_t palette[] = {29, 25, 21, 17};
+          const uint8_t palette[] = {29, 25, 21, 17};
           set_pixel(x+80, y+32, palette[idx]);
         }
         // blit to front framebuffer here

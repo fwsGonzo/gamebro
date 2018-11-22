@@ -41,7 +41,9 @@ namespace gbc
     std::vector<uint32_t> dump_tiles();
 
   private:
+    uint64_t scanline_cycles();
     void render_scanline(int y);
+    void do_ly_comparison();
     TileData create_tiledata();
     sprite_config_t sprite_config();
     std::vector<const Sprite*> find_sprites(const sprite_config_t&);
