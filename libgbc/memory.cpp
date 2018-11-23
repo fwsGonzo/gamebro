@@ -39,8 +39,8 @@ namespace gbc
     }
     else if (this->is_within(address, VideoRAM)) {
       // cant read from Video RAM when working on scanline
-      if (UNLIKELY(machine().gpu.current_mode() == 3))
-          return 0xff;
+      //if (UNLIKELY(machine().gpu.get_mode() == 3))
+      //    return 0xff;
       const uint16_t offset = machine().gpu.video_offset();
       return m_video_ram.at(offset + address - VideoRAM.first);
     }

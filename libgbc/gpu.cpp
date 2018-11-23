@@ -12,7 +12,9 @@ namespace gbc
   static const int TILES_H = GPU::SCREEN_H / TileData::TILE_H;
 
   GPU::GPU(Machine& mach) noexcept
-    : m_memory(mach.memory), m_io(mach.io)
+    : m_memory(mach.memory), m_io(mach.io),
+      m_reg_stat {io().reg(IO::REG_STAT)},
+      m_reg_ly   {io().reg(IO::REG_LY)}
   {
     this->reset();
   }
@@ -38,10 +40,8 @@ namespace gbc
 
     auto& vblank   = io().vblank;
     auto& lcd_stat = io().lcd_stat;
-    auto& reg_stat = io().reg(IO::REG_STAT);
-    auto& reg_ly   = io().reg(IO::REG_LY);
 
-    const uint64_t t = io().machine().now();
+    const uint64_t t = machine().now();
     const uint64_t period = t - lcd_stat.last_time;
     bool new_scanline = false;
 
@@ -51,56 +51,55 @@ namespace gbc
       lcd_stat.last_time += scanline_cycles();
       // scanline LY increment logic
       static const int MAX_LINES = 154;
-      reg_ly = (reg_ly + 1) % MAX_LINES;
-      this->m_current_scanline = reg_ly;
+      m_current_scanline = (m_current_scanline + 1) % MAX_LINES;
+      m_reg_ly = m_current_scanline;
       new_scanline = true;
       //printf("LY is now %#x\n", this->m_current_scanline);
 
-      if (reg_ly == 144)
+      if (m_reg_ly == 144)
       {
         assert(this->is_vblank());
         // MODE 1: vblank interrupt
         io().trigger(vblank);
         // modify stat
-        reg_stat &= 0xfc;
-        reg_stat |= 0x1;
+        this->set_mode(1);
         // if STAT vblank interrupt is enabled
-        if (reg_stat & 0x10) io().trigger(lcd_stat);
+        if (m_reg_stat & 0x10) io().trigger(lcd_stat);
+      }
+      else if (m_reg_ly == 153)
+      {
+        // BUG: LY stays at 0 for extra long
+        m_reg_ly = 0;
       }
       // LY == LYC comparison on each line
       this->do_ly_comparison();
     }
-    m_current_mode = reg_stat & 0x3;
     // STAT mode & scanline period modulation
     if (!this->is_vblank())
     {
-      if (m_current_mode < 2 && new_scanline)
+      if (get_mode() < 2 && new_scanline)
       {
         // enable MODE 2: OAM search
         // check if OAM interrupt enabled
-        if (reg_stat & 0x20) io().trigger(lcd_stat);
-        reg_stat &= 0xfc;
-        reg_stat |= 0x2;
+        if (m_reg_stat & 0x20) io().trigger(lcd_stat);
+        set_mode(2);
       }
-      else if (m_current_mode == 2 && period >= OAM_CYCLES)
+      else if (get_mode() == 2 && period >= OAM_CYCLES)
       {
         // enable MODE 3: Scanline VRAM
-        reg_stat &= 0xfc;
-        reg_stat |= 0x3;
+        set_mode(3);
         // render a scanline
         this->render_scanline(m_current_scanline);
         // TODO: perform HDMA transfers here!
       }
-      else if (m_current_mode == 3 && period >= OAM_CYCLES+VRAM_CYCLES)
+      else if (get_mode() == 3 && period >= OAM_CYCLES+VRAM_CYCLES)
       {
         // enable MODE 0: H-blank
-        if (reg_stat & 0x8) io().trigger(lcd_stat);
-        reg_stat &= 0xfc;
-        reg_stat |= 0x0;
+        if (m_reg_stat & 0x8) io().trigger(lcd_stat);
+        set_mode(0);
       }
       //printf("Current mode: %u -> %u period %lu\n",
-      //        current_mode(), reg_stat & 0x3, period);
-      m_current_mode = reg_stat & 0x3;
+      //        current_mode(), m_reg_stat & 0x3, period);
     }
   }
 
@@ -108,17 +107,24 @@ namespace gbc
     return m_current_scanline >= 144;
   }
   bool GPU::is_hblank() const noexcept {
-    return m_current_mode == 3;
+    return get_mode() == 3;
+  }
+  uint8_t GPU::get_mode() const noexcept {
+    return m_reg_stat & 0x3;
+  }
+  void GPU::set_mode(uint8_t mode)
+  {
+    this->m_reg_stat &= 0xfc;
+    this->m_reg_stat |= mode & 0x3;
   }
 
   void GPU::do_ly_comparison()
   {
-    auto& reg_stat = io().reg(IO::REG_STAT);
-    const bool equal = io().reg(IO::REG_LY) == io().reg(IO::REG_LYC);
+    const bool equal = m_reg_ly == io().reg(IO::REG_LYC);
     // STAT coincidence bit
-    setflag(equal, reg_stat, 0x4);
+    setflag(equal, m_reg_stat, 0x4);
     // STAT interrupt (if enabled) when LY == LYC
-    if (equal && (reg_stat & 0x40)) io().trigger(io().lcd_stat);
+    if (equal && (m_reg_stat & 0x40)) io().trigger(io().lcd_stat);
   }
 
   void GPU::render_and_vblank()
@@ -127,7 +133,7 @@ namespace gbc
       this->render_scanline(y);
     }
     // call vblank handler directly
-    io().vblank.callback(io().machine(), io().vblank);
+    io().vblank.callback(machine(), io().vblank);
   }
 
   void GPU::render_scanline(int scan_y)
@@ -295,16 +301,17 @@ namespace gbc
     if (online)
     {
       // at the start of a new frame
-      lcd_stat.last_time = io().machine().now() - scanline_cycles();
+      lcd_stat.last_time = machine().now() - scanline_cycles();
       m_current_scanline = 153;
-      io().reg(IO::REG_LY) = m_current_scanline;
+      m_reg_ly = m_current_scanline;
     }
     else
     {
       // LCD off, just reset to LY 0
-      lcd_stat.last_time = io().machine().now();
-      io().reg(IO::REG_LY) = 0;
       m_current_scanline = 0;
+      m_reg_ly = 0;
+      // modify stat to V-blank?
+      this->set_mode(1);
     }
   }
 }

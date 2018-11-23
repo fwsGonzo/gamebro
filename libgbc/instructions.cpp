@@ -27,7 +27,7 @@ namespace gbc
     return 20;
   }
   PRINTER(LD_N_SP) (char* buffer, size_t len, CPU& cpu, const uint8_t) {
-    return snprintf(buffer, len, "LD (%04x), SP", cpu.readop16(1));
+    return snprintf(buffer, len, "LD (%04X), SP", cpu.readop16(1));
   }
 
   INSTRUCTION(LD_R_N) (CPU& cpu, const uint8_t opcode)
@@ -141,10 +141,10 @@ namespace gbc
   }
   PRINTER(LD_D_N) (char* buffer, size_t len, CPU& cpu, uint8_t opcode) {
     if (((opcode >> 3) & 0x7) != 0x6)
-      return snprintf(buffer, len, "LD %s, 0x%02x",
+      return snprintf(buffer, len, "LD %s, %02X",
                       cstr_dest(opcode >> 3), cpu.readop8(1));
     else
-      return snprintf(buffer, len, "LD (HL=0x%04x), 0x%02x",
+      return snprintf(buffer, len, "LD (HL=%04X), %02X",
                       cpu.registers().hl, cpu.readop8(1));
   }
 
@@ -188,7 +188,7 @@ namespace gbc
   }
   PRINTER(RLC_RRC) (char* buffer, size_t len, CPU& cpu, uint8_t opcode) {
     const char* mnemonic[4] = {"RLC", "RRC", "RL", "RR"};
-    return snprintf(buffer, len, "%s A (A = %02x)",
+    return snprintf(buffer, len, "%s A (A = %02X)",
                     mnemonic[opcode >> 3], cpu.registers().accum);
   }
 
@@ -227,9 +227,10 @@ namespace gbc
   }
   PRINTER(LD_N_A_N) (char* buffer, size_t len, CPU& cpu, uint8_t opcode) {
     if (opcode == 0xEA)
-      return snprintf(buffer, len, "LD (0x%04x), A", cpu.readop16(1));
+      return snprintf(buffer, len, "LD (%04X), A (A = %02X)",
+                      cpu.readop16(1), cpu.registers().accum);
     else
-      return snprintf(buffer, len, "LD A, (0x%04x)", cpu.readop16(1));
+      return snprintf(buffer, len, "LD A, (%04X)", cpu.readop16(1));
   }
 
   INSTRUCTION(LDID_HL_A) (CPU& cpu, const uint8_t opcode)
@@ -366,7 +367,7 @@ namespace gbc
     }
     char temp[128];
     fill_flag_buffer(temp, sizeof(temp), opcode, cpu.registers().flags);
-    return snprintf(buffer, len, "JPF 0x%04x (%s)",
+    return snprintf(buffer, len, "JP 0x%04x (%s)",
                     cpu.readop16(1), temp);
   }
 
@@ -465,10 +466,11 @@ namespace gbc
   INSTRUCTION(JR_N) (CPU& cpu, const uint8_t opcode)
   {
     if ((opcode & 0x20) == 0 || (cpu.registers().compare_flags(opcode))) {
-      cpu.registers().pc += 1 + (int8_t) cpu.readop8(0);
+      const imm8_t disp { .u8 = cpu.readop8(0) };
+      cpu.registers().pc += 1 + disp.s8;
       if (UNLIKELY(cpu.machine().verbose_instructions))
       {
-        printf("* Jumped relative to 0x%04x\n", cpu.registers().pc);
+        printf("* Jumped relative to %04X\n", cpu.registers().pc);
       }
       return 12;
     }
@@ -476,15 +478,15 @@ namespace gbc
     return 8;
   }
   PRINTER(JR_N) (char* buffer, size_t len, CPU& cpu, uint8_t opcode) {
-    const int8_t disp = (int8_t) cpu.readop8(1);
-    const uint16_t dest = cpu.registers().pc + 2 + disp;
+    const imm8_t disp { .u8 = cpu.readop8(1) };
+    const uint16_t dest = cpu.registers().pc + 2 + disp.s8;
     if (opcode & 0x20) {
       char temp[128];
       fill_flag_buffer(temp, sizeof(temp), opcode, cpu.registers().flags);
-      return snprintf(buffer, len, "JR %+hhd (%s) => 0x%04x",
-                      disp, temp, dest);
+      return snprintf(buffer, len, "JR %+hhd (%s) => %04X",
+                      disp.s8, temp, dest);
     }
-    return snprintf(buffer, len, "JR %+hhd => 0x%04x", disp, dest);
+    return snprintf(buffer, len, "JR %+hhd => %04X", disp.s8, dest);
   }
 
   INSTRUCTION(HALT) (CPU& cpu, const uint8_t)
@@ -514,22 +516,21 @@ namespace gbc
   }
   PRINTER(CALL) (char* buffer, size_t len, CPU& cpu, uint8_t opcode) {
     if (opcode & 1) {
-      return snprintf(buffer, len, "CALL 0x%04x", cpu.readop16(1));
+      return snprintf(buffer, len, "CALL %04X", cpu.readop16(1));
     }
     char temp[128];
     fill_flag_buffer(temp, sizeof(temp), opcode, cpu.registers().flags);
-    return snprintf(buffer, len, "CALLF 0x%04x (%s)",
+    return snprintf(buffer, len, "CALL %04X (%s)",
                     cpu.readop16(1), temp);
   }
 
   INSTRUCTION(ADD_SP_N) (CPU& cpu, const uint8_t)
   {
-    imm8_t imm;
-    imm.u8 = cpu.readop8(0);
-    cpu.registers().flags = 0;
+    const imm8_t imm { .u8 = cpu.readop8(0) };
     cpu.registers().sp += imm.s8;
     cpu.registers().pc += 1;
     // TODO: fix flags
+    cpu.registers().flags = 0;
     return 16;
   }
   PRINTER(ADD_SP_N) (char* buffer, size_t len, CPU& cpu, uint8_t)
@@ -561,13 +562,13 @@ namespace gbc
   {
     switch (opcode) {
       case 0xE2:
-        return snprintf(buffer, len, "LD (FF00+C=%02x), A", cpu.registers().c);
+        return snprintf(buffer, len, "LD (FF00+C=%02X), A", cpu.registers().c);
       case 0xF2:
-        return snprintf(buffer, len, "LD A, (FF00+C=%02x)", cpu.registers().c);
+        return snprintf(buffer, len, "LD A, (FF00+C=%02X)", cpu.registers().c);
       case 0xE0:
-        return snprintf(buffer, len, "LD (FF00+%02x), A", cpu.readop8(1));
+        return snprintf(buffer, len, "LD (FF00+%02X), A", cpu.readop8(1));
       case 0xF0:
-        return snprintf(buffer, len, "LD A, (FF00+%02x)", cpu.readop8(1));
+        return snprintf(buffer, len, "LD A, (FF00+%02X)", cpu.readop8(1));
     }
     assert(0);
   }

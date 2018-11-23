@@ -27,7 +27,9 @@ namespace gbc
     void render_and_vblank();
     bool is_vblank() const noexcept;
     bool is_hblank() const noexcept;
-    int  current_mode() const noexcept { return m_current_mode; }
+
+    void    set_mode(uint8_t mode);
+    uint8_t get_mode() const noexcept;
 
     uint16_t video_offset() const noexcept { return m_video_offset; }
     bool     video_writable() noexcept;
@@ -54,9 +56,10 @@ namespace gbc
     std::vector<uint32_t> m_pixels;
     Memory& m_memory;
     IO& m_io;
+    uint8_t&    m_reg_stat;
+    uint8_t&    m_reg_ly;
     pixelmode_t m_pixelmode = PM_RGBA;
     int m_current_scanline = 0;
-    int m_current_mode = 2;
 
     uint16_t m_video_offset = 0x0;
   };
