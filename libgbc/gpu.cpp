@@ -13,6 +13,7 @@ namespace gbc
 
   GPU::GPU(Machine& mach) noexcept
     : m_memory(mach.memory), m_io(mach.io),
+      m_reg_lcdc {io().reg(IO::REG_LCDC)},
       m_reg_stat {io().reg(IO::REG_STAT)},
       m_reg_ly   {io().reg(IO::REG_LY)}
   {
@@ -34,7 +35,7 @@ namespace gbc
     static const int VRAM_CYCLES     = 172;
 
     // nothing to do with LCD being off
-    if ((io().reg(IO::REG_LCDC) & 0x80) == 0) {
+    if (!this->lcd_enabled()) {
       return;
     }
 
@@ -162,6 +163,7 @@ namespace gbc
       // copy the 16-byte tile into buffer
       const int tidx = td.pattern(t, sx & 7, sy & 7);
       uint32_t color = this->colorize(pal, tidx);
+      const bool window = this->window_visible() && scan_y >= window_y();
 
       // render sprites within this x
       sprconf.scan_x = scan_x;
@@ -171,6 +173,11 @@ namespace gbc
           if (!sprite->behind() || tidx == 0) {
             color = this->colorize(sprconf.palette[sprite->pal()], idx);
           }
+        }
+
+        if (window && scan_x >= window_x()-7) {
+          // draw window pixel
+          color = 3;
         }
       }
       m_pixels.at(scan_y * SCREEN_W + scan_x) = color;
@@ -196,13 +203,32 @@ namespace gbc
     return 0xFFFF00FF; // magenta = invalid
   }
 
-  uint16_t GPU::bg_tiles() {
-    const uint8_t lcdc = memory().read8(IO::REG_LCDC);
-    return (lcdc & 0x08) ? 0x9C00 : 0x9800;
+  bool GPU::lcd_enabled() const noexcept {
+    return m_reg_lcdc & 0x80;
   }
-  uint16_t GPU::tile_data() {
-    const uint8_t lcdc = memory().read8(IO::REG_LCDC);
-    return (lcdc & 0x10) ? 0x8000 : 0x8800;
+  bool GPU::window_enabled() const noexcept {
+    return m_reg_lcdc & 0x20;
+  }
+  bool GPU::window_visible() {
+    return window_enabled() && window_x() < 166 && window_y() < 143;
+  }
+  int GPU::window_x()
+  {
+    return io().reg(IO::REG_WX);
+  }
+  int GPU::window_y()
+  {
+    return io().reg(IO::REG_WY);
+  }
+
+  uint16_t GPU::bg_tiles() const noexcept {
+    return (m_reg_lcdc & 0x08) ? 0x9C00 : 0x9800;
+  }
+  uint16_t GPU::window_tiles() const noexcept {
+    return (m_reg_lcdc & 0x40) ? 0x9C00 : 0x9800;
+  }
+  uint16_t GPU::tile_data() const noexcept {
+    return (m_reg_lcdc & 0x10) ? 0x8000 : 0x8800;
   }
 
   TileData GPU::create_tiledata()
@@ -288,8 +314,7 @@ namespace gbc
   }
   bool GPU::video_writable() noexcept
   {
-    const uint8_t lcdc = memory().read8(IO::REG_LCDC);
-    if (lcdc & 0x80) {
+    if (lcd_enabled()) {
       return is_vblank() || is_hblank();
     }
     return true; // when LCD is off, always writable

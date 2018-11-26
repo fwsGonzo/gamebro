@@ -47,6 +47,7 @@ int main(int argc, char** args)
 
 	machine = new gbc::Machine(romdata);
 	machine->break_now();
+	machine->verbose_banking = true;
 	//machine->cpu.default_pausepoint(0x2cb5);
 	//machine->verbose_instructions = true;
 	//machine->break_on_interrupts = true;
