@@ -36,7 +36,7 @@ namespace gbc
     void set_mode(int mode);
 
   private:
-    bool verbose_banking() const noexcept { return false; }
+    bool verbose_banking() const noexcept;
 
     Memory&  m_memory;
     std::vector<uint8_t> m_rom;

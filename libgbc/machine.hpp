@@ -48,6 +48,7 @@ namespace gbc
     /// debugging aids ///
     bool verbose_instructions = false;
     bool verbose_interrupts   = false;
+    bool verbose_banking      = false;
     // make the machine stop when an undefined OP happens
     bool stop_when_undefined = false;
     bool break_on_interrupts = false;

@@ -45,6 +45,7 @@ namespace gbc
       default:
           assert(0 && "Unknown cartridge type");
     }
+    printf("MBC version %u\n", this->m_version);
     switch (m.read8(0x149)) {
       case 0x0:
           m_ram_bank_size = 0; break;
@@ -114,11 +115,14 @@ namespace gbc
   {
     if (addr < 0x2000) // RAM enable
     {
+      bool old_ram_enabled = this->m_ram_enabled;
       if (m_version == 2)
           this->m_ram_enabled = value != 0;
       else
           this->m_ram_enabled = ((value & 0xF) == 0xA);
-      //printf("* RAM enabled: %d\n", this->m_ram_enabled);
+      if (verbose_banking() && old_ram_enabled != m_ram_enabled) {
+        printf("* External RAM enabled: %d\n", this->m_ram_enabled);
+      }
       return;
     }
     else if (addr < 0x4000) // ROM bank number
@@ -187,7 +191,7 @@ namespace gbc
 
   void MBC1::set_rombank(int reg)
   {
-    if (reg == 0) reg++;
+    if (reg == 0) reg = 1;
     if (this->m_version < 3) { // bug!
       if (reg == 0x20 || reg == 0x40 || reg == 0x60) reg++;
     }
@@ -241,5 +245,9 @@ namespace gbc
       printf("Mode select: 0x%02x\n", this->m_mode_select);
     }
     this->m_mode_select = mode & 0x1;
+  }
+
+  bool MBC1::verbose_banking() const noexcept {
+    return m_memory.machine().verbose_banking;
   }
 }
