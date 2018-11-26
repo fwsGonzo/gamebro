@@ -144,7 +144,11 @@ namespace gbc
     const uint8_t pal  = memory().read8(IO::REG_BGP);
 
     // create tiledata object from LCDC register
-    auto td = this->create_tiledata();
+    auto td = this->create_tiledata(bg_tiles(), tile_data());
+    // window visibility
+    const bool window = this->window_visible() && scan_y >= window_y();
+    auto wtd = this->create_tiledata(window_tiles(), tile_data());
+
     // create sprite configuration structure
     auto sprconf = this->sprite_config();
     sprconf.scan_y = scan_y;
@@ -156,14 +160,21 @@ namespace gbc
     {
       const int sx = (scan_x + scroll_x) % 256;
       const int sy = (scan_y + scroll_y) % 256;
-      const int tx = sx / TileData::TILE_W;
-      const int ty = sy / TileData::TILE_H;
       // get the tile id
-      const int t = td.tile_id(tx, ty);
+      const int t = td.tile_id(sx / 8, sy / 8);
       // copy the 16-byte tile into buffer
       const int tidx = td.pattern(t, sx & 7, sy & 7);
       uint32_t color = this->colorize(pal, tidx);
-      const bool window = this->window_visible() && scan_y >= window_y();
+      // window on can be under sprites
+      if (window && scan_x >= window_x()-7)
+      {
+        const int sx = scan_x - window_x()+8;
+        const int sy = scan_y - window_y();
+        // draw window pixel
+        const int t = wtd.tile_id(sx / 8, sy / 8);
+        const int tidx = wtd.pattern(t, sx & 7, sy & 7);
+        color = this->colorize(pal, tidx);
+      }
 
       // render sprites within this x
       sprconf.scan_x = scan_x;
@@ -173,11 +184,6 @@ namespace gbc
           if (!sprite->behind() || tidx == 0) {
             color = this->colorize(sprconf.palette[sprite->pal()], idx);
           }
-        }
-
-        if (window && scan_x >= window_x()-7) {
-          // draw window pixel
-          color = 3;
         }
       }
       m_pixels.at(scan_y * SCREEN_W + scan_x) = color;
@@ -231,16 +237,16 @@ namespace gbc
     return (m_reg_lcdc & 0x10) ? 0x8000 : 0x8800;
   }
 
-  TileData GPU::create_tiledata()
+  TileData GPU::create_tiledata(uint16_t tiles, uint16_t patterns)
   {
     const uint8_t lcdc = memory().read8(IO::REG_LCDC);
     const bool is_signed = (lcdc & 0x10) == 0;
     const auto* vram = memory().video_ram_ptr();
     //printf("Background tiles: 0x%04x  Tile data: 0x%04x\n",
     //        bg_tiles(), tile_data());
-    const auto* ttile_base = &vram[bg_tiles() - 0x8000];
-    const auto* tdata_base = &vram[tile_data() - 0x8000];
-    return TileData{ttile_base, tdata_base, is_signed};
+    const auto* tile_base = &vram[tiles    - 0x8000];
+    const auto* patt_base = &vram[patterns - 0x8000];
+    return TileData{tile_base, patt_base, is_signed};
   }
   sprite_config_t GPU::sprite_config()
   {
@@ -275,7 +281,7 @@ namespace gbc
     std::vector<uint32_t> data(256 * 256);
     const uint8_t pal = memory().read8(IO::REG_BGP);
     // create tiledata object from LCDC register
-    auto td = this->create_tiledata();
+    auto td = this->create_tiledata(bg_tiles(), tile_data());
 
     for (int y = 0; y < 256; y++)
     for (int x = 0; x < 256; x++)
@@ -292,10 +298,8 @@ namespace gbc
   {
     std::vector<uint32_t> data(16*24 * 8*8);
     const uint8_t pal = memory().read8(IO::REG_BGP);
-    // create tiledata object from LCDC register
-    auto td = this->create_tiledata();
     // tiles start at the beginning of video RAM
-    td.set_tilebase(memory().video_ram_ptr());
+    auto td = this->create_tiledata(0x8000, tile_data());
 
     for (int y = 0; y < 24*8; y++)
     for (int x = 0; x < 16*8; x++)

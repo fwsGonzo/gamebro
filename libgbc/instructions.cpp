@@ -585,11 +585,11 @@ namespace gbc
   {
     if (opcode == 0xF8)
     {
-      imm8_t imm; // the ADD operation is signed
-      imm.u8 = cpu.readop8(0);
-      // TODO: fix flags
+      // the ADD operation is signed
+      const imm8_t imm { .u8 = cpu.readop8(0) };
       cpu.registers().flags = 0;
-      setflag((cpu.registers().sp & 0xff) + (imm.u8 & 0x100), cpu.registers().flags, MASK_CARRY);
+      setflag(((cpu.registers().sp & 0xf) + (imm.u8 & 0x0f)) & 0x10, cpu.registers().flags, MASK_HALFCARRY);
+      setflag(((cpu.registers().sp & 0xff) + (imm.u8 & 0xff)) & 0x100, cpu.registers().flags, MASK_CARRY);
       cpu.registers().hl = cpu.registers().sp + imm.s8;
       cpu.registers().pc++;
       return 12;

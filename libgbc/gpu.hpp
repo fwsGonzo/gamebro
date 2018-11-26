@@ -54,7 +54,7 @@ namespace gbc
     uint64_t scanline_cycles();
     void render_scanline(int y);
     void do_ly_comparison();
-    TileData create_tiledata();
+    TileData create_tiledata(uint16_t tiles, uint16_t patt);
     sprite_config_t sprite_config();
     std::vector<const Sprite*> find_sprites(const sprite_config_t&);
     uint32_t colorize(uint8_t pal, uint8_t);
