@@ -95,19 +95,20 @@ namespace gbc
     {
       auto& reg = this->accum;
       switch (op & 0x7) {
-        case 0x0: // ADD
+        case 0x0: { // ADD
+            const uint16_t calc = reg + value;
             setflag(false, flags, MASK_NEGATIVE);
             setflag(half_carry(reg, value), flags, MASK_HALFCARRY);
-            setflag(reg + value < reg, flags, MASK_CARRY);
+            setflag(calc & 0x100, flags, MASK_CARRY);
             reg += value;
             setflag(reg == 0, flags, MASK_ZERO);
-            return;
+          } return;
         case 0x1: { // ADC
             const int carry = (flags & MASK_CARRY) ? 1 : 0;
-            setflag(true, flags, MASK_NEGATIVE);
+            setflag(false, flags, MASK_NEGATIVE);
             setflag((reg & 0xf) + (value & 0xf) + carry > 0xf,
                     flags, MASK_HALFCARRY); // annoying!
-            setflag((int)reg + value + carry > 0xFF, flags, MASK_CARRY);
+            setflag(((int)reg + value + carry) > 0xFF, flags, MASK_CARRY);
             reg += value + carry;
             setflag(reg == 0, flags, MASK_ZERO);
           } return;
