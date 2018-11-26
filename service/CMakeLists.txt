@@ -11,8 +11,11 @@ set(BINARY       "emulador")
 
 # Source files to be linked with OS library parts to form bootable image
 set(SOURCES
-  service.cpp
+    service.cpp
   )
+
+#set(DRIVERS boot_logger ac97 ihda)
+#set(STDOUT vga_output)
 
 # include service build script
 include($ENV{INCLUDEOS_PREFIX}/includeos/post.service.cmake)
