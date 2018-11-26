@@ -22,7 +22,7 @@ namespace gbc
 
   INSTRUCTION(LD_N_SP) (CPU& cpu, const uint8_t)
   {
-    cpu.registers().sp = cpu.readop16(0);
+    cpu.memory().write16(cpu.readop16(0), cpu.registers().sp);
     cpu.registers().pc += 2;
     return 20;
   }
@@ -381,6 +381,10 @@ namespace gbc
     }
     // POP R
     cpu.registers().getreg_af(opcode) = cpu.memory().read16(cpu.registers().sp);
+    if (((opcode >> 4) & 0x3) == 0x3) {
+      // POP AF requires clearing flag bits 0-3
+      cpu.registers().flags &= 0xF0;
+    }
     cpu.registers().sp += 2;
     return 12;
   }
@@ -512,6 +516,7 @@ namespace gbc
       }
       return 24;
     }
+    cpu.registers().pc += 2;
     return 12;
   }
   PRINTER(CALL) (char* buffer, size_t len, CPU& cpu, uint8_t opcode) {
@@ -527,10 +532,13 @@ namespace gbc
   INSTRUCTION(ADD_SP_N) (CPU& cpu, const uint8_t)
   {
     const imm8_t imm { .u8 = cpu.readop8(0) };
-    cpu.registers().sp += imm.s8;
+    auto& regs = cpu.registers();
+    const int calc = (regs.sp + imm.s8) & 0xFFFF;
+    regs.flags = 0;
+    setflag(((regs.sp ^ imm.s8 ^ calc) & 0x100) == 0x100, regs.flags, MASK_CARRY);
+    setflag(((regs.sp ^ imm.s8 ^ calc) & 0x10) == 0x10, regs.flags, MASK_HALFCARRY);
+    cpu.registers().sp = calc;
     cpu.registers().pc += 1;
-    // TODO: fix flags
-    cpu.registers().flags = 0;
     return 16;
   }
   PRINTER(ADD_SP_N) (char* buffer, size_t len, CPU& cpu, uint8_t)
