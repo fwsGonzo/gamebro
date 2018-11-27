@@ -82,6 +82,7 @@ namespace gbc
     uint8_t read_io(const uint16_t);
 
     void    trigger_keys(uint8_t);
+    bool    joypad_is_disabled() const noexcept;
     void    trigger(interrupt_t&);
     void    interrupt(interrupt_t&);
     uint8_t interrupt_mask() const;

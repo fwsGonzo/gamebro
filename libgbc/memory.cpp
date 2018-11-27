@@ -140,14 +140,14 @@ namespace gbc
   }
   void Memory::do_switch_speed()
   {
-    auto& speed = machine().io.reg(IO::REG_KEY1);
-    if (speed) {
-      speed = 0x0;
+    auto& reg = machine().io.reg(IO::REG_KEY1);
+    if (this->double_speed()) {
       this->m_speed_factor = 1;
+      reg = 0x0;
     }
     else {
-      speed = 0x80;
       this->m_speed_factor = 2;
+      reg = 0x80;
     }
   }
 }

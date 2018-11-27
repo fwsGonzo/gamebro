@@ -148,6 +148,10 @@ namespace gbc
       this->trigger(joypadint);
     }
   }
+  bool IO::joypad_is_disabled() const noexcept
+  {
+    return (reg(REG_P1) & 0x30) == 0x30;
+  }
 
   void IO::trigger(interrupt_t& intr)
   {

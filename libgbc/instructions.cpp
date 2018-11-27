@@ -448,16 +448,20 @@ namespace gbc
 
   INSTRUCTION(STOP) (CPU& cpu, const uint8_t)
   {
-    printf("Warning: Unimplemented STOP\n");
     // STOP is a weirdo two-byte instruction
     cpu.registers().pc++;
     cpu.incr_cycles(4);
     // disable screen etc.
     cpu.machine().io.perform_stop();
     // on CGB we can do a speed switch
-    if (cpu.machine().is_cgb())
+    if (cpu.machine().is_cgb() && cpu.machine().io.reg(IO::REG_KEY1) & 1)
     {
-      // TODO: CGB speed switch
+      cpu.memory().do_switch_speed();
+    }
+    else if (cpu.machine().io.joypad_is_disabled())
+    {
+      printf("The machine has stopped with joypad disabled\n");
+      cpu.break_now();
     }
     // enter stopped state
     cpu.stop();

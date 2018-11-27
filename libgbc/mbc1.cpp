@@ -212,7 +212,7 @@ namespace gbc
   {
     const int offset = reg * rambank_size();
     if (verbose_banking()) {
-      printf("Selecting RAM bank 0x%02x offset %#x max %#zx\n", reg, offset, m_ram_bank_size);
+      printf("Selecting RAM bank 0x%02x offset %#x max %#x\n", reg, offset, m_ram_bank_size);
     }
     if (UNLIKELY((offset + rambank_size()) > m_ram_bank_size))
     {
@@ -226,7 +226,7 @@ namespace gbc
   {
     const int offset = reg * wrambank_size();
     if (verbose_banking()) {
-      printf("Selecting WRAM bank 0x%02x offset %#x max %#zx\n", reg, offset, m_wram_size);
+      printf("Selecting WRAM bank 0x%02x offset %#x max %#x\n", reg, offset, m_wram_size);
     }
     if (UNLIKELY((offset + wrambank_size()) > m_wram_size))
     {

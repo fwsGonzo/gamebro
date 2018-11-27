@@ -15,7 +15,7 @@ namespace gbc
 
   void CPU::reset() noexcept
   {
-    // gameboy color CGB initial register values
+    // gameboy DMG initial register values
     registers().af = 0x01b0;
     registers().bc = 0x0013;
     registers().de = 0x00d8;

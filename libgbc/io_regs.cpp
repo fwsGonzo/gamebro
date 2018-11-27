@@ -97,7 +97,7 @@ namespace gbc
     dst &= 0x9FF0;
     uint16_t end = src + (io.reg(IO::REG_HDMA5) & 0x7F) * 16;
     // do the transfer immediately
-    printf("HDMA transfer 0x%04x to 0x%04x (%u bytes)\n", src, dst, end - src);
+    //printf("HDMA transfer 0x%04x to 0x%04x (%u bytes)\n", src, dst, end - src);
     auto& mem = io.machine().memory;
     while (src < end) mem.write8(dst++, mem.read8(src++));
     // transfer complete
@@ -108,10 +108,10 @@ namespace gbc
     return io.reg(addr);
   }
 
-  void iowrite_SND_ONOFF(IO& io, uint16_t addr, uint8_t value)
+  void iowrite_SND_ONOFF(IO& io, uint16_t, uint8_t value)
   {
     // TODO: writing bit7 should clear all sound registers
-    printf("NR52 Sound ON/OFF 0x%04x write 0x%02x\n", addr, value);
+    //printf("NR52 Sound ON/OFF 0x%04x write 0x%02x\n", addr, value);
     io.reg(IO::REG_NR52) &= 0xF;
     io.reg(IO::REG_NR52) |= value & 0x80;
     //assert(0 && "NR52 Sound ON/OFF register write");
@@ -123,18 +123,18 @@ namespace gbc
 
   void iowrite_KEY1(IO& io, uint16_t addr, uint8_t value)
   {
-    printf("KEY1 0x%04x write 0x%02x\n", addr, value);
+    //printf("KEY1 0x%04x write 0x%02x\n", addr, value);
     io.reg(addr) &= 0x80;
     io.reg(addr) |= value & 1;
   }
   uint8_t ioread_KEY1(IO& io, uint16_t addr)
   {
-    return io.reg(addr) | (io.machine().is_cgb() ? 0x7E : 0xFF);
+    return io.reg(addr);
   }
 
   void iowrite_VBK(IO& io, uint16_t addr, uint8_t value)
   {
-    printf("VBK 0x%04x write 0x%02x\n", addr, value);
+    //printf("VBK 0x%04x write 0x%02x\n", addr, value);
     io.reg(addr) = value & 1;
     io.machine().gpu.set_video_bank(value & 1);
   }
@@ -157,7 +157,7 @@ namespace gbc
 
   void iowrite_SVBK(IO& io, uint16_t addr, uint8_t value)
   {
-    printf("SVBK 0x%04x write 0x%02x\n", addr, value);
+    //printf("SVBK 0x%04x write 0x%02x\n", addr, value);
     io.reg(addr) = value & 1;
     io.machine().memory.set_wram_bank(value & 1);
   }
@@ -171,7 +171,7 @@ namespace gbc
     idx &= ~mask; idx |= (v + 1) & mask;
   }
 
-  void iowrite_BGPD(IO& io, uint16_t addr, uint8_t value)
+  void iowrite_BGPD(IO& io, uint16_t, uint8_t value)
   {
     uint8_t& idx = io.reg(IO::REG_BGPI); // palette index
     io.machine().gpu.getpal(GPU::PAL_BG, idx & 63) = value;
