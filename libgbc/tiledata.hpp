@@ -9,10 +9,11 @@ namespace gbc
     static const int TILE_W = 8;
     static const int TILE_H = 8;
 
-    TileData(const uint8_t* tile, const uint8_t* pattern, bool sign = false)
-        : m_tile_base(tile), m_patt_base(pattern), m_signed(sign) {}
+    TileData(const uint8_t* tile, const uint8_t* pattern, bool sign, bool cgb)
+      : m_tile_base(tile), m_patt_base(pattern), m_signed(sign), m_is_cgb(cgb) {}
 
     int   tile_id(int tx, int ty);
+    int   tile_attr(int tx, int ty);
     int   pattern(int t, int dx, int dy);
     void  pattern(int t, std::array<uint8_t, 64>&);
     int   pattern(const uint8_t* base, int t, int dx, int dy);
@@ -22,6 +23,7 @@ namespace gbc
     const uint8_t* m_tile_base;
     const uint8_t* m_patt_base;
     const bool m_signed;
+    const bool m_is_cgb;
   };
 
   inline int TileData::tile_id(int x, int y)
@@ -29,6 +31,14 @@ namespace gbc
     if (m_signed == false)
         return m_tile_base[y * 32 + x];
     return 128 + ((int8_t*) m_tile_base)[y * 32 + x];
+  }
+  inline int TileData::tile_attr(int x, int y)
+  {
+    if (m_is_cgb == false) return 0;
+    // tile attributes are in the next VRAM bank
+    if (m_signed == false)
+        return m_tile_base[8192 + y * 32 + x];
+    return 128 + ((int8_t*) m_tile_base)[8192 + y * 32 + x];
   }
 
   inline int TileData::pattern(const uint8_t* base, int tid, int tx, int ty)

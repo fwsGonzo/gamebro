@@ -65,6 +65,11 @@ namespace gbc
       REG_HDMA4 = 0xff54,
       REG_HDMA5 = 0xff55,
 
+      REG_BGPI  = 0xff68,
+      REG_BGPD  = 0xff69,
+      REG_OBPI  = 0xff6a,
+      REG_OBPD  = 0xff6b,
+
       REG_SVBK  = 0xff70,
 
       // INTERRUPTS

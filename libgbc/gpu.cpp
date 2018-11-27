@@ -8,9 +8,6 @@
 
 namespace gbc
 {
-  static const int TILES_W = GPU::SCREEN_W / TileData::TILE_W;
-  static const int TILES_H = GPU::SCREEN_H / TileData::TILE_H;
-
   GPU::GPU(Machine& mach) noexcept
     : m_memory(mach.memory), m_io(mach.io),
       m_reg_lcdc {io().reg(IO::REG_LCDC)},
@@ -162,13 +159,14 @@ namespace gbc
       const int sy = (scan_y + scroll_y) % 256;
       // get the tile id
       const int t = td.tile_id(sx / 8, sy / 8);
+      const int tattr = td.tile_attr(sx / 8, sy / 8);
       // copy the 16-byte tile into buffer
       const int tidx = td.pattern(t, sx & 7, sy & 7);
       uint32_t color = this->colorize(pal, tidx);
       // window on can be under sprites
       if (window && scan_x >= window_x()-7)
       {
-        const int sx = scan_x - window_x()+8;
+        const int sx = scan_x - window_x()+7;
         const int sy = scan_y - window_y();
         // draw window pixel
         const int t = wtd.tile_id(sx / 8, sy / 8);
@@ -236,6 +234,12 @@ namespace gbc
   uint16_t GPU::tile_data() const noexcept {
     return (m_reg_lcdc & 0x10) ? 0x8000 : 0x8800;
   }
+  uint8_t GPU::tile_palette() const noexcept {
+    return 0;
+  }
+  uint8_t GPU::sprite_palette() const noexcept {
+    return 0;
+  }
 
   TileData GPU::create_tiledata(uint16_t tiles, uint16_t patterns)
   {
@@ -246,7 +250,7 @@ namespace gbc
     //        bg_tiles(), tile_data());
     const auto* tile_base = &vram[tiles    - 0x8000];
     const auto* patt_base = &vram[patterns - 0x8000];
-    return TileData{tile_base, patt_base, is_signed};
+    return TileData{tile_base, patt_base, is_signed, machine().is_cgb()};
   }
   sprite_config_t GPU::sprite_config()
   {
@@ -264,14 +268,18 @@ namespace gbc
   std::vector<const Sprite*> GPU::find_sprites(const sprite_config_t& config)
   {
     const auto* oam = memory().oam_ram_ptr();
-    const Sprite* sprite = (Sprite*) oam;
-    const Sprite* sprite_end = sprite + 40;
+    const Sprite* sprite_begin = (Sprite*) oam;
+    const Sprite* sprite_end = &sprite_begin[40];
     std::vector<const Sprite*> results;
+    // draw sprites from right to left
+    const Sprite* sprite = sprite_end - 1;
 
-    while (sprite < sprite_end) {
+    while (sprite >= sprite_begin) {
       if (sprite->hidden() == false)
       if (sprite->is_within_scanline(config)) results.push_back(sprite);
-      sprite++;
+      sprite--;
+      // GB/GBC supports 10 sprites max per scanline
+      if (results.size() == 10) break;
     }
     return results;
   }
@@ -312,7 +320,7 @@ namespace gbc
     return data;
   }
 
-  void GPU::set_video_bank(uint8_t bank)
+  void GPU::set_video_bank(const uint8_t bank)
   {
     this->m_video_offset = bank * 0x2000;
   }
@@ -342,5 +350,13 @@ namespace gbc
       // modify stat to V-blank?
       this->set_mode(1);
     }
+  }
+
+  uint8_t& GPU::getpal(pal_t pal, uint8_t index)
+  {
+    if (pal == PAL_BG)
+        return m_bg_palette.at(index);
+    else
+        return m_spr_palette.at(index);
   }
 }

@@ -60,5 +60,6 @@ namespace gbc
   private:
     bool m_running = true;
     bool m_cgb_mode = false;
+    friend class Memory;
   };
 }

@@ -9,6 +9,9 @@ namespace gbc
   {
     assert(m_mbc.rom_valid());
     this->m_bootrom_enabled = false;
+    // set CGB mode when ROM supports it
+    const uint8_t cgb = this->read8(0x143);
+    machine().m_cgb_mode = cgb & 0x80;
   }
   void Memory::reset()
   {

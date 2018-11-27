@@ -40,8 +40,12 @@ namespace gbc
     bool window_enabled() const noexcept;
     std::pair<int, int> window_size();
     bool window_visible();
-    int window_x();
-    int window_y();
+    int  window_x();
+    int  window_y();
+
+    // CGB palette registers
+    enum pal_t { PAL_BG, PAL_SPR };
+    uint8_t& getpal(pal_t pal, uint8_t index);
 
     Machine& machine() noexcept { return m_memory.machine(); }
     Memory&  memory() noexcept { return m_memory; }
@@ -62,6 +66,9 @@ namespace gbc
     uint16_t bg_tiles() const noexcept;
     uint16_t window_tiles() const noexcept;
     uint16_t tile_data() const noexcept;
+    // palettes
+    uint8_t tile_palette() const noexcept;
+    uint8_t sprite_palette() const noexcept;
 
     std::vector<uint32_t> m_pixels;
     Memory& m_memory;
@@ -71,8 +78,10 @@ namespace gbc
     uint8_t&    m_reg_ly;
     pixelmode_t m_pixelmode = PM_RGBA;
     int m_current_scanline = 0;
-
     uint16_t m_video_offset = 0x0;
+
+    std::array<uint8_t, 64> m_bg_palette;
+    std::array<uint8_t, 8> m_spr_palette;
   };
 
   inline void GPU::set_pixelmode(pixelmode_t pm) {
