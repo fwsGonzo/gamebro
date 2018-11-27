@@ -33,7 +33,7 @@ namespace gbc
     // handle interrupts
     this->handle_interrupts();
 
-    if (!this->is_halting())
+    if (!this->is_halting() && !this->is_stopping())
     {
       // 1. read instruction from memory
       this->m_cur_opcode = this->readop8(0);
@@ -50,6 +50,8 @@ namespace gbc
       if (this->m_asleep == false) {
         if (this->m_haltbug) this->m_haltbug--;
       }
+      // speed switch
+      this->handle_speed_switch();
     }
   }
 
@@ -312,6 +314,18 @@ namespace gbc
   void CPU::stop()
   {
     this->m_stopped = true;
+    this->m_switch_cycles = 4;
+  }
+  void CPU::handle_speed_switch()
+  {
+    if (this->m_switch_cycles > 0) {
+      this->m_switch_cycles--;
+      if (this->m_switch_cycles == 0) {
+        this->m_stopped = false;
+        // this can turn the LCD back on
+        machine().io.deactivate_stop();
+      }
+    }
   }
 
   void CPU::wait()

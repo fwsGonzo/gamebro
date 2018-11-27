@@ -59,6 +59,7 @@ namespace gbc
 
   private:
     void handle_interrupts();
+    void handle_speed_switch();
     void execute_interrupts(const uint8_t);
     bool break_time() const;
 
@@ -72,6 +73,7 @@ namespace gbc
     int8_t   m_intr_pending = 0;
     bool     m_stopped = false;
     bool     m_asleep = false;
+    uint8_t  m_switch_cycles = 0;
     uint8_t  m_haltbug = 0;
     // debugging
     bool     m_break = false;

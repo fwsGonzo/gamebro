@@ -26,11 +26,16 @@ namespace gbc
   {
     return memory().speed_factor() * 456;
   }
+  uint64_t GPU::oam_cycles()
+  {
+    return memory().speed_factor() * 80;
+  }
+  uint64_t GPU::vram_cycles()
+  {
+    return memory().speed_factor() * 172;
+  }
   void GPU::simulate()
   {
-    static const int OAM_CYCLES      = 80;
-    static const int VRAM_CYCLES     = 172;
-
     // nothing to do with LCD being off
     if (!this->lcd_enabled()) {
       return;
@@ -82,7 +87,7 @@ namespace gbc
         if (m_reg_stat & 0x20) io().trigger(lcd_stat);
         set_mode(2);
       }
-      else if (get_mode() == 2 && period >= OAM_CYCLES)
+      else if (get_mode() == 2 && period >= oam_cycles())
       {
         // enable MODE 3: Scanline VRAM
         set_mode(3);
@@ -90,7 +95,7 @@ namespace gbc
         this->render_scanline(m_current_scanline);
         // TODO: perform HDMA transfers here!
       }
-      else if (get_mode() == 3 && period >= OAM_CYCLES+VRAM_CYCLES)
+      else if (get_mode() == 3 && period >= oam_cycles()+vram_cycles())
       {
         // enable MODE 0: H-blank
         if (m_reg_stat & 0x8) io().trigger(lcd_stat);

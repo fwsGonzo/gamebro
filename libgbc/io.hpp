@@ -87,7 +87,9 @@ namespace gbc
     void    interrupt(interrupt_t&);
     uint8_t interrupt_mask() const;
     void    start_dma(uint16_t src);
+    void    start_hdma(uint16_t src, uint16_t dst, uint16_t bytes);
     void    perform_stop();
+    void    deactivate_stop();
 
     Machine& machine() noexcept { return m_machine; }
 
@@ -128,6 +130,7 @@ namespace gbc
       uint16_t dst;
       uint16_t bytes_left = 0;
     } m_dma;
+    dma_t m_hdma;
     // bit 1 = stopped, bit 8 = LCD on/off
     uint8_t  m_stop_reg = 0;
   };

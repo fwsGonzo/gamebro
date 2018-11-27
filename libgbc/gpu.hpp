@@ -56,6 +56,8 @@ namespace gbc
 
   private:
     uint64_t scanline_cycles();
+    uint64_t oam_cycles();
+    uint64_t vram_cycles();
     void render_scanline(int y);
     void do_ly_comparison();
     TileData create_tiledata(uint16_t tiles, uint16_t patt);

@@ -80,6 +80,7 @@ namespace gbc
 
   void iowrite_HDMA(IO& io, uint16_t addr, uint8_t value)
   {
+    if (io.machine().is_cgb() == false) return;
     switch (addr) {
       case IO::REG_HDMA1:
       case IO::REG_HDMA3:
@@ -95,13 +96,23 @@ namespace gbc
     src &= 0xFFF0;
     uint16_t dst = (io.reg(IO::REG_HDMA3) << 8) | io.reg(IO::REG_HDMA4);
     dst &= 0x9FF0;
-    uint16_t end = src + (io.reg(IO::REG_HDMA5) & 0x7F) * 16;
-    // do the transfer immediately
-    //printf("HDMA transfer 0x%04x to 0x%04x (%u bytes)\n", src, dst, end - src);
-    auto& mem = io.machine().memory;
-    while (src < end) mem.write8(dst++, mem.read8(src++));
-    // transfer complete
-    io.reg(IO::REG_HDMA5) = 0xFF;
+    const uint16_t num_bytes = (value & 0x7F) * 16;
+    // hblank DMA
+    if (value & 0x80) {
+      io.start_hdma(src, dst, num_bytes);
+      io.reg(IO::REG_HDMA5) = value;
+    }
+    else {
+      // disable any currently running HDMA
+      io.start_hdma(0, 0, 0);
+      // now do the transfer immediately
+      //printf("HDMA transfer 0x%04x to 0x%04x (%u bytes)\n", src, dst, end - src);
+      const uint16_t end = src + num_bytes;
+      auto& mem = io.machine().memory;
+      while (src < end) mem.write8(dst++, mem.read8(src++));
+      // transfer complete
+      io.reg(IO::REG_HDMA5) = 0xFF;
+    }
   }
   uint8_t ioread_HDMA(IO& io, uint16_t addr)
   {
@@ -129,6 +140,7 @@ namespace gbc
   }
   uint8_t ioread_KEY1(IO& io, uint16_t addr)
   {
+    if (io.machine().is_cgb() == false) return 0xff;
     return io.reg(addr);
   }
 

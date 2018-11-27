@@ -39,7 +39,8 @@ namespace gbc
     reg(REG_OBP0) = 0xff;
     reg(REG_OBP1) = 0xff;
     // boot rom enabled at boot
-    reg(REG_BOOT) = 0x00;
+    reg(REG_BOOT)  = 0x00;
+    reg(REG_HDMA5) = 0xFF;
 
     this->m_reg_ie = 0x00;
   }
@@ -89,6 +90,24 @@ namespace gbc
       }
       assert(m_dma.bytes_left >= btw);
       m_dma.bytes_left -= btw;
+    }
+
+    // HDMA operation
+    if (this->m_hdma.bytes_left > 0)
+    {
+      // during H-blank
+      if (machine().gpu.is_hblank())
+      {
+        uint16_t& btw = m_hdma.bytes_left;
+        // do the copying
+        auto& memory = machine().memory;
+        for (uint16_t i = 0; i < btw; i++) {
+          memory.write8(m_hdma.dst++, memory.read8(m_hdma.src++));
+        }
+        // transfer complete
+        this->reg(REG_HDMA5) = 0xFF;
+        btw = 0;
+      }
     }
   }
 
@@ -190,6 +209,14 @@ namespace gbc
     m_dma.dst = 0xfe00;
     m_dma.bytes_left = 160; // 160 bytes total
   }
+
+  void IO::start_hdma(uint16_t src, uint16_t dst, uint16_t bytes)
+  {
+    m_hdma.src = src;
+    m_hdma.dst = dst;
+    m_hdma.bytes_left = bytes;
+  }
+
   void IO::perform_stop()
   {
     this->m_stop_reg = 0x1;
@@ -199,5 +226,11 @@ namespace gbc
     reg(REG_LCDC) &= ~0x80;
     // enable joypad interrupts
     this->m_reg_ie |= joypadint.mask;
+  }
+  void IO::deactivate_stop()
+  {
+    // turn screen back on, if it was turned off
+    reg(REG_LCDC) &= ~0x80;
+    reg(REG_LCDC) |= m_stop_reg & 0x80;
   }
 }
