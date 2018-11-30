@@ -26,6 +26,8 @@ namespace gbc
     // trap on palette changes
     using palchange_func_t = delegate<void(uint8_t idx, uint16_t clr)>;
     void on_palchange(palchange_func_t func) { m_on_palchange = func; }
+    // get default GB palette
+    static std::array<uint32_t, 4> default_gb_colors() noexcept;
 
     void render_and_vblank();
     bool is_vblank() const noexcept;
@@ -94,5 +96,17 @@ namespace gbc
 
   inline void GPU::set_pixelmode(pixelmode_t pm) {
     this->m_pixelmode = pm;
+  }
+
+  inline std::array<uint32_t, 4> GPU::default_gb_colors() noexcept
+  {
+    #define mRGB(r, g, b) (r | (g << 8) | (b << 16) | (255u << 24))
+    return std::array<uint32_t, 4>{
+      mRGB(175, 203,  70), // least green
+      mRGB(121, 170, 109), // less green
+      mRGB( 34, 111,  95), // very green
+      mRGB(  8,  41,  85)  // dark green
+    };
+    #undef mRGB
   }
 }

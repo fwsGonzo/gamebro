@@ -245,13 +245,7 @@ namespace gbc
   // convert palette to grayscale colors
   uint32_t GPU::expand_dmg_color(const uint8_t color) const noexcept
   {
-    switch (color) {
-      case 0: return 0xFFFFFFFF; // white
-      case 1: return 0xFFA0A0A0; // light-gray
-      case 2: return 0xFF777777; // gray
-      case 3: return 0xFF000000; // black
-    }
-    return 0xFFFF00FF; // magenta = invalid
+    return default_gb_colors().at(color);
   }
   // convert 15-bit color to 32-bit RGBA
   uint32_t GPU::expand_cgb_color(const uint16_t color) const noexcept
