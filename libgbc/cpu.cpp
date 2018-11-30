@@ -36,7 +36,7 @@ namespace gbc
     if (!this->is_halting() && !this->is_stopping())
     {
       // 1. read instruction from memory
-      this->m_cur_opcode = this->readop8(0);
+      this->m_cur_opcode = this->peekop8(0);
       // 2. execute instruction
       unsigned time = this->execute(this->m_cur_opcode);
       // 3. pass the time (in T-states)
@@ -94,6 +94,14 @@ namespace gbc
     return ret;
   }
 
+  void CPU::hardware_tick()
+  {
+    this->incr_cycles(4);
+    machine().gpu.simulate();
+    machine().io.simulate();
+    machine().apu.simulate();
+  }
+
   // it takes 2 instruction-cycles to toggle interrupts
   void CPU::enable_interrupts() noexcept {
     this->m_intr_pending = 2;
@@ -134,11 +142,26 @@ namespace gbc
     }
   }
 
-  uint8_t CPU::readop8(const int dx)
+  uint8_t CPU::readop8()
+  {
+    const uint8_t operand = peekop8(0);
+    hardware_tick();
+    registers().pc++;
+    return operand;
+  }
+  uint16_t CPU::readop16()
+  {
+    const uint16_t operand = peekop16(0);
+    registers().pc += 2;
+    hardware_tick();
+    hardware_tick();
+    return operand;
+  }
+  uint8_t CPU::peekop8(const int dx)
   {
     return memory().read8(registers().pc + dx);
   }
-  uint16_t CPU::readop16(const int dx)
+  uint16_t CPU::peekop16(const int dx)
   {
     return memory().read16(registers().pc + dx);
   }

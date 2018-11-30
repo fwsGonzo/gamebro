@@ -4,7 +4,8 @@
 namespace gbc
 {
   Machine::Machine(std::vector<uint8_t> rom, bool init)
-      : cpu(*this, init), memory(*this, std::move(rom)), io(*this), gpu(*this)
+      : cpu(*this, init), memory(*this, std::move(rom)),
+        io(*this), gpu(*this), apu(*this)
   {
     // set CGB mode when ROM supports it
     const uint8_t cgb = memory.read8(0x143);

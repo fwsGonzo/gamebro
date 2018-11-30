@@ -21,11 +21,16 @@ namespace gbc
     uint64_t gettime() const noexcept { return m_cycles_total; }
 
     uint8_t  current_opcode() const noexcept { return m_cur_opcode; }
-    uint8_t  readop8(int dx = 0);
-    uint16_t readop16(int dx = 0);
+    // read and increment PC, and cycle counters, then tick hardware
+    uint8_t  readop8();
+    uint16_t readop16();
+    // peek at operands past PC without doing anything else
+    uint8_t  peekop8(int dx = 0);
+    uint16_t peekop16(int dx = 0);
     unsigned execute(const uint8_t);
     unsigned push_and_jump(uint16_t addr);
     void     incr_cycles(int count);
+    void     hardware_tick();
     void     stop();
     void     wait(); // wait for interrupts
     instruction_t& decode(uint8_t opcode);
@@ -44,6 +49,8 @@ namespace gbc
 
     bool is_stopping() const noexcept { return m_stopped; }
     bool is_halting() const noexcept { return m_asleep || m_haltbug != 0; }
+
+
 
     // debugging
     void  breakpoint(uint16_t address, breakpoint_t func);

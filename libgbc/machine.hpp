@@ -4,6 +4,7 @@
 #include "gpu.hpp"
 #include "memory.hpp"
 #include "io.hpp"
+#include "apu.hpp"
 #include "interrupt.hpp"
 
 namespace gbc
@@ -28,6 +29,7 @@ namespace gbc
     Memory memory;
     IO     io;
     GPU    gpu;
+    APU    apu;
 
     void     reset();
     uint64_t now() noexcept;

@@ -225,7 +225,7 @@ namespace gbc
     if (UNLIKELY(this->break_time())) {
       this->m_break = false;
       // pause for each instruction
-      this->print_and_pause(*this, this->readop8(0));
+      this->print_and_pause(*this, this->peekop8(0));
       // user can quit during break
       if (!machine().is_running()) return;
     }
@@ -234,7 +234,7 @@ namespace gbc
       auto it = m_breakpoints.find(registers().pc);
       if (it != m_breakpoints.end()) {
         auto& bp = it->second;
-        bp.callback(*this, this->readop8(0));
+        bp.callback(*this, this->peekop8(0));
         // user can quit during break
         if (!machine().is_running()) return;
       }
