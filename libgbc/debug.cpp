@@ -36,6 +36,7 @@ namespace gbc
       reset                 Reset the machine
       read [addr] (len=1)   Read from [addr] (len) bytes and print
       write [addr] [value]  Write [value] to memory location [addr]
+      readv1 [addr]         Read byte from VRAM1:[addr] and print
       debug                 Trigger the debug interrupt handler
       vblank                Render current screen and call vblank
 )V0G0N";
@@ -138,6 +139,19 @@ namespace gbc
       int value = std::stoi(params[2]) & 0xff;
       printf("0x%04lx -> 0x%02x\n", hex, value);
       cpu.memory().write8(hex, value);
+      return true;
+    }
+    // read from VRAM bank 1
+    else if (cmd == "readv1")
+    {
+      if (params.size() < 2) {
+        printf(">>> Not enough parameters: readv1 [addr]\n");
+        return true;
+      }
+      unsigned long hex = std::strtoul(params[1].c_str(), 0, 16);
+      if (hex > 0x8000) hex -= 0x8000;
+      hex &= 0x1FFF;
+      printf("VRAM1:%04lX -> %02X\n", hex, cpu.memory().video_ram_ptr()[0x2000 + hex]);
       return true;
     }
     else if (cmd == "vblank") {

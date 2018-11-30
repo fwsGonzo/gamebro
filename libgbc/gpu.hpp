@@ -23,6 +23,9 @@ namespace gbc
     void set_pixelmode(pixelmode_t);
     // the vector is resized to exactly fit the screen
     const auto& pixels() const noexcept { return m_pixels; }
+    // trap on palette changes
+    using palchange_func_t = delegate<void(uint8_t idx, uint16_t clr)>;
+    void on_palchange(palchange_func_t func) { m_on_palchange = func; }
 
     void render_and_vblank();
     bool is_vblank() const noexcept;
@@ -45,7 +48,8 @@ namespace gbc
 
     // CGB palette registers
     enum pal_t { PAL_BG, PAL_SPR };
-    uint8_t& getpal(pal_t pal, uint8_t index);
+    uint8_t& getpal(uint16_t index);
+    void     setpal(uint16_t index, uint8_t value);
 
     Machine& machine() noexcept { return m_memory.machine(); }
     Memory&  memory() noexcept { return m_memory; }
@@ -63,27 +67,29 @@ namespace gbc
     TileData create_tiledata(uint16_t tiles, uint16_t patt);
     sprite_config_t sprite_config();
     std::vector<const Sprite*> find_sprites(const sprite_config_t&);
-    uint32_t colorize(uint8_t pal, uint8_t);
+    uint32_t colorize_tile(int tattr, uint8_t idx);
+    uint32_t colorize_sprite(const Sprite*, sprite_config_t&, uint8_t);
+    uint16_t get_cgb_color(size_t idx) const;
+    uint32_t expand_cgb_color(uint16_t c16) const noexcept;
+    uint32_t expand_dmg_color(uint8_t idx) const noexcept;
     // addresses
     uint16_t bg_tiles() const noexcept;
     uint16_t window_tiles() const noexcept;
     uint16_t tile_data() const noexcept;
-    // palettes
-    uint8_t tile_palette() const noexcept;
-    uint8_t sprite_palette() const noexcept;
 
-    std::vector<uint32_t> m_pixels;
     Memory& m_memory;
     IO& m_io;
     uint8_t&    m_reg_lcdc;
     uint8_t&    m_reg_stat;
     uint8_t&    m_reg_ly;
+    std::vector<uint32_t> m_pixels;
+    palchange_func_t m_on_palchange = nullptr;
     pixelmode_t m_pixelmode = PM_RGBA;
     int m_current_scanline = 0;
     uint16_t m_video_offset = 0x0;
 
-    std::array<uint8_t, 64> m_bg_palette;
-    std::array<uint8_t, 8> m_spr_palette;
+    // 0-63: tiles 64-127: sprites
+    std::array<uint8_t, 128> m_cgb_palette;
   };
 
   inline void GPU::set_pixelmode(pixelmode_t pm) {

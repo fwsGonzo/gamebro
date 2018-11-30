@@ -186,27 +186,27 @@ namespace gbc
   void iowrite_BGPD(IO& io, uint16_t, uint8_t value)
   {
     uint8_t& idx = io.reg(IO::REG_BGPI); // palette index
-    io.machine().gpu.getpal(GPU::PAL_BG, idx & 63) = value;
+    io.machine().gpu.setpal(0 + (idx & 63), value);
     // when bit7 is set, auto-increment the index register
     if (idx & 0x80) auto_increment(idx, 63);
   }
   uint8_t ioread_BGPD(IO& io, uint16_t)
   {
     uint8_t idx = io.reg(IO::REG_BGPI) & 63; // palette index
-    return io.machine().gpu.getpal(GPU::PAL_BG, idx);
+    return io.machine().gpu.getpal(0 + idx);
   }
 
   void iowrite_OBPD(IO& io, uint16_t, uint8_t value)
   {
     uint8_t& idx = io.reg(IO::REG_OBPI); // palette index
-    io.machine().gpu.getpal(GPU::PAL_SPR, idx & 7) = value;
+    io.machine().gpu.setpal(64 + (idx & 63), value);
     // when bit7 is set, auto-increment the index register
-    if (idx & 0x80) auto_increment(idx, 7);
+    if (idx & 0x80) auto_increment(idx, 63);
   }
   uint8_t ioread_OBPD(IO& io, uint16_t)
   {
-    uint8_t idx = io.reg(IO::REG_OBPI) & 7; // palette index
-    return io.machine().gpu.getpal(GPU::PAL_SPR, idx);
+    uint8_t idx = io.reg(IO::REG_OBPI) & 63; // palette index
+    return io.machine().gpu.getpal(64 + idx);
   }
 
   __attribute__((constructor))

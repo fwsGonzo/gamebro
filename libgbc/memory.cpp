@@ -5,25 +5,25 @@
 namespace gbc
 {
   Memory::Memory(Machine& mach, std::vector<uint8_t> rom)
-    : m_machine(mach), m_mbc{*this, std::move(rom)}
+    : m_machine(mach), m_rom(std::move(rom)), m_mbc{*this, m_rom}
   {
-    assert(m_mbc.rom_valid());
+    assert(this->rom_valid());
     this->m_bootrom_enabled = false;
-    // set CGB mode when ROM supports it
-    const uint8_t cgb = this->read8(0x143);
-    machine().m_cgb_mode = cgb & 0x80;
   }
   void Memory::reset()
   {
     //this->disable_bootrom();
     //m_mbc.reset();
   }
-  void Memory::install_rom(std::vector<uint8_t> rom) {
-    this->m_mbc.install_rom(std::move(rom));
+  bool Memory::rom_valid() const noexcept
+  {
+    // TODO: implement me
+    return true;
   }
   void Memory::disable_bootrom() {
     this->m_bootrom_enabled = false;
   }
+
   void Memory::set_wram_bank(uint8_t bank)
   {
     this->m_mbc.set_wrambank(bank);
@@ -42,8 +42,8 @@ namespace gbc
     }
     else if (this->is_within(address, VideoRAM)) {
       // cant read from Video RAM when working on scanline
-      //if (UNLIKELY(machine().gpu.get_mode() == 3))
-      //    return 0xff;
+      if (UNLIKELY(machine().gpu.get_mode() == 3))
+          return 0xff;
       const uint16_t offset = machine().gpu.video_offset();
       return m_video_ram.at(offset + address - VideoRAM.first);
     }

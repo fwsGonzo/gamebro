@@ -143,7 +143,6 @@ namespace gbc
   {
     const uint8_t scroll_y = memory().read8(IO::REG_SCY);
     const uint8_t scroll_x = memory().read8(IO::REG_SCX);
-    const uint8_t pal  = memory().read8(IO::REG_BGP);
 
     // create tiledata object from LCDC register
     auto td = this->create_tiledata(bg_tiles(), tile_data());
@@ -166,50 +165,101 @@ namespace gbc
       const int t = td.tile_id(sx / 8, sy / 8);
       const int tattr = td.tile_attr(sx / 8, sy / 8);
       // copy the 16-byte tile into buffer
-      const int tidx = td.pattern(t, sx & 7, sy & 7);
-      uint32_t color = this->colorize(pal, tidx);
-      // window on can be under sprites
-      if (window && scan_x >= window_x()-7)
-      {
-        const int sx = scan_x - window_x()+7;
-        const int sy = scan_y - window_y();
-        // draw window pixel
-        const int t = wtd.tile_id(sx / 8, sy / 8);
-        const int tidx = wtd.pattern(t, sx & 7, sy & 7);
-        color = this->colorize(pal, tidx);
-      }
+      const int tidx = td.pattern(t, tattr, sx & 7, sy & 7);
+      uint32_t color = this->colorize_tile(tattr, tidx);
 
-      // render sprites within this x
-      sprconf.scan_x = scan_x;
-      for (const auto* sprite : sprites) {
-        const uint8_t idx = sprite->pixel(sprconf);
-        if (idx != 0) {
-          if (!sprite->behind() || tidx == 0) {
-            color = this->colorize(sprconf.palette[sprite->pal()], idx);
+      if ((tattr & 0x80) == 0 || !machine().is_cgb())
+      {
+        // window on can be under sprites
+        if (window && scan_x >= window_x()-7)
+        {
+          const int sx = scan_x - window_x()+7;
+          const int sy = scan_y - window_y();
+          // draw window pixel
+          const int t = wtd.tile_id(sx / 8, sy / 8);
+          const int tidx = wtd.pattern(t, tattr, sx & 7, sy & 7);
+          color = this->colorize_tile(tattr, tidx);
+        }
+
+        // render sprites within this x
+        sprconf.scan_x = scan_x;
+        for (const auto* sprite : sprites) {
+          const uint8_t idx = sprite->pixel(sprconf);
+          if (idx != 0) {
+            if (!sprite->behind() || tidx == 0) {
+              color = this->colorize_sprite(sprite, sprconf, idx);
+            }
           }
         }
-      }
+      } // BG priority
       m_pixels.at(scan_y * SCREEN_W + scan_x) = color;
     } // x
   } // render_to(...)
 
-  uint32_t GPU::colorize(const uint8_t pal, const uint8_t idx)
+  uint32_t GPU::colorize_tile(const int tattr, const uint8_t idx)
   {
-    const uint8_t color = (pal >> (idx*2)) & 0x3;
+    const bool is_cgb = machine().is_cgb();
+    size_t index = 0;
+    if (is_cgb) {
+        const uint8_t pal = tattr & 0x7;
+        index = 4 * pal + idx;
+    } else {
+        const uint8_t pal = memory().read8(IO::REG_BGP);
+        index = (pal >> (idx*2)) & 0x3;
+    }
     // no conversion
-    if (m_pixelmode == PM_PALETTE) return color;
-    // convert palette to colors
+    if (m_pixelmode == PM_PALETTE) {
+      return index;
+    }
+    // convert to 32-bit color
+    if (is_cgb) {
+      return expand_cgb_color(get_cgb_color(index * 2));
+    }
+    assert(0);
+    return expand_dmg_color(index);
+  }
+  uint32_t GPU::colorize_sprite(const Sprite* sprite,
+                                sprite_config_t& sprconf, const uint8_t idx)
+  {
+    size_t index = 0;
+    if (machine().is_cgb()) {
+        index = 32 + 4 * sprite->cgb_pal() + idx;
+    } else {
+        const uint8_t pal = sprconf.palette[sprite->pal()];
+        index = (pal >> (idx*2)) & 0x3;
+    }
+    // no conversion
+    if (m_pixelmode == PM_PALETTE) {
+      return index;
+    }
+    // convert to 32-bit color
+    if (machine().is_cgb()) {
+      return expand_cgb_color(get_cgb_color(index * 2));
+    }
+    return expand_dmg_color(index);
+  }
+  uint16_t GPU::get_cgb_color(size_t idx) const
+  {
+    return m_cgb_palette.at(idx) | (m_cgb_palette.at(idx+1) << 8);
+  }
+  // convert palette to grayscale colors
+  uint32_t GPU::expand_dmg_color(const uint8_t color) const noexcept
+  {
     switch (color) {
-    case 0:
-        return 0xFFFFFFFF; // white
-    case 1:
-        return 0xFFA0A0A0; // light-gray
-    case 2:
-        return 0xFF777777; // gray
-    case 3:
-        return 0xFF000000; // black
+      case 0: return 0xFFFFFFFF; // white
+      case 1: return 0xFFA0A0A0; // light-gray
+      case 2: return 0xFF777777; // gray
+      case 3: return 0xFF000000; // black
     }
     return 0xFFFF00FF; // magenta = invalid
+  }
+  // convert 15-bit color to 32-bit RGBA
+  uint32_t GPU::expand_cgb_color(const uint16_t color) const noexcept
+  {
+    const uint16_t r = ((color >>  0) & 0x1f) << 3;
+    const uint16_t g = ((color >>  5) & 0x1f) << 3;
+    const uint16_t b = ((color >> 10) & 0x1f) << 3;
+    return r | (g << 8) | (b << 16);
   }
 
   bool GPU::lcd_enabled() const noexcept {
@@ -239,34 +289,27 @@ namespace gbc
   uint16_t GPU::tile_data() const noexcept {
     return (m_reg_lcdc & 0x10) ? 0x8000 : 0x8800;
   }
-  uint8_t GPU::tile_palette() const noexcept {
-    return 0;
-  }
-  uint8_t GPU::sprite_palette() const noexcept {
-    return 0;
-  }
 
   TileData GPU::create_tiledata(uint16_t tiles, uint16_t patterns)
   {
-    const uint8_t lcdc = memory().read8(IO::REG_LCDC);
-    const bool is_signed = (lcdc & 0x10) == 0;
+    const bool is_signed = (m_reg_lcdc & 0x10) == 0;
     const auto* vram = memory().video_ram_ptr();
     //printf("Background tiles: 0x%04x  Tile data: 0x%04x\n",
     //        bg_tiles(), tile_data());
     const auto* tile_base = &vram[tiles    - 0x8000];
     const auto* patt_base = &vram[patterns - 0x8000];
-    return TileData{tile_base, patt_base, is_signed, machine().is_cgb()};
+    const auto* attr_base = &vram[0x1800 + 0x2000];
+    return TileData{tile_base, patt_base, attr_base, is_signed, machine().is_cgb()};
   }
   sprite_config_t GPU::sprite_config()
   {
-    const uint8_t lcdc = memory().read8(IO::REG_LCDC);
     sprite_config_t config;
     config.patterns = memory().video_ram_ptr();
     config.palette[0] = memory().read8(IO::REG_OBP0);
     config.palette[1] = memory().read8(IO::REG_OBP1);
     config.scan_x = 0;
     config.scan_y = 0;
-    config.mode8x16 = lcdc & 0x4;
+    config.mode8x16 = m_reg_lcdc & 0x4;
     return config;
   }
 
@@ -292,7 +335,6 @@ namespace gbc
   std::vector<uint32_t> GPU::dump_background()
   {
     std::vector<uint32_t> data(256 * 256);
-    const uint8_t pal = memory().read8(IO::REG_BGP);
     // create tiledata object from LCDC register
     auto td = this->create_tiledata(bg_tiles(), tile_data());
 
@@ -301,16 +343,16 @@ namespace gbc
     {
       // get the tile id
       const int t = td.tile_id(x >> 3, y >> 3);
+      const int tattr = td.tile_attr(x >> 3, y >> 3);
       // copy the 16-byte tile into buffer
-      const int idx = td.pattern(t, x & 7, y & 7);
-      data.at(y * 256 + x) = this->colorize(pal, idx);
+      const int idx = td.pattern(t, tattr, x & 7, y & 7);
+      data.at(y * 256 + x) = this->colorize_tile(tattr, idx);
     }
     return data;
   }
   std::vector<uint32_t> GPU::dump_tiles()
   {
     std::vector<uint32_t> data(16*24 * 8*8);
-    const uint8_t pal = memory().read8(IO::REG_BGP);
     // tiles start at the beginning of video RAM
     auto td = this->create_tiledata(0x8000, tile_data());
 
@@ -319,8 +361,8 @@ namespace gbc
     {
       int tile = (y / 8) * 16 + (x / 8);
       // copy the 16-byte tile into buffer
-      const int idx = td.pattern(tile, x & 7, y & 7);
-      data.at(y * 128 + x) = this->colorize(pal, idx);
+      const int idx = td.pattern(tile, 0, x & 7, y & 7);
+      data.at(y * 128 + x) = this->colorize_tile(0, idx);
     }
     return data;
   }
@@ -338,7 +380,7 @@ namespace gbc
   }
   void GPU::lcd_power_changed(const bool online)
   {
-    printf("Screen turned %s\n", online ? "ON" : "OFF");
+    //printf("Screen turned %s\n", online ? "ON" : "OFF");
     auto& lcd_stat = io().lcd_stat;
     if (online)
     {
@@ -357,11 +399,18 @@ namespace gbc
     }
   }
 
-  uint8_t& GPU::getpal(pal_t pal, uint8_t index)
+  uint8_t& GPU::getpal(uint16_t index)
   {
-    if (pal == PAL_BG)
-        return m_bg_palette.at(index);
-    else
-        return m_spr_palette.at(index);
+    return m_cgb_palette.at(index);
   }
+  void GPU::setpal(uint16_t index, uint8_t value)
+  {
+    this->getpal(index) = value;
+    if (this->m_on_palchange) {
+      const uint8_t base = index / 2;
+      const uint16_t c16 = getpal(base*2) | (getpal(base*2+1) << 8);
+      // linearize palette memory
+      this->m_on_palchange(base, c16);
+    }
+  } // setpal(...)
 }

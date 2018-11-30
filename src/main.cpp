@@ -47,7 +47,7 @@ int main(int argc, char** args)
 
 	machine = new gbc::Machine(romdata);
 	machine->break_now();
-	machine->verbose_banking = true;
+	//machine->verbose_banking = true;
 	//machine->cpu.default_pausepoint(0x2cb5);
 	//machine->verbose_instructions = true;
 	//machine->break_on_interrupts = true;
@@ -72,6 +72,15 @@ int main(int argc, char** args)
 			const char* tilefile = "tiles.bmp";
 			save_screenshot(tilefile, machine.gpu.dump_tiles());
 		});
+	machine->gpu.on_palchange(
+    [] (const uint8_t idx, const uint16_t color)
+    {
+      const uint32_t r = ((color >>  0) & 0x1f) << 3;
+      const uint32_t g = ((color >>  5) & 0x1f) << 3;
+      const uint32_t b = ((color >> 10) & 0x1f) << 3;
+			const uint32_t rgba = r | (g << 8) | (b << 16);
+			printf("GPU: %u changes color to %04X (%06X)\n", idx, color, rgba);
+    });
 
 	extern void do_test_machine();
 	//do_test_machine();
@@ -82,10 +91,12 @@ int main(int argc, char** args)
 		machine->io.simulate();
 		machine->gpu.simulate();
 
+		/*
 		static int counter = 0;
 		std::array<uint8_t, 8> inputs = {0x80, 0x10, 0x10, 0x80, 0x10, 0x80, 0x0, 0x0};
 		machine->set_inputs(inputs.at(counter));
 		counter = (counter + 1) % inputs.size();
+		*/
 	}
 	save_screenshot("exitshot.bmp", machine->gpu.pixels());
 

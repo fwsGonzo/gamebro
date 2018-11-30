@@ -5,8 +5,8 @@
 
 namespace gbc
 {
-  MBC1::MBC1(Memory& m, std::vector<uint8_t> rom)
-      : m_memory(m), m_rom(std::move(rom))
+  MBC1::MBC1(Memory& m, const std::vector<uint8_t>& rom)
+      : m_memory(m), m_rom(rom)
   {
     m_ram.at(0x100) = 0x1;
     m_ram.at(0x101) = 0x3;
@@ -64,9 +64,6 @@ namespace gbc
     m_wram_size = 0x2000;
     printf("Work RAM bank size: 0x%04x\n", m_wram_size);
   }
-  void MBC1::install_rom(std::vector<uint8_t> rom) {
-    this->m_rom = std::move(rom);
-  }
 
   uint8_t MBC1::read(uint16_t addr)
   {
@@ -107,7 +104,7 @@ namespace gbc
     {
       return this->read(addr - 0x2000);
     }
-    printf("* Invalid MCB1 read: 0x%04x\n", addr);
+    printf("* Invalid MBC1 read: 0x%04x\n", addr);
     return 0xff;
   }
 
@@ -124,6 +121,25 @@ namespace gbc
         printf("* External RAM enabled: %d\n", this->m_ram_enabled);
       }
       return;
+    }
+    else if (this->m_version == 5 && addr < 0x6000)
+    {
+      switch (addr & 0xF000) {
+        case 0x2000:
+            this->m_rom_bank_reg &= 0x100;
+            this->m_rom_bank_reg |= value & 0xFF;
+            this->set_rombank(this->m_rom_bank_reg);
+            return;
+        case 0x3000:
+            this->m_rom_bank_reg &= 0xFF;
+            this->m_rom_bank_reg |= value & 0x100;
+            this->set_rombank(this->m_rom_bank_reg);
+            return;
+        case 0x4000:
+        case 0x5000:
+            this->set_rambank(value & 0xF);
+            return;
+      }
     }
     else if (addr < 0x4000) // ROM bank number
     {
@@ -179,14 +195,8 @@ namespace gbc
       this->write(addr - 0x2000, value);
       return;
     }
-    printf("* Invalid MCB1 write: 0x%04x => 0x%02x\n", addr, value);
+    printf("* Invalid MBC1 write: 0x%04x => 0x%02x\n", addr, value);
     assert(0);
-  }
-
-  bool MBC1::rom_valid() const noexcept
-  {
-    // TODO: implement me
-    return true;
   }
 
   void MBC1::set_rombank(int reg)

@@ -16,7 +16,7 @@ namespace gbc
   void CPU::reset() noexcept
   {
     // gameboy DMG initial register values
-    registers().af = 0x01b0;
+    registers().af = 0x11b0;
     registers().bc = 0x0013;
     registers().de = 0x00d8;
     registers().hl = 0x014d;
@@ -84,6 +84,11 @@ namespace gbc
         printf("* Flags changed: [%s]\n",
                 cstr_flags(fbuf, registers().flags));
       }
+    }
+    if (UNLIKELY(memory().is_within(registers().pc, Memory::VideoRAM)))
+    {
+      fprintf(stderr, "PC is in the Video RAM area: %04X\n", registers().pc);
+      this->break_now();
     }
     // return cycles used
     return ret;

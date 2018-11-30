@@ -12,46 +12,74 @@
 void Service::start()
 {
   VGA_gfx::set_mode(VGA_gfx::MODE_320_200_256);
-  VGA_gfx::clear();
+  VGA_gfx::clear(0xff);
   VGA_gfx::apply_default_palette();
-  clear();
+  clear(0xff); // use an unused black color
 
   fs::memdisk().init_fs(
   [] (fs::error_t err, fs::File_system&) {
     assert(!err);
   });
   auto& filesys = fs::memdisk().fs();
-  auto rombuffer = filesys.read_file("/tloz_la.gb");
+  //auto rombuffer = filesys.read_file("/tloz_la_dx.gbc");
+  //auto rombuffer = filesys.read_file("/pokemon_yellow.gbc");
+  auto rombuffer = filesys.read_file("/pokemon_crystal.gbc");
+  //auto rombuffer = filesys.read_file("/tloz_seasons.gbc");
   //auto rombuffer = filesys.read_file("/tetris.gb");
   assert(rombuffer.is_valid());
   auto romdata = std::move(*rombuffer.get());
 
   static gbc::Machine* machine = nullptr;
   machine = new gbc::Machine(romdata);
+  //machine->gpu.set_pixelmode(gbc::PM_RGBA);
   machine->gpu.set_pixelmode(gbc::PM_PALETTE);
+
+  // trap on V-blank
+  static bool vblanked = false;
+  machine->set_handler(gbc::Machine::VBLANK,
+    [] (gbc::Machine& machine, gbc::interrupt_t&)
+    {
+      const int W = machine.gpu.SCREEN_W;
+      const int H = machine.gpu.SCREEN_H;
+      //restart_indexing();
+
+      for (int y = 0; y < H; y++)
+      for (int x = 0; x < W; x++)
+      {
+        const auto& pixels = machine.gpu.pixels();
+        // Palette mode
+        const uint32_t idx = pixels.at(W * y + x);
+        if (machine.is_cgb()) {
+          assert((idx & 0xff) == idx);
+          set_pixel(x+80, y+32, idx);
+        }
+        else {
+          const uint8_t palette[] = {29, 25, 21, 17};
+          set_pixel(x+80, y+32, palette[idx & 0x3]);
+        }
+        // RGBA mode
+        //const uint32_t color = pixels.at(W * y + x);
+        //int index = auto_indexed_color(color);
+        //set_pixel(x+80, y+32, index);
+      }
+      // blit to front framebuffer here
+      VGA_gfx::blit_from(backbuffer.data());
+      vblanked = true;
+    });
+
+  machine->gpu.on_palchange(
+    [] (const uint8_t idx, const uint16_t color)
+    {
+      const uint8_t r = (color >>  0) & 0x1f;
+      const uint8_t g = (color >>  5) & 0x1f;
+      const uint8_t b = (color >> 10) & 0x1f;
+      VGA_gfx::set_palette(idx, r << 1, g << 1, b << 1);
+    });
 
   // framebuffer
   using namespace std::chrono;
   Timers::periodic(16ms,
   [] (int) {
-    static bool vblanked = false;
-    machine->set_handler(gbc::Machine::VBLANK,
-  		[] (gbc::Machine& machine, gbc::interrupt_t&)
-  		{
-        const int W = machine.gpu.SCREEN_W;
-        const int H = machine.gpu.SCREEN_H;
-        for (int y = 0; y < H; y++)
-      	for (int x = 0; x < W; x++)
-      	{
-          const auto& pixels = machine.gpu.pixels();
-          const uint8_t idx = pixels.at(W * y + x) & 0x3;
-          const uint8_t palette[] = {29, 25, 21, 17};
-          set_pixel(x+80, y+32, palette[idx]);
-        }
-        // blit to front framebuffer here
-        VGA_gfx::blit_from(backbuffer.data());
-        vblanked = true;
-      });
     // create a new frame
     while (vblanked == false)
   	{
@@ -63,6 +91,7 @@ void Service::start()
   });
 
   // input
+  hw::KBM::init();
   hw::KBM::set_virtualkey_handler(
   [] (int key, bool pressed)
   {
@@ -98,4 +127,5 @@ void Service::start()
   });
 }
 
-extern "C" int getchar() {}
+// getchar() stub
+extern "C" int getchar() { return 0; }

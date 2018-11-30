@@ -40,7 +40,7 @@ namespace gbc
     static constexpr uint16_t range_size(range_t range) { return range.second - range.first; }
 
     Machine& machine() noexcept { return m_machine; }
-    void install_rom(std::vector<uint8_t> rom);
+    bool rom_valid() const noexcept;
     bool bootrom_enabled() const noexcept { return m_bootrom_enabled; }
     void disable_bootrom();
 
@@ -53,13 +53,13 @@ namespace gbc
     using access_t = delegate<void(Memory&, uint16_t, uint8_t)>;
     void breakpoint(amode_t, access_t);
 
-  private:
     inline bool is_within(uint16_t addr, const range_t& range) const
     {
       return addr >= range.first && addr <= range.second;
     }
-
+  private:
     Machine& m_machine;
+    std::vector<uint8_t>       m_rom;
     MBC1                       m_mbc;
     std::array<uint8_t, 16384> m_video_ram = {};
     std::array<uint8_t, 256>   m_oam_ram = {};
