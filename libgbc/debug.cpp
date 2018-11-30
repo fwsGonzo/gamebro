@@ -193,7 +193,7 @@ namespace gbc
     try {
       auto& mem = cpu.memory();
       printf("\t(HL) = %02X  (SP) = %04X\n",
-            cpu.read_hl(), mem.read16(cpu.registers().sp));
+            mem.read16(cpu.registers().hl), mem.read16(cpu.registers().sp));
     } catch (...) {
       printf("\tUnable to read from (HL) or (SP)\n");
     }

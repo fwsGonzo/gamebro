@@ -21,16 +21,22 @@ namespace gbc
     uint64_t gettime() const noexcept { return m_cycles_total; }
 
     uint8_t  current_opcode() const noexcept { return m_cur_opcode; }
+    void     execute(const uint8_t);
     // read and increment PC, and cycle counters, then tick hardware
     uint8_t  readop8();
     uint16_t readop16();
     // peek at operands past PC without doing anything else
-    uint8_t  peekop8(int dx = 0);
-    uint16_t peekop16(int dx = 0);
-    unsigned execute(const uint8_t);
-    unsigned push_and_jump(uint16_t addr);
-    void     incr_cycles(int count);
+    uint8_t  peekop8(int disp);
+    uint16_t peekop16(int disp);
+    // ticking memory reads & writes
+    uint8_t  mtread8(uint16_t addr);
+    void     mtwrite8(uint16_t addr, uint8_t value);
+    uint16_t mtread16(uint16_t addr);
+    void     mtwrite16(uint16_t addr, uint16_t value);
+    // perform one hardware tick
     void     hardware_tick();
+    void     incr_cycles(int count);
+    void     push_and_jump(uint16_t addr);
     void     stop();
     void     wait(); // wait for interrupts
     instruction_t& decode(uint8_t opcode);

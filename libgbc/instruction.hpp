@@ -4,7 +4,7 @@
 namespace gbc
 {
   class  CPU;
-  using handler_t = unsigned(*)(CPU&, uint8_t);
+  using handler_t = void(*)(CPU&, uint8_t);
   using printer_t = int(*)(char*, size_t, CPU&, uint8_t);
 
   enum alu_t : uint8_t {

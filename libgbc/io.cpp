@@ -186,14 +186,15 @@ namespace gbc
       printf("%9lu: Executing interrupt %s (%#x)\n",
              machine().cpu.gettime(), intr.name, intr.mask);
     }
-    unsigned int t = 4;
     // disable interrupt request
     reg(REG_IF) &= ~intr.mask;
     // set interrupt bit
     //this->m_reg_ie |= intr.mask;
     // push PC and jump to INTR addr
-    t += machine().cpu.push_and_jump(intr.fixed_address);
-    machine().cpu.incr_cycles(t);
+    machine().cpu.push_and_jump(intr.fixed_address);
+    //machine().cpu.incr_cycles(8);
+    machine().cpu.hardware_tick();
+    machine().cpu.hardware_tick();
     // sometimes we want to break on interrupts
     if (machine().break_on_interrupts && !machine().is_breaking()) {
       machine().break_now();

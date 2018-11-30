@@ -36,11 +36,9 @@ namespace gbc
     if (!this->is_halting() && !this->is_stopping())
     {
       // 1. read instruction from memory
-      this->m_cur_opcode = this->peekop8(0);
+      this->m_cur_opcode = this->readop8();
       // 2. execute instruction
-      unsigned time = this->execute(this->m_cur_opcode);
-      // 3. pass the time (in T-states)
-      this->incr_cycles(time);
+      this->execute(this->m_cur_opcode);
     }
     else
     {
@@ -55,7 +53,7 @@ namespace gbc
     }
   }
 
-  unsigned CPU::execute(const uint8_t opcode)
+  void CPU::execute(const uint8_t opcode)
   {
     // decode into executable instruction
     auto& instr = decode(opcode);
@@ -65,14 +63,12 @@ namespace gbc
     {
       char prn[128];
       instr.printer(prn, sizeof(prn), *this, opcode);
-      printf("%9lu: [pc 0x%04x] opcode 0x%02x: %s\n",
-              gettime(), registers().pc,  opcode, prn);
+      printf("%9lu: [pc %04X] opcode %02X: %s\n",
+              gettime(), registers().pc-1,  opcode, prn);
     }
 
-    // increment program counter
-    registers().pc += 1;
     // run instruction handler
-    unsigned ret = instr.handler(*this, opcode);
+    instr.handler(*this, opcode);
 
     if (UNLIKELY(machine().verbose_instructions))
     {
@@ -90,8 +86,6 @@ namespace gbc
       fprintf(stderr, "PC is in the Video RAM area: %04X\n", registers().pc);
       this->break_now();
     }
-    // return cycles used
-    return ret;
   }
 
   void CPU::hardware_tick()
@@ -140,30 +134,6 @@ namespace gbc
       else if (imask &  0x8) io.interrupt(io.serialint);
       else if (imask & 0x10) io.interrupt(io.joypadint);
     }
-  }
-
-  uint8_t CPU::readop8()
-  {
-    const uint8_t operand = peekop8(0);
-    hardware_tick();
-    registers().pc++;
-    return operand;
-  }
-  uint16_t CPU::readop16()
-  {
-    const uint16_t operand = peekop16(0);
-    registers().pc += 2;
-    hardware_tick();
-    hardware_tick();
-    return operand;
-  }
-  uint8_t CPU::peekop8(const int dx)
-  {
-    return memory().read8(registers().pc + dx);
-  }
-  uint16_t CPU::peekop16(const int dx)
-  {
-    return memory().read16(registers().pc + dx);
   }
 
   instruction_t& CPU::decode(const uint8_t opcode)
@@ -326,11 +296,59 @@ namespace gbc
     return instr_MISSING;
   }
 
+  uint8_t CPU::peekop8(int disp)
+  {
+    return memory().read8(registers().pc + disp);
+  }
+  uint16_t CPU::peekop16(int disp)
+  {
+    return memory().read16(registers().pc + disp);
+  }
+  uint8_t CPU::readop8()
+  {
+    const uint8_t operand = peekop8(0);
+    registers().pc++;
+    hardware_tick();
+    return operand;
+  }
+  uint16_t CPU::readop16()
+  {
+    const uint16_t operand = peekop16(0);
+    registers().pc += 2;
+    hardware_tick();
+    hardware_tick();
+    return operand;
+  }
+
   uint8_t CPU::read_hl() {
-    return memory().read8(registers().hl);
+    return this->mtread8(registers().hl);
   }
   void CPU::write_hl(const uint8_t value) {
-    memory().write8(registers().hl, value);
+    this->mtwrite8(registers().hl, value);
+  }
+  uint8_t CPU::mtread8(uint16_t addr)
+  {
+    const uint8_t value = memory().read8(addr);
+    this->hardware_tick();
+    return value;
+  }
+  void CPU::mtwrite8(uint16_t addr, uint8_t value)
+  {
+    memory().write8(addr, value);
+    this->hardware_tick();
+  }
+  uint16_t CPU::mtread16(uint16_t addr)
+  {
+    const uint16_t value = memory().read16(addr);
+    this->hardware_tick();
+    this->hardware_tick();
+    return value;
+  }
+  void CPU::mtwrite16(uint16_t addr, uint16_t value)
+  {
+    memory().write16(addr, value);
+    this->hardware_tick();
+    this->hardware_tick();
   }
 
   void CPU::incr_cycles(int count)
@@ -362,11 +380,11 @@ namespace gbc
     this->m_haltbug = 2;
   }
 
-  unsigned CPU::push_and_jump(uint16_t address)
+  void CPU::push_and_jump(uint16_t address)
   {
     registers().sp -= 2;
-    memory().write16(registers().sp, registers().pc);
+    this->mtwrite16(registers().sp, registers().pc);
     registers().pc = address;
-    return 16;
+    this->hardware_tick();
   }
 }
