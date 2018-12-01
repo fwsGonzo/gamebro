@@ -36,6 +36,7 @@ namespace gbc
     // perform one hardware tick
     void     hardware_tick();
     void     incr_cycles(int count);
+    void     push_value(uint16_t addr);
     void     push_and_jump(uint16_t addr);
     void     stop();
     void     wait(); // wait for interrupts

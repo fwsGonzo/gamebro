@@ -14,7 +14,7 @@ namespace gbc
 {
   INSTRUCTION(NOP) (CPU&, const uint8_t)
   {
-    // NOP takes 4 T-states
+    // NOP takes 4 T-states (instruction decoding)
   }
   PRINTER(NOP) (char* buffer, size_t len, CPU&, const uint8_t) {
     return snprintf(buffer, len, "NOP");
@@ -356,18 +356,16 @@ namespace gbc
   {
     if (opcode & 4) {
       // PUSH R
-      cpu.registers().sp -= 2;
-      cpu.mtwrite16(cpu.registers().sp, cpu.registers().getreg_af(opcode));
-      cpu.hardware_tick();
+      cpu.push_value(cpu.registers().getreg_af(opcode));
     }
     else {
       // POP R
       cpu.registers().getreg_af(opcode) = cpu.mtread16(cpu.registers().sp);
+      cpu.registers().sp += 2;
       if (((opcode >> 4) & 0x3) == 0x3) {
         // NOTE: POP AF requires clearing flag bits 0-3
         cpu.registers().flags &= 0xF0;
       }
-      cpu.registers().sp += 2;
     }
   }
   PRINTER(PUSH_POP) (char* buffer, size_t len, CPU& cpu, uint8_t opcode) {
@@ -391,22 +389,33 @@ namespace gbc
       {
         printf("* Returned to 0x%04x\n", cpu.registers().pc);
       }
-      // RETI
-      if (UNLIKELY(opcode == 0xd9)) {
-        cpu.enable_interrupts();
-      }
-      else if (opcode != 0xc9) {
+      if (opcode != 0xc9) {
         cpu.hardware_tick(); // RET nzc needs one more tick
       }
     }
   }
   PRINTER(RET) (char* buffer, size_t len, CPU& cpu, uint8_t opcode) {
-    if ((opcode & 0xef) == 0xc9) {
-      return snprintf(buffer, len, (opcode & 0x10) ? "RETI" : "RET");
+    if (opcode == 0xc9) {
+      return snprintf(buffer, len, "RET");
     }
     char temp[128];
     fill_flag_buffer(temp, sizeof(temp), opcode, cpu.registers().flags);
     return snprintf(buffer, len, "RET %s", temp);
+  }
+
+  INSTRUCTION(RETI) (CPU& cpu, const uint8_t)
+  {
+    cpu.registers().pc = cpu.mtread16(cpu.registers().sp);
+    cpu.registers().sp += 2;
+    if (UNLIKELY(cpu.machine().verbose_instructions))
+    {
+      printf("* Returned (w/interrupts) to 0x%04x\n", cpu.registers().pc);
+    }
+    cpu.hardware_tick();
+    cpu.enable_interrupts();
+  }
+  PRINTER(RETI) (char* buffer, size_t len, CPU&, uint8_t) {
+    return snprintf(buffer, len, "RETI");
   }
 
   INSTRUCTION(RST) (CPU& cpu, const uint8_t opcode)
@@ -432,14 +441,7 @@ namespace gbc
   {
     // STOP is a weirdo two-byte instruction
     cpu.registers().pc++;
-    // disable screen etc.
-    cpu.machine().io.perform_stop();
-    // on CGB we can do a speed switch
-    if (cpu.machine().is_cgb() && cpu.machine().io.reg(IO::REG_KEY1) & 1)
-    {
-      cpu.memory().do_switch_speed();
-    }
-    else if (cpu.machine().io.joypad_is_disabled())
+    if (cpu.machine().io.joypad_is_disabled())
     {
       printf("The machine has stopped with joypad disabled\n");
       cpu.break_now();
@@ -488,11 +490,7 @@ namespace gbc
     const uint16_t dest = cpu.readop16();
     if ((opcode & 1) || cpu.registers().compare_flags(opcode)) {
       // push address of **next** instr
-      cpu.registers().sp -= 2;
-      cpu.mtwrite16(cpu.registers().sp, cpu.registers().pc);
-      // jump to immediate address
-      cpu.registers().pc = dest;
-      cpu.hardware_tick();
+      cpu.push_and_jump(dest);
       if (UNLIKELY(cpu.machine().verbose_instructions))
       {
         printf("* Called 0x%04x\n", cpu.registers().pc);
@@ -764,6 +762,7 @@ namespace gbc
   DEF_INSTR(PUSH_POP);
   DEF_INSTR(RST);
   DEF_INSTR(RET);
+  DEF_INSTR(RETI);
   DEF_INSTR(STOP);
   DEF_INSTR(JP);
   DEF_INSTR(CALL);

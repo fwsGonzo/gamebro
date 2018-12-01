@@ -28,7 +28,7 @@ namespace gbc
   void iowrite_DIV(IO& io, uint16_t, uint8_t)
   {
     // writing to DIV resets it to 0
-    io.reg(IO::REG_DIV) = 0;
+    io.reset_divider();
   }
   uint8_t ioread_DIV(IO& io, uint16_t)
   {
@@ -95,23 +95,33 @@ namespace gbc
     uint16_t src = (io.reg(IO::REG_HDMA1) << 8) | io.reg(IO::REG_HDMA2);
     src &= 0xFFF0;
     uint16_t dst = (io.reg(IO::REG_HDMA3) << 8) | io.reg(IO::REG_HDMA4);
-    dst &= 0x9FF0;
-    const uint16_t num_bytes = (value & 0x7F) * 16;
-    // hblank DMA
-    if (value & 0x80) {
+    dst &= 0x9FF0; dst |= 0x8000; // VRAM only!
+    // length is measured blocks of 16-bytes, minimum 16
+    const uint16_t num_bytes = (1 + (value & 0x7F)) * 16;
+
+    if ((value & 0x80) == 0)
+    {
+      if (io.hdma_active()) {
+        // disable currently running HDMA
+        io.start_hdma(0, 0, 0);
+        io.reg(IO::REG_HDMA5) = value;
+      }
+      else
+      {
+        // do the transfer immediately
+        //printf("HDMA transfer 0x%04x to 0x%04x (%u bytes)\n", src, dst, end - src);
+        const uint16_t end = src + num_bytes;
+        auto& mem = io.machine().memory;
+        while (src < end) mem.write8(dst++, mem.read8(src++));
+        // transfer complete
+        io.reg(IO::REG_HDMA5) = 0xFF;
+      }
+    }
+    else
+    {
+      // H-blank DMA
       io.start_hdma(src, dst, num_bytes);
       io.reg(IO::REG_HDMA5) = value;
-    }
-    else {
-      // disable any currently running HDMA
-      io.start_hdma(0, 0, 0);
-      // now do the transfer immediately
-      //printf("HDMA transfer 0x%04x to 0x%04x (%u bytes)\n", src, dst, end - src);
-      const uint16_t end = src + num_bytes;
-      auto& mem = io.machine().memory;
-      while (src < end) mem.write8(dst++, mem.read8(src++));
-      // transfer complete
-      io.reg(IO::REG_HDMA5) = 0xFF;
     }
   }
   uint8_t ioread_HDMA(IO& io, uint16_t addr)
@@ -140,8 +150,8 @@ namespace gbc
   }
   uint8_t ioread_KEY1(IO& io, uint16_t addr)
   {
-    if (io.machine().is_cgb() == false) return 0xff;
-    return io.reg(addr);
+    if (!io.machine().is_cgb()) return 0xff;
+    return (io.reg(addr) & 0x81) | 0x7E;
   }
 
   void iowrite_VBK(IO& io, uint16_t addr, uint8_t value)

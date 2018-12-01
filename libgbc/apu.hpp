@@ -18,5 +18,6 @@ namespace gbc
 
   inline void APU::simulate() {
     // TODO: writeme
+    (void) m_machine;
   }
 }

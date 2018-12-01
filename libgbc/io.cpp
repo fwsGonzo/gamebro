@@ -47,49 +47,67 @@ namespace gbc
 
   void IO::simulate()
   {
-    // 1. timers
-    this->m_divider += 4;
+    // 1. DIV timer
+    this->m_divider += 256 / 64;
     this->reg(REG_DIV) = this->m_divider >> 8;
-    // check if timer is enabled
+
+    // 2. TIMA timer
     if (this->reg(REG_TAC) & 0x4)
     {
       const std::array<int, 4> TIMA_CYCLES = {1024, 16, 64, 256};
       const int speed = this->reg(REG_TAC) & 0x3;
       // TIMA counter timer
-      if (m_divider % TIMA_CYCLES[speed] == 0)
+      if (m_divider % (TIMA_CYCLES[speed]) == 0)
       {
         this->reg(REG_TIMA)++;
+        //if (reg(REG_TIMA) > 16) machine().break_now();
         // timer interrupt when overflowing to 0
         if (this->reg(REG_TIMA) == 0) {
           this->trigger(this->timerint);
+          // BUB: TIMA does not get reset before after 4 cycles
+          this->m_timabug = 4;
+        }
+      }
+      else if (UNLIKELY(this->m_timabug > 0))
+      {
+        this->m_timabug--;
+        if (this->m_timabug == 0) {
           // restart at modulo
           this->reg(REG_TIMA) = this->reg(REG_TMA);
         }
       }
     }
 
-    // 2. OAM DMA operation
+    // 3. OAM DMA operation
     if (this->m_dma.bytes_left > 0)
     {
-      // calculate number of bytes to copy
-      const int btw = 1;
-      // do the copying
-      auto& memory = machine().memory;
-      for (int i = 0; i < btw; i++) {
-        memory.write8(m_dma.dst++, memory.read8(m_dma.src++));
+      if (this->m_dma.slow_start > 0)
+      {
+        this->m_dma.slow_start--;
       }
-      assert(m_dma.bytes_left >= btw);
-      m_dma.bytes_left -= btw;
+      else
+      {
+        // calculate number of bytes to copy
+        const int btw = 1;
+        // do the copying
+        auto& memory = machine().memory;
+        for (int i = 0; i < btw; i++) {
+          memory.write8(m_dma.dst++, memory.read8(m_dma.src++));
+        }
+        assert(m_dma.bytes_left >= btw);
+        m_dma.bytes_left -= btw;
+      }
     }
 
-    // 3. HDMA operation
+    // 4. HDMA operation
     if (this->m_hdma.bytes_left > 0)
     {
-      // during H-blank
-      if (machine().gpu.is_hblank())
+      // during H-blank, once for each line
+      if (machine().gpu.is_hblank() && m_hdma.cur_line != reg(REG_LY))
       {
+        m_hdma.cur_line = reg(REG_LY);
         auto& memory = machine().memory;
-        int btw = std::min(2 * memory.speed_factor(), m_hdma.bytes_left);
+        int btw = std::min(16, m_hdma.bytes_left);
         // do the copying
         for (int i = 0; i < btw; i++) {
           memory.write8(m_hdma.dst++, memory.read8(m_hdma.src++));
@@ -198,11 +216,14 @@ namespace gbc
 
   void IO::start_dma(uint16_t src)
   {
-    m_dma.cur_time = machine().cpu.gettime();
-    m_dma.end_time = m_dma.cur_time + 1280;
+    m_dma.slow_start = 2;
     m_dma.src = src;
     m_dma.dst = 0xfe00;
     m_dma.bytes_left = 160; // 160 bytes total
+  }
+  bool IO::dma_active() const noexcept
+  {
+    return m_dma.bytes_left > 0;
   }
 
   void IO::start_hdma(uint16_t src, uint16_t dst, uint16_t bytes)
@@ -210,13 +231,19 @@ namespace gbc
     m_hdma.src = src;
     m_hdma.dst = dst;
     m_hdma.bytes_left = bytes;
+    m_hdma.cur_line = 0xff;
+  }
+  bool IO::hdma_active() const noexcept
+  {
+    return m_hdma.bytes_left > 0;
   }
 
   void IO::perform_stop()
   {
-    this->m_stop_reg = 0x1;
+    // bit 1 = stopped, bit 8 = LCD on/off
+    this->reg(REG_KEY1) = 0x1;
     // remember previous LCD on/off value
-    this->m_stop_reg |= reg(REG_LCDC) & 0x80;
+    this->m_lcd_powered = reg(REG_LCDC) & 0x80;
     // disable LCD
     reg(REG_LCDC) &= ~0x80;
     // enable joypad interrupts
@@ -225,7 +252,13 @@ namespace gbc
   void IO::deactivate_stop()
   {
     // turn screen back on, if it was turned off
-    reg(REG_LCDC) &= ~0x80;
-    reg(REG_LCDC) |= m_stop_reg & 0x80;
+    if (this->m_lcd_powered) reg(REG_LCDC) |= 0x80;
+    reg(REG_KEY1) = machine().memory.double_speed() ? 0x80 : 0x0;
+  }
+
+  void IO::reset_divider()
+  {
+    this->m_divider = 0;
+    this->reg(REG_DIV) = 0;
   }
 }

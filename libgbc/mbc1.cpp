@@ -3,6 +3,10 @@
 #include "machine.hpp"
 #include "memory.hpp"
 
+#include "mbc1m.hpp"
+#include "mbc3.hpp"
+#include "mbc5.hpp"
+
 namespace gbc
 {
   MBC1::MBC1(Memory& m, const std::vector<uint8_t>& rom)
@@ -48,17 +52,29 @@ namespace gbc
     printf("MBC version %u\n", this->m_version);
     switch (m.read8(0x149)) {
       case 0x0:
-          m_ram_bank_size = 0; break;
+          m_ram_banks = 0;
+          m_ram_bank_size = 0;
+          break;
       case 0x1: // 2kb
-          m_ram_bank_size = 2048; break;
+          m_ram_banks = 1;
+          m_ram_bank_size = 2048;
+          break;
       case 0x2: // 8kb
-          m_ram_bank_size = 8192; break;
+          m_ram_banks = 1;
+          m_ram_bank_size = 8192;
+          break;
       case 0x3: // 32kb
-          m_ram_bank_size = 32768; break;
+          m_ram_banks = 4;
+          m_ram_bank_size = 32768;
+          break;
       case 0x4: // 128kb
-          m_ram_bank_size = 0x20000; break;
+          m_ram_banks = 16;
+          m_ram_bank_size = 0x20000;
+          break;
       case 0x5: // 64kb
-          m_ram_bank_size = 0x10000; break;
+          m_ram_banks = 8;
+          m_ram_bank_size = 0x10000;
+          break;
     }
     printf("RAM bank size: 0x%05x\n", m_ram_bank_size);
     m_wram_size = 0x2000;
@@ -84,10 +100,17 @@ namespace gbc
     else if (addr >= RAMbankX.first && addr < RAMbankX.second)
     {
       if (this->ram_enabled()) {
+        if (this->m_rtc_enabled == false)
+        {
           addr -= RAMbankX.first;
+          addr |= m_ram_bank_offset;
           if (addr < m_ram_bank_size)
-              return m_ram.at(m_ram_bank_offset | addr);
+              return m_ram.at(addr);
           return 0xff; // small 2kb RAM banks
+        }
+        else {
+          return 0xff; // TODO: Read from RTC register
+        }
       } else {
           return 0xff;
       }
@@ -117,66 +140,38 @@ namespace gbc
           this->m_ram_enabled = value != 0;
       else
           this->m_ram_enabled = ((value & 0xF) == 0xA);
-      if (verbose_banking() && old_ram_enabled != m_ram_enabled) {
-        printf("* External RAM enabled: %d\n", this->m_ram_enabled);
+      if (UNLIKELY(verbose_banking() && old_ram_enabled != m_ram_enabled)) {
+          printf("* External RAM enabled: %d\n", this->m_ram_enabled);
       }
       return;
     }
-    else if (this->m_version == 5 && addr < 0x6000)
+    else if (addr < 0x8000)
     {
-      switch (addr & 0xF000) {
-        case 0x2000:
-            this->m_rom_bank_reg &= 0x100;
-            this->m_rom_bank_reg |= value & 0xFF;
-            this->set_rombank(this->m_rom_bank_reg);
-            return;
-        case 0x3000:
-            this->m_rom_bank_reg &= 0xFF;
-            this->m_rom_bank_reg |= value & 0x100;
-            this->set_rombank(this->m_rom_bank_reg);
-            return;
-        case 0x4000:
-        case 0x5000:
-            this->set_rambank(value & 0xF);
-            return;
+      switch (this->m_version) {
+        case 5:
+            this->write_MBC5(addr, value); break;
+        case 3:
+            this->write_MBC3(addr, value); break;
+        case 1:
+            this->write_MBC1M(addr, value); break;
+        case 0:
+            break; // no MBC
+        default:
+            assert(0 && "Unimplemented MBC version");
       }
-    }
-    else if (addr < 0x4000) // ROM bank number
-    {
-      if (this->m_version < 3) {
-        this->m_rom_bank_reg &= 0x60;
-        this->m_rom_bank_reg |= value & 0x1F;
-        //printf("Selecting ROM bank lower bits: 0x%02x\n", value);
-      }
-      else {
-        this->m_rom_bank_reg = value;
-      }
-      this->set_rombank(this->m_rom_bank_reg);
-      return;
-    }
-    else if (addr < 0x6000) // ROM/RAM bank number
-    {
-      //printf("Selecting ROM bank upper bits: 0x%02x\n", value);
-      if (this->m_mode_select == 1 || m_version > 2) {
-        this->set_rambank(value & 0x3);
-      }
-      else {
-        this->m_rom_bank_reg &= 0x1F;
-        this->m_rom_bank_reg |= value & 0x60;
-        this->set_rombank(this->m_rom_bank_reg);
-      }
-      return;
-    }
-    else if (addr < 0x8000) // ROM/RAM mode select
-    {
-      this->set_mode(value);
       return;
     }
     else if (addr >= RAMbankX.first && addr < RAMbankX.second)
     {
       if (this->ram_enabled()) {
-          addr -= RAMbankX.first;
-          this->m_ram.at(m_ram_bank_offset | addr) = value;
+          if (this->m_rtc_enabled == false)
+          {
+            addr -= RAMbankX.first;
+            this->m_ram.at(m_ram_bank_offset | addr) = value;
+          }
+          else {
+            // TODO: Write to RTC register
+          }
       }
       return;
     }
@@ -220,8 +215,10 @@ namespace gbc
   }
   void MBC1::set_rambank(int reg)
   {
+    // NOTE: we have to remove bits here
+    reg &= (this->m_ram_banks-1);
     const int offset = reg * rambank_size();
-    if (verbose_banking()) {
+    if (UNLIKELY(verbose_banking())) {
       printf("Selecting RAM bank 0x%02x offset %#x max %#x\n", reg, offset, m_ram_bank_size);
     }
     if (UNLIKELY((offset + rambank_size()) > m_ram_bank_size))
@@ -235,7 +232,7 @@ namespace gbc
   void MBC1::set_wrambank(int reg)
   {
     const int offset = reg * wrambank_size();
-    if (verbose_banking()) {
+    if (UNLIKELY(verbose_banking())) {
       printf("Selecting WRAM bank 0x%02x offset %#x max %#x\n", reg, offset, m_wram_size);
     }
     if (UNLIKELY((offset + wrambank_size()) > m_wram_size))
@@ -244,17 +241,26 @@ namespace gbc
       this->m_memory.machine().break_now();
       return;
     }
-    if (verbose_banking()) {
+    if (UNLIKELY(verbose_banking())) {
       printf("Work RAM bank 0x%02x offset %#x\n", reg, offset);
     }
     this->m_wram_offset = offset;
   }
   void MBC1::set_mode(int mode)
   {
-    if (verbose_banking()) {
+    if (UNLIKELY(verbose_banking())) {
       printf("Mode select: 0x%02x\n", this->m_mode_select);
     }
     this->m_mode_select = mode & 0x1;
+    // for MBC1 we have to reset the upper bits when going into RAM mode
+    if (this->m_version == 1 && this->m_mode_select == 1)
+    {
+      // reset ROM bank upper bits when going into RAM mode
+      if (this->m_rom_bank_reg & 0x60) {
+          this->m_rom_bank_reg &= 0x1F;
+          this->set_rombank(this->m_rom_bank_reg);
+      }
+    }
   }
 
   bool MBC1::verbose_banking() const noexcept {

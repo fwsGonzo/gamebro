@@ -34,6 +34,9 @@ namespace gbc
     void set_mode(int mode);
 
   private:
+    void write_MBC1M(uint16_t, uint8_t);
+    void write_MBC3(uint16_t, uint8_t);
+    void write_MBC5(uint16_t, uint8_t);
     bool verbose_banking() const noexcept;
 
     Memory&  m_memory;
@@ -41,11 +44,13 @@ namespace gbc
     std::array<uint8_t, 131072> m_ram;
     std::array<uint8_t, 32768>  m_wram;
     uint32_t m_rom_bank_offset = 0x4000;
+    uint16_t m_ram_banks       = 0;
     uint32_t m_ram_bank_size   = 0x0;
     uint16_t m_ram_bank_offset = 0x0;
     uint16_t m_wram_offset  = 0x1000;
     uint16_t m_wram_size    = 0x2000;
     bool     m_ram_enabled  = false;
+    bool     m_rtc_enabled  = false;
     uint16_t m_rom_bank_reg = 0x1;
     uint8_t  m_mode_select  = 0;
     uint8_t  m_version = 1;

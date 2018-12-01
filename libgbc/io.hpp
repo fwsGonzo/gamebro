@@ -88,8 +88,11 @@ namespace gbc
     uint8_t interrupt_mask() const;
     void    start_dma(uint16_t src);
     void    start_hdma(uint16_t src, uint16_t dst, uint16_t bytes);
+    bool    dma_active() const noexcept;
+    bool    hdma_active() const noexcept;
     void    perform_stop();
     void    deactivate_stop();
+    void    reset_divider();
 
     Machine& machine() noexcept { return m_machine; }
 
@@ -122,16 +125,17 @@ namespace gbc
     uint8_t  m_reg_ie = 0x0;
     joypad_t m_joypad;
     uint16_t m_divider = 0;
+    uint16_t m_timabug = 0;
 
     struct dma_t {
-      uint64_t cur_time;
-      uint64_t end_time;
+      uint64_t cur_line;
+      int8_t   slow_start = 0;
       uint16_t src;
       uint16_t dst;
       int32_t  bytes_left = 0;
     } m_dma;
     dma_t m_hdma;
-    // bit 1 = stopped, bit 8 = LCD on/off
-    uint8_t  m_stop_reg = 0;
+    // LCD on/off during STOP?
+    bool m_lcd_powered = false;
   };
 }

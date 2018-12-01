@@ -43,7 +43,7 @@ namespace gbc
     else
     {
       // make sure time passes when not executing instructions
-      this->incr_cycles(4);
+      this->hardware_tick();
       // skip instructions after halting
       if (this->m_asleep == false) {
         if (this->m_haltbug) this->m_haltbug--;
@@ -281,7 +281,7 @@ namespace gbc
       case 0xD8: // RET c
           return instr_RET;
       case 0xD9: // RETI
-          return instr_RET;
+          return instr_RETI;
       // RST 0x0, 0x08, 0x10, 0x18
       case 0xC7: case 0xCF: case 0xD7: case 0xDF:
       // RST 0x20, 0x028, 0x30, 0x38
@@ -360,14 +360,23 @@ namespace gbc
   void CPU::stop()
   {
     this->m_stopped = true;
-    this->m_switch_cycles = 4;
+    // preparing a speed switch?
+    if (machine().io.reg(IO::REG_KEY1) & 0x1)
+    {
+      this->m_switch_cycles = 4;
+    }
+    // disable screen etc.
+    machine().io.perform_stop();
   }
   void CPU::handle_speed_switch()
   {
     if (this->m_switch_cycles > 0) {
       this->m_switch_cycles--;
       if (this->m_switch_cycles == 0) {
+        // stop the stopping
         this->m_stopped = false;
+        // change speed
+        memory().do_switch_speed();
         // this can turn the LCD back on
         machine().io.deactivate_stop();
       }
@@ -380,11 +389,15 @@ namespace gbc
     this->m_haltbug = 2;
   }
 
+  void CPU::push_value(uint16_t address)
+  {
+    this->hardware_tick();
+    registers().sp -= 2;
+    this->mtwrite16(registers().sp, address);
+  }
   void CPU::push_and_jump(uint16_t address)
   {
-    registers().sp -= 2;
-    this->mtwrite16(registers().sp, registers().pc);
+    this->push_value(registers().pc);
     registers().pc = address;
-    this->hardware_tick();
   }
 }

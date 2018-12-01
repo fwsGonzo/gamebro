@@ -58,7 +58,9 @@ namespace gbc
     }
     else if (this->is_within(address, OAM_RAM)) {
       // TODO: return 0xff when rendering?
-      return m_oam_ram.at(address - OAM_RAM.first);
+      if (!machine().io.dma_active())
+          return m_oam_ram.at(address - OAM_RAM.first);
+      return 0xff;
     }
     else if (this->is_within(address, IO_Ports)) {
       return machine().io.read_io(address);

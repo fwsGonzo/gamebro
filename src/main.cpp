@@ -47,7 +47,7 @@ int main(int argc, char** args)
 
 	machine = new gbc::Machine(romdata);
 	machine->break_now();
-	//machine->verbose_banking = true;
+	machine->verbose_banking = true;
 	//machine->cpu.default_pausepoint(0x2cb5);
 	//machine->verbose_instructions = true;
 	//machine->break_on_interrupts = true;
@@ -87,10 +87,7 @@ int main(int argc, char** args)
 
 	while (machine->is_running())
 	{
-		machine->cpu.simulate();
-		machine->io.simulate();
-		machine->gpu.simulate();
-
+		machine->simulate();
 		/*
 		static int counter = 0;
 		std::array<uint8_t, 8> inputs = {0x80, 0x10, 0x10, 0x80, 0x10, 0x80, 0x0, 0x0};

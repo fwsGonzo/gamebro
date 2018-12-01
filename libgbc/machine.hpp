@@ -31,6 +31,7 @@ namespace gbc
     GPU    gpu;
     APU    apu;
 
+    void     simulate();
     void     reset();
     uint64_t now() noexcept;
     bool     is_running() const noexcept;
@@ -64,4 +65,8 @@ namespace gbc
     bool m_cgb_mode = false;
     friend class Memory;
   };
+
+  inline void Machine::simulate() {
+    cpu.simulate();
+  }
 }

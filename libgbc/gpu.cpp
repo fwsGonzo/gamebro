@@ -349,6 +349,7 @@ namespace gbc
 
   void GPU::set_video_bank(const uint8_t bank)
   {
+    assert(bank < 2);
     this->m_video_offset = bank * 0x2000;
   }
   bool GPU::video_writable() noexcept
