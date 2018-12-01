@@ -14,7 +14,7 @@ namespace gbc
   class Machine;
   class Memory;
   class IO;
-  constexpr bool ENABLE_GBC = false;
+  constexpr bool ENABLE_GBC = true;
 
   inline void setflag(bool expr, uint8_t& flg, uint8_t mask) {
     if (expr) flg |= mask;

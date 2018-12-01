@@ -21,9 +21,9 @@ void Service::start()
     assert(!err);
   });
   auto& filesys = fs::memdisk().fs();
-  //auto rombuffer = filesys.read_file("/tloz_la_dx.gbc");
+  auto rombuffer = filesys.read_file("/tloz_la_dx.gbc");
   //auto rombuffer = filesys.read_file("/pokemon_yellow.gbc");
-  auto rombuffer = filesys.read_file("/pokemon_crystal.gbc");
+  //auto rombuffer = filesys.read_file("/pokemon_crystal.gbc");
   //auto rombuffer = filesys.read_file("/tloz_seasons.gbc");
   //auto rombuffer = filesys.read_file("/tetris.gb");
   assert(rombuffer.is_valid());
@@ -49,14 +49,8 @@ void Service::start()
         const auto& pixels = machine.gpu.pixels();
         // Palette mode
         const uint32_t idx = pixels.at(W * y + x);
-        if (machine.is_cgb()) {
-          assert((idx & 0xff) == idx);
-          set_pixel(x+80, y+32, idx);
-        }
-        else {
-          const uint8_t palette[] = {29, 25, 21, 17};
-          set_pixel(x+80, y+32, palette[idx & 0x3]);
-        }
+        assert((idx & 0xff) == idx);
+        set_pixel(x+80, y+32, idx);
         // RGBA mode
         //const uint32_t color = pixels.at(W * y + x);
         //int index = auto_indexed_color(color);
@@ -67,14 +61,27 @@ void Service::start()
       vblanked = true;
     });
 
-  machine->gpu.on_palchange(
-    [] (const uint8_t idx, const uint16_t color)
-    {
-      const uint8_t r = (color >>  0) & 0x1f;
-      const uint8_t g = (color >>  5) & 0x1f;
-      const uint8_t b = (color >> 10) & 0x1f;
-      VGA_gfx::set_palette(idx, r << 1, g << 1, b << 1);
-    });
+  if (!machine->is_cgb())
+  {
+    // constant 4-color palette
+    auto colors = machine->gpu.dmg_colors(gbc::LIGHTER_GREEN);
+    for (int i = 0; i < 4; i++)
+      VGA_gfx::set_pal24(i, colors[i]);
+  }
+  else
+  {
+    // build palette in real-time
+    machine->gpu.on_palchange(
+      [] (const uint8_t idx, const uint16_t color)
+      {
+        const uint8_t r = (color >>  0) & 0x1f;
+        const uint8_t g = (color >>  5) & 0x1f;
+        const uint8_t b = (color >> 10) & 0x1f;
+        int rgb[3] {r << 1, g << 1, b << 1};
+        if (machine->is_cgb()) color_curvify(rgb);
+        VGA_gfx::set_palette(idx, rgb[0], rgb[1], rgb[2]);
+      });
+  }
 
   // framebuffer
   using namespace std::chrono;
