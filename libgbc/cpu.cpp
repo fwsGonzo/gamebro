@@ -16,7 +16,7 @@ namespace gbc
   void CPU::reset() noexcept
   {
     // gameboy DMG initial register values
-    registers().af = 0x11b0;
+    registers().af = (ENABLE_GBC) ? 0x11b0 : 0x01b0;
     registers().bc = 0x0013;
     registers().de = 0x00d8;
     registers().hl = 0x014d;

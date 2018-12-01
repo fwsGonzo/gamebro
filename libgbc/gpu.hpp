@@ -9,7 +9,12 @@ namespace gbc
 {
   enum pixelmode_t {
     PM_RGBA = 0,     // regular 32-bit RGBA
-    PM_PALETTE = 1,  // no conversion
+    PM_PALETTE,      // no conversion
+  };
+  enum dmg_variant_t {
+    LIGHTER_GREEN = 0,
+    DARKER_GREEN,
+    GRAYSCALE
   };
   class GPU
   {
@@ -27,7 +32,9 @@ namespace gbc
     using palchange_func_t = delegate<void(uint8_t idx, uint16_t clr)>;
     void on_palchange(palchange_func_t func) { m_on_palchange = func; }
     // get default GB palette
-    static std::array<uint32_t, 4> default_gb_colors() noexcept;
+    static std::array<uint32_t, 4> dmg_colors(dmg_variant_t = GRAYSCALE);
+    // set GB palette used in RGBA mode
+    void set_dmg_variant(dmg_variant_t);
 
     void render_and_vblank();
     bool is_vblank() const noexcept;
@@ -87,6 +94,7 @@ namespace gbc
     std::vector<uint32_t> m_pixels;
     palchange_func_t m_on_palchange = nullptr;
     pixelmode_t m_pixelmode = PM_RGBA;
+    dmg_variant_t m_variant = LIGHTER_GREEN;
     int m_current_scanline = 0;
     uint16_t m_video_offset = 0x0;
 
@@ -98,15 +106,33 @@ namespace gbc
     this->m_pixelmode = pm;
   }
 
-  inline std::array<uint32_t, 4> GPU::default_gb_colors() noexcept
+  inline std::array<uint32_t, 4> GPU::dmg_colors(dmg_variant_t variant)
   {
     #define mRGB(r, g, b) (r | (g << 8) | (b << 16) | (255u << 24))
-    return std::array<uint32_t, 4>{
-      mRGB(175, 203,  70), // least green
-      mRGB(121, 170, 109), // less green
-      mRGB( 34, 111,  95), // very green
-      mRGB(  8,  41,  85)  // dark green
-    };
+    switch (variant) {
+      case LIGHTER_GREEN:
+        return std::array<uint32_t, 4>{
+            mRGB(224, 248, 208), // least green
+            mRGB(136, 192, 112), // less green
+            mRGB( 52, 104,  86), // very green
+            mRGB(  8,  24,  32)  // dark green
+          };
+      case DARKER_GREEN:
+        return std::array<uint32_t, 4>{
+            mRGB(175, 203,  70), // least green
+            mRGB(121, 170, 109), // less green
+            mRGB( 34, 111,  95), // very green
+            mRGB(  8,  41,  85)  // dark green
+          };
+      case GRAYSCALE:
+      default:
+        return std::array<uint32_t, 4>{
+            mRGB(232, 232, 232), // least gray
+            mRGB(160, 160, 160), // less gray
+            mRGB( 88,  88,  88), // very gray
+            mRGB( 16,  16,  16)  // dark gray
+          };
+    }
     #undef mRGB
   }
 }

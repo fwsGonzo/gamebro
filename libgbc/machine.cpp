@@ -9,7 +9,7 @@ namespace gbc
   {
     // set CGB mode when ROM supports it
     const uint8_t cgb = memory.read8(0x143);
-    this->m_cgb_mode = cgb & 0x80;
+    this->m_cgb_mode = (cgb & 0x80) && ENABLE_GBC;
   }
 
   void Machine::reset()

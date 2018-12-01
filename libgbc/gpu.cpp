@@ -241,19 +241,6 @@ namespace gbc
   {
     return m_cgb_palette.at(idx) | (m_cgb_palette.at(idx+1) << 8);
   }
-  // convert palette to grayscale colors
-  uint32_t GPU::expand_dmg_color(const uint8_t color) const noexcept
-  {
-    return default_gb_colors().at(color);
-  }
-  // convert 15-bit color to 32-bit RGBA
-  uint32_t GPU::expand_cgb_color(const uint16_t color) const noexcept
-  {
-    const uint16_t r = ((color >>  0) & 0x1f) << 3;
-    const uint16_t g = ((color >>  5) & 0x1f) << 3;
-    const uint16_t b = ((color >> 10) & 0x1f) << 3;
-    return r | (g << 8) | (b << 16);
-  }
 
   bool GPU::lcd_enabled() const noexcept {
     return m_reg_lcdc & 0x80;
@@ -406,4 +393,22 @@ namespace gbc
       this->m_on_palchange(base, c16);
     }
   } // setpal(...)
+
+  void GPU::set_dmg_variant(dmg_variant_t variant)
+  {
+    this->m_variant = variant;
+  }
+  // convert palette to grayscale colors
+  uint32_t GPU::expand_dmg_color(const uint8_t color) const noexcept
+  {
+    return dmg_colors(m_variant).at(color);
+  }
+  // convert 15-bit color to 32-bit RGBA
+  uint32_t GPU::expand_cgb_color(const uint16_t color) const noexcept
+  {
+    const uint16_t r = ((color >>  0) & 0x1f) << 3;
+    const uint16_t g = ((color >>  5) & 0x1f) << 3;
+    const uint16_t b = ((color >> 10) & 0x1f) << 3;
+    return r | (g << 8) | (b << 16);
+  }
 }
