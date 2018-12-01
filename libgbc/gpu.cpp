@@ -44,12 +44,12 @@ namespace gbc
     auto& vblank   = io().vblank;
     auto& lcd_stat = io().lcd_stat;
 
-    const uint64_t t = machine().now();
-    const uint64_t period = t - lcd_stat.last_time;
+    const uint64_t tnow = machine().now();
+    const uint64_t period = tnow - lcd_stat.last_time;
     bool new_scanline = false;
 
     // scanline logic when screen on
-    if (t >= lcd_stat.last_time + scanline_cycles())
+    if (tnow >= lcd_stat.last_time + scanline_cycles())
     {
       lcd_stat.last_time += scanline_cycles();
       // scanline LY increment logic
@@ -215,7 +215,6 @@ namespace gbc
     if (is_cgb) {
       return expand_cgb_color(get_cgb_color(index * 2));
     }
-    assert(0);
     return expand_dmg_color(index);
   }
   uint32_t GPU::colorize_sprite(const Sprite* sprite,

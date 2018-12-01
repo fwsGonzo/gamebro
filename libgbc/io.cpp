@@ -47,24 +47,17 @@ namespace gbc
 
   void IO::simulate()
   {
-    const uint64_t tnow = machine().now();
     // 1. timers
-    static const int DIV_CYCLES = 256;
-    // divider timer
-    if (tnow >= this->m_divider_time + DIV_CYCLES)
-    {
-      this->m_divider_time += DIV_CYCLES;
-      this->reg(REG_DIV)++;
-    }
+    this->m_divider += 4;
+    this->reg(REG_DIV) = this->m_divider >> 8;
     // check if timer is enabled
     if (this->reg(REG_TAC) & 0x4)
     {
       const std::array<int, 4> TIMA_CYCLES = {1024, 16, 64, 256};
       const int speed = this->reg(REG_TAC) & 0x3;
       // TIMA counter timer
-      while (tnow >= timerint.last_time + TIMA_CYCLES[speed])
+      if (m_divider % TIMA_CYCLES[speed] == 0)
       {
-        timerint.last_time += TIMA_CYCLES[speed];
         this->reg(REG_TIMA)++;
         // timer interrupt when overflowing to 0
         if (this->reg(REG_TIMA) == 0) {
@@ -75,14 +68,11 @@ namespace gbc
       }
     }
 
-    // DMA operation
+    // 2. OAM DMA operation
     if (this->m_dma.bytes_left > 0)
     {
-      uint64_t diff = tnow - m_dma.cur_time;
-      m_dma.cur_time = tnow;
       // calculate number of bytes to copy
-      int btw = diff / 4;
-      if (btw > m_dma.bytes_left) btw = m_dma.bytes_left;
+      const int btw = 1;
       // do the copying
       auto& memory = machine().memory;
       for (int i = 0; i < btw; i++) {
@@ -92,21 +82,26 @@ namespace gbc
       m_dma.bytes_left -= btw;
     }
 
-    // HDMA operation
+    // 3. HDMA operation
     if (this->m_hdma.bytes_left > 0)
     {
       // during H-blank
       if (machine().gpu.is_hblank())
       {
-        uint16_t& btw = m_hdma.bytes_left;
-        // do the copying
         auto& memory = machine().memory;
-        for (uint16_t i = 0; i < btw; i++) {
+        int btw = std::min(2 * memory.speed_factor(), m_hdma.bytes_left);
+        // do the copying
+        for (int i = 0; i < btw; i++) {
           memory.write8(m_hdma.dst++, memory.read8(m_hdma.src++));
         }
-        // transfer complete
-        this->reg(REG_HDMA5) = 0xFF;
-        btw = 0;
+        m_hdma.dst &= 0x9FFF; // make sure it wraps around VRAM
+        assert(m_hdma.bytes_left >= btw);
+        m_hdma.bytes_left -= btw;
+        if (m_hdma.bytes_left == 0)
+        {
+          // transfer complete
+          this->reg(REG_HDMA5) = 0xFF;
+        }
       }
     }
   }
@@ -190,11 +185,10 @@ namespace gbc
     reg(REG_IF) &= ~intr.mask;
     // set interrupt bit
     //this->m_reg_ie |= intr.mask;
+    machine().cpu.hardware_tick();
+    machine().cpu.hardware_tick();
     // push PC and jump to INTR addr
     machine().cpu.push_and_jump(intr.fixed_address);
-    //machine().cpu.incr_cycles(8);
-    machine().cpu.hardware_tick();
-    machine().cpu.hardware_tick();
     // sometimes we want to break on interrupts
     if (machine().break_on_interrupts && !machine().is_breaking()) {
       machine().break_now();

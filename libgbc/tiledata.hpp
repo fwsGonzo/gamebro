@@ -31,7 +31,7 @@ namespace gbc
   inline int TileData::tile_id(int x, int y)
   {
     if (this->m_signed)
-        return 128 + ((int8_t*) m_tile_base)[y * 32 + x];
+        return 128 + (int8_t) m_tile_base[y * 32 + x];
     return m_tile_base[y * 32 + x];
   }
   inline int TileData::tile_attr(int x, int y)
