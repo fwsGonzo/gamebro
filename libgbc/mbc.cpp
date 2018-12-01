@@ -1,4 +1,4 @@
-#include "mbc1.hpp"
+#include "mbc.hpp"
 
 #include "machine.hpp"
 #include "memory.hpp"
@@ -9,7 +9,7 @@
 
 namespace gbc
 {
-  MBC1::MBC1(Memory& m, const std::vector<uint8_t>& rom)
+  MBC::MBC(Memory& m, const std::vector<uint8_t>& rom)
       : m_memory(m), m_rom(rom)
   {
     m_ram.at(0x100) = 0x1;
@@ -81,7 +81,7 @@ namespace gbc
     printf("Work RAM bank size: 0x%04x\n", m_wram_size);
   }
 
-  uint8_t MBC1::read(uint16_t addr)
+  uint8_t MBC::read(uint16_t addr)
   {
     if (addr < ROMbank0.second)
     {
@@ -127,11 +127,11 @@ namespace gbc
     {
       return this->read(addr - 0x2000);
     }
-    printf("* Invalid MBC1 read: 0x%04x\n", addr);
+    printf("* Invalid MBC read: 0x%04x\n", addr);
     return 0xff;
   }
 
-  void MBC1::write(uint16_t addr, uint8_t value)
+  void MBC::write(uint16_t addr, uint8_t value)
   {
     if (addr < 0x2000) // RAM enable
     {
@@ -190,11 +190,11 @@ namespace gbc
       this->write(addr - 0x2000, value);
       return;
     }
-    printf("* Invalid MBC1 write: 0x%04x => 0x%02x\n", addr, value);
+    printf("* Invalid MBC write: 0x%04x => 0x%02x\n", addr, value);
     assert(0);
   }
 
-  void MBC1::set_rombank(int reg)
+  void MBC::set_rombank(int reg)
   {
     if (reg == 0) reg = 1;
     if (this->m_version < 3) { // bug!
@@ -213,7 +213,7 @@ namespace gbc
     }
     this->m_rom_bank_offset = offset;
   }
-  void MBC1::set_rambank(int reg)
+  void MBC::set_rambank(int reg)
   {
     // NOTE: we have to remove bits here
     reg &= (this->m_ram_banks-1);
@@ -229,7 +229,7 @@ namespace gbc
     }
     this->m_ram_bank_offset = offset;
   }
-  void MBC1::set_wrambank(int reg)
+  void MBC::set_wrambank(int reg)
   {
     const int offset = reg * wrambank_size();
     if (UNLIKELY(verbose_banking())) {
@@ -246,13 +246,13 @@ namespace gbc
     }
     this->m_wram_offset = offset;
   }
-  void MBC1::set_mode(int mode)
+  void MBC::set_mode(int mode)
   {
     if (UNLIKELY(verbose_banking())) {
       printf("Mode select: 0x%02x\n", this->m_mode_select);
     }
     this->m_mode_select = mode & 0x1;
-    // for MBC1 we have to reset the upper bits when going into RAM mode
+    // for MBC we have to reset the upper bits when going into RAM mode
     if (this->m_version == 1 && this->m_mode_select == 1)
     {
       // reset ROM bank upper bits when going into RAM mode
@@ -263,7 +263,7 @@ namespace gbc
     }
   }
 
-  bool MBC1::verbose_banking() const noexcept {
+  bool MBC::verbose_banking() const noexcept {
     return m_memory.machine().verbose_banking;
   }
 }

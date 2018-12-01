@@ -8,7 +8,7 @@ namespace gbc
 {
   class Memory;
 
-  class MBC1 {
+  class MBC {
   public:
     using range_t  = std::pair<uint16_t, uint16_t>;
     static constexpr range_t ROMbank0  {0x0000, 0x4000};
@@ -18,7 +18,7 @@ namespace gbc
     static constexpr range_t WRAM_bX   {0xD000, 0xE000};
     static constexpr range_t EchoRAM   {0xE000, 0xFE00};
 
-    MBC1(Memory&, const std::vector<uint8_t>& rom);
+    MBC(Memory&, const std::vector<uint8_t>& rom);
 
     bool   ram_enabled() const noexcept   { return m_ram_enabled; }
     size_t rombank_size() const noexcept  { return 0x4000; }

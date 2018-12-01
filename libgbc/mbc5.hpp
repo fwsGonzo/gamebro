@@ -1,11 +1,11 @@
-#include "mbc1.hpp"
+#include "mbc.hpp"
 
 #include "machine.hpp"
 #include "memory.hpp"
 
 namespace gbc
 {
-  inline void MBC1::write_MBC5(uint16_t addr, uint8_t value)
+  inline void MBC::write_MBC5(uint16_t addr, uint8_t value)
   {
     switch (addr & 0xF000) {
       case 0x2000:

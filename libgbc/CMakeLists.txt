@@ -6,7 +6,7 @@ set(SOURCES
     gpu.cpp
     io.cpp
     machine.cpp
-    mbc1.cpp
+    mbc.cpp
     memory.cpp
   )
 

@@ -4,7 +4,7 @@
 #include <vector>
 #include <util/delegate.hpp>
 #include "common.hpp"
-#include "mbc1.hpp"
+#include "mbc.hpp"
 
 namespace gbc
 {
@@ -60,7 +60,7 @@ namespace gbc
   private:
     Machine& m_machine;
     std::vector<uint8_t>       m_rom;
-    MBC1                       m_mbc;
+    MBC                        m_mbc;
     std::array<uint8_t, 16384> m_video_ram = {};
     std::array<uint8_t, 256>   m_oam_ram = {};
     std::array<uint8_t, 128>   m_zram = {}; // high-speed RAM

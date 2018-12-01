@@ -13,7 +13,6 @@ void Service::start()
 {
   VGA_gfx::set_mode(VGA_gfx::MODE_320_200_256);
   VGA_gfx::clear(0xff);
-  VGA_gfx::apply_default_palette();
   clear(0xff); // use an unused black color
 
   fs::memdisk().init_fs(
@@ -21,10 +20,10 @@ void Service::start()
     assert(!err);
   });
   auto& filesys = fs::memdisk().fs();
-  auto rombuffer = filesys.read_file("/tloz_la_dx.gbc");
-  //auto rombuffer = filesys.read_file("/pokemon_yellow.gbc");
-  //auto rombuffer = filesys.read_file("/pokemon_crystal.gbc");
+  //auto rombuffer = filesys.read_file("/tloz_la_dx.gbc");
   //auto rombuffer = filesys.read_file("/tloz_seasons.gbc");
+  //auto rombuffer = filesys.read_file("/pokemon_yellow.gbc");
+  auto rombuffer = filesys.read_file("/pokemon_crystal.gbc");
   //auto rombuffer = filesys.read_file("/tetris.gb");
   assert(rombuffer.is_valid());
   auto romdata = std::move(*rombuffer.get());
@@ -90,9 +89,7 @@ void Service::start()
     // create a new frame
     while (vblanked == false)
   	{
-  		machine->cpu.simulate();
-  		machine->io.simulate();
-  		machine->gpu.simulate();
+  		machine->simulate();
   	}
     vblanked = false;
   });
