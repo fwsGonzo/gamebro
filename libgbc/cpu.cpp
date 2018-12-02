@@ -92,7 +92,22 @@ namespace gbc
     }
     if (UNLIKELY(memory().is_within(registers().pc, Memory::VideoRAM)))
     {
-      fprintf(stderr, "PC is in the Video RAM area: %04X\n", registers().pc);
+      fprintf(stderr, "ERROR: PC is in the Video RAM area: %04X\n", registers().pc);
+      this->break_now();
+    }
+    if (UNLIKELY(memory().is_within(registers().pc, Memory::EchoRAM)))
+    {
+      fprintf(stderr, "WARN: PC is in the Echo RAM area: %04X\n", registers().pc);
+      this->break_now();
+    }
+    if (UNLIKELY(memory().is_within(registers().pc, Memory::OAM_RAM)))
+    {
+      fprintf(stderr, "ERROR: PC is in the OAM RAM area: %04X\n", registers().pc);
+      this->break_now();
+    }
+    if (UNLIKELY(memory().is_within(registers().pc, Memory::IO_Ports)))
+    {
+      fprintf(stderr, "ERROR: PC is in the I/O port area: %04X\n", registers().pc);
       this->break_now();
     }
   }
@@ -107,10 +122,12 @@ namespace gbc
 
   // it takes 2 instruction-cycles to toggle interrupts
   void CPU::enable_interrupts() noexcept {
-    this->m_intr_pending = 1;
+    if (this->m_intr_pending <= 0) {
+        this->m_intr_pending = 2;
+    }
   }
   void CPU::disable_interrupts() noexcept {
-    this->m_intr_pending = -1;
+    this->m_intr_pending = -2;
   }
 
   void CPU::handle_interrupts()
@@ -405,6 +422,14 @@ namespace gbc
     this->m_haltbug = true;
   }
 
+  void CPU::jump(const uint16_t dest)
+  {
+    if (UNLIKELY(machine().verbose_instructions))
+    {
+      printf("* Jumped to %04X (from %04X)\n", dest, registers().pc);
+    }
+    this->registers().pc = dest;
+  }
   void CPU::push_value(uint16_t address)
   {
     this->hardware_tick();
@@ -414,6 +439,6 @@ namespace gbc
   void CPU::push_and_jump(uint16_t address)
   {
     this->push_value(registers().pc);
-    registers().pc = address;
+    this->jump(address);
   }
 }

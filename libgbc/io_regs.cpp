@@ -189,8 +189,10 @@ namespace gbc
   void iowrite_SVBK(IO& io, uint16_t addr, uint8_t value)
   {
     //printf("SVBK 0x%04x write 0x%02x\n", addr, value);
-    io.reg(addr) = value & 1;
-    io.machine().memory.set_wram_bank(value & 1);
+    value &= 0x7;
+    if (value == 0) value = 1;
+    io.reg(addr) = value;
+    io.machine().memory.set_wram_bank(value);
   }
   uint8_t ioread_SVBK(IO& io, uint16_t addr)
   {
@@ -239,6 +241,7 @@ namespace gbc
     // CGB registers
     IOHANDLER(IO::REG_KEY1,  KEY1);
     IOHANDLER(IO::REG_VBK,   VBK);
+    IOHANDLER(IO::REG_SVBK,  SVBK);
     IOHANDLER(IO::REG_BOOT,  BOOT);
     IOHANDLER(IO::REG_HDMA1, HDMA);
     IOHANDLER(IO::REG_HDMA2, HDMA);

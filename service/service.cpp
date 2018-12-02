@@ -20,10 +20,13 @@ void Service::start()
     assert(!err);
   });
   auto& filesys = fs::memdisk().fs();
-  //auto rombuffer = filesys.read_file("/tloz_la_dx.gbc");
+  auto rombuffer = filesys.read_file("/tloz_la_dx.gbc");
+  //auto rombuffer = filesys.read_file("/tloz_la12.gb");
+  //auto rombuffer = filesys.read_file("/smbland2.gb");
   //auto rombuffer = filesys.read_file("/tloz_seasons.gbc");
   //auto rombuffer = filesys.read_file("/pokemon_yellow.gbc");
-  auto rombuffer = filesys.read_file("/pokemon_crystal.gbc");
+  //auto rombuffer = filesys.read_file("/pokemon_gold.gbc");
+  //auto rombuffer = filesys.read_file("/pokemon_crystal.gbc");
   //auto rombuffer = filesys.read_file("/tetris.gb");
   assert(rombuffer.is_valid());
   auto romdata = std::move(*rombuffer.get());

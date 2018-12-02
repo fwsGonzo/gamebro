@@ -48,7 +48,24 @@ int main(int argc, char** args)
 	machine = new gbc::Machine(romdata);
 	machine->break_now();
 	machine->verbose_banking = true;
-	//machine->cpu.default_pausepoint(0x2cb5);
+	/*
+	//machine->cpu.default_pausepoint(0x453);
+	machine->memory.breakpoint(gbc::Memory::READ,
+			[] (gbc::Memory& mem, uint16_t addr, uint8_t) {
+				if (addr == 0xDF40) {
+					printf("Something is reading from %04X\n", addr);
+					mem.machine().break_now();
+				}
+			});
+	machine->memory.breakpoint(gbc::Memory::WRITE,
+			[] (gbc::Memory& mem, uint16_t addr, uint8_t value) {
+				if (addr == 0xDF40) {
+					printf("Something is writing %02X to %04X\n", value, addr);
+					mem.machine().break_now();
+				}
+			});
+	*/
+	//machine->cpu.default_pausepoint(0x3b89);
 	//machine->verbose_instructions = true;
 	//machine->break_on_interrupts = true;
 	//machine->stop_when_undefined = true;

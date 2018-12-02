@@ -38,6 +38,7 @@ namespace gbc
     void     incr_cycles(int count);
     void     push_value(uint16_t addr);
     void     push_and_jump(uint16_t addr);
+    void     jump(uint16_t dest);
     void     stop();
     void     wait(); // wait for interrupts
     void     buggy_halt();

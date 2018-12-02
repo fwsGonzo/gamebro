@@ -77,7 +77,7 @@ namespace gbc
           break;
     }
     printf("RAM bank size: 0x%05x\n", m_ram_bank_size);
-    m_wram_size = 0x2000;
+    this->m_wram_size = 0x8000;
     printf("Work RAM bank size: 0x%04x\n", m_wram_size);
   }
 
