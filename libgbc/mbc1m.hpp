@@ -14,6 +14,10 @@ namespace gbc
           // ROM bank number
           this->m_rom_bank_reg &= 0x60;
           this->m_rom_bank_reg |= value & 0x1F;
+          // lower 5 bits cant be 0
+          if ((value & 0x1F) == 0) {
+            this->m_rom_bank_reg++;
+          }
           this->set_rombank(this->m_rom_bank_reg);
           return;
       case 0x4000:
@@ -22,11 +26,10 @@ namespace gbc
           if (this->m_mode_select == 1) {
             this->set_rambank(value & 0x3);
           }
-          else {
-            this->m_rom_bank_reg &= 0x1F;
-            this->m_rom_bank_reg |= value & 0x60;
-            this->set_rombank(this->m_rom_bank_reg);
-          }
+          // always changed ROM bank value
+          this->m_rom_bank_reg &= 0x1F;
+          this->m_rom_bank_reg |= (value & 0x3) << 5;
+          this->set_rombank(this->m_rom_bank_reg);
           return;
       case 0x6000:
       case 0x7000:

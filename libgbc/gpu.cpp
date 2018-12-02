@@ -21,6 +21,7 @@ namespace gbc
   {
     m_pixels.resize(SCREEN_W * SCREEN_H);
     this->m_video_offset = 0;
+    //set_mode((m_reg_ly >= 144) ? 1 : 2);
   }
   uint64_t GPU::scanline_cycles()
   {
@@ -61,7 +62,8 @@ namespace gbc
 
       if (m_reg_ly == 144)
       {
-        assert(this->is_vblank());
+        // enable MODE 1: V-blank
+        set_mode(1);
         // MODE 1: vblank interrupt
         io().trigger(vblank);
         // modify stat
@@ -71,8 +73,18 @@ namespace gbc
       }
       else if (m_reg_ly == 153)
       {
-        // BUG: LY stays at 0 for extra long
+        // BUG: LY stays at 0 for one scanline
         m_reg_ly = 0;
+        // still in V-blank mode
+        assert(this->is_vblank());
+      }
+      else if (m_reg_ly == 1 && get_mode() == 1)
+      {
+        assert(this->is_vblank());
+        // start over in regular mode
+        m_current_scanline = 0;
+        m_reg_ly = 0;
+        set_mode(0);
       }
       // LY == LYC comparison on each line
       this->do_ly_comparison();
@@ -80,12 +92,12 @@ namespace gbc
     // STAT mode & scanline period modulation
     if (!this->is_vblank())
     {
-      if (get_mode() < 2 && new_scanline)
+      if (get_mode() == 0 && new_scanline)
       {
         // enable MODE 2: OAM search
+        set_mode(2);
         // check if OAM interrupt enabled
         if (m_reg_stat & 0x20) io().trigger(lcd_stat);
-        set_mode(2);
       }
       else if (get_mode() == 2 && period >= oam_cycles())
       {
@@ -107,7 +119,7 @@ namespace gbc
   }
 
   bool GPU::is_vblank() const noexcept {
-    return m_current_scanline >= 144;
+    return get_mode() == 1;
   }
   bool GPU::is_hblank() const noexcept {
     return get_mode() == 3;

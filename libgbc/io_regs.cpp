@@ -64,7 +64,7 @@ namespace gbc
   }
   uint8_t ioread_STAT(IO& io, uint16_t addr)
   {
-    return io.reg(addr);
+    return io.reg(addr) | 0x80;
   }
 
   void iowrite_DMA(IO& io, uint16_t, uint8_t value)
@@ -126,7 +126,16 @@ namespace gbc
   }
   uint8_t ioread_HDMA(IO& io, uint16_t addr)
   {
-    return io.reg(addr);
+    switch (addr) {
+      case IO::REG_HDMA1:
+      case IO::REG_HDMA3:
+      case IO::REG_HDMA2:
+      case IO::REG_HDMA4:
+          return 0xFF; // apparently always?
+      case IO::REG_HDMA5:
+          return io.reg(addr);
+    }
+    return 0xFF;
   }
 
   void iowrite_SND_ONOFF(IO& io, uint16_t, uint8_t value)

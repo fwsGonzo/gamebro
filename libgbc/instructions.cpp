@@ -381,7 +381,6 @@ namespace gbc
 
   INSTRUCTION(RET) (CPU& cpu, const uint8_t opcode)
   {
-    cpu.hardware_tick();
     if ((opcode & 0xef) == 0xc9 || cpu.registers().compare_flags(opcode)) {
       cpu.registers().pc = cpu.mtread16(cpu.registers().sp);
       cpu.registers().sp += 2;
@@ -393,6 +392,7 @@ namespace gbc
         cpu.hardware_tick(); // RET nzc needs one more tick
       }
     }
+    cpu.hardware_tick();
   }
   PRINTER(RET) (char* buffer, size_t len, CPU& cpu, uint8_t opcode) {
     if (opcode == 0xc9) {
@@ -479,7 +479,19 @@ namespace gbc
 
   INSTRUCTION(HALT) (CPU& cpu, const uint8_t)
   {
-    cpu.wait();
+    if (cpu.ime()) {
+        cpu.wait();
+    }
+    else if (cpu.machine().io.interrupt_mask() != 0)
+    {
+      // wait for an interrupt to be ready
+      while (cpu.machine().io.interrupt_mask() == 0) {
+        cpu.hardware_tick();
+      }
+    }
+    else {
+      // TODO: weird stuff happening here
+    }
   }
   PRINTER(HALT) (char* buffer, size_t len, CPU&, uint8_t) {
     return snprintf(buffer, len, "HALT");

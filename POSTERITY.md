@@ -6,6 +6,10 @@ Some ROMs select bogus RAM banks, so make sure to mask off bits based on the num
 
 When writing to the lower bits of MBC1 ROM bank selection range, keep in mind that if *ROM/RAM mode select* is in *RAM mode* then writing to the lower ROM bank bits should *reset the upper bits*. This is *not* the case for RAM banks.
 
+When RAM bank mode is selected in MBC1, when writing the upper 2 bits, you also must set the ROM bank as well. In short both get modified. If RAM bank mode is not selected, ROM bank is modified as expected.
+
+When selecting/deselecting RTC (bit 7) in MBC3, the RAM bank bits are still in effect.
+
 POP AF - The lower nibble of the FLAGS register is NOT writable. Since the lower nibble is always zero, you can mask off this value with `flags &= 0xF0`.
 
 KEY1 - Many games need the bit at 0x80 to represent double speed mode. Make sure to not clobber it and set it only after enabling double speed.
@@ -17,3 +21,9 @@ Signed tile locations - Tiles at 0x9000 are retrieved by using a *signed* offset
 During instruction decoding the CPU reads one opcode from memory, during which time a hardware tick occurs. This is the case for all memory reads during instruction execution. This means that hardware ticks can occur mid-instruction for *all* non-trivial instructions. Some games rely on this timing-accurate behavior.
 
 An HDMA operation operates on a block of 16 bytes at a time. This operation happens once during each H-blank...?
+
+HDMA source and destination registers should always return 0xFF when read.
+
+Interrupts are only executed for IE & IF (anded together). When executing an interrupt the CPU disables IME with no delay. Interrupts have priorities, with V-blank being the highest and so must be run first. The next interrupt can only run after IME is on again after IE instruction + a delay tick.
+
+If you are creating a timing-accurate emulator you have to keep in mind that the CB opcode is not an instruction. It is an atomic read that LEADS to the actual instructions. If you execute a hardware tick between those bytes it could lead to a very subtle bug. For example an interrupt could end up executing and then returning into the middle of the two-byte opcode, or pass it altogether without executing it.

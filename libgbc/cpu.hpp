@@ -15,7 +15,7 @@ namespace gbc
   class CPU
   {
   public:
-    CPU(Machine&, bool init) noexcept;
+    CPU(Machine&) noexcept;
     void  reset() noexcept;
     void  simulate();
     uint64_t gettime() const noexcept { return m_cycles_total; }

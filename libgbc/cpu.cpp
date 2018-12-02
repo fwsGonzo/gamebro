@@ -6,20 +6,29 @@
 
 namespace gbc
 {
-  CPU::CPU(Machine& mach, bool init) noexcept
+  CPU::CPU(Machine& mach) noexcept
     : m_machine(mach), m_memory(mach.memory)
   {
-    if (init) this->reset();
-    else m_registers = {};
   }
 
   void CPU::reset() noexcept
   {
-    // gameboy DMG initial register values
-    registers().af = (ENABLE_GBC) ? 0x11b0 : 0x01b0;
-    registers().bc = 0x0013;
-    registers().de = 0x00d8;
-    registers().hl = 0x014d;
+    if (!machine().is_cgb())
+    {
+      // gameboy DMG initial register values
+      registers().af = 0x01b0;
+      registers().bc = 0x0013;
+      registers().de = 0x00d8;
+      registers().hl = 0x014d;
+    }
+    else
+    {
+      // gameboy color initial register values
+      registers().af = 0x1180;
+      registers().bc = 0x0000;
+      registers().de = 0xff56;
+      registers().hl = 0x000d;
+    }
     registers().sp = 0xfffe;
     registers().pc =
         memory().bootrom_enabled() ? 0x0 : 0x100;
@@ -36,7 +45,7 @@ namespace gbc
     if (!this->is_halting() && !this->is_stopping())
     {
       // 1. read instruction from memory
-      this->m_cur_opcode = this->readop8();
+      this->m_cur_opcode = this->peekop8(0);
       // 2. execute instruction
       this->execute(this->m_cur_opcode);
     }
@@ -64,8 +73,12 @@ namespace gbc
       char prn[128];
       instr.printer(prn, sizeof(prn), *this, opcode);
       printf("%9lu: [pc %04X] opcode %02X: %s\n",
-              gettime(), registers().pc-1,  opcode, prn);
+              gettime(), registers().pc,  opcode, prn);
     }
+
+    // read, increment PC, hardware tick
+    const uint8_t op = this->readop8();
+    assert(opcode == op);
 
     // run instruction handler
     instr.handler(*this, opcode);

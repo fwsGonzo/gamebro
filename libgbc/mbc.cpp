@@ -104,7 +104,7 @@ namespace gbc
         {
           addr -= RAMbankX.first;
           addr |= m_ram_bank_offset;
-          if (addr < m_ram_bank_size)
+          if (addr < this->m_ram_bank_size)
               return m_ram.at(addr);
           return 0xff; // small 2kb RAM banks
         }
@@ -133,7 +133,7 @@ namespace gbc
 
   void MBC::write(uint16_t addr, uint8_t value)
   {
-    if (addr < 0x2000) // RAM enable
+    if (UNLIKELY(addr < 0x2000)) // RAM enable
     {
       bool old_ram_enabled = this->m_ram_enabled;
       if (m_version == 2)
@@ -145,7 +145,7 @@ namespace gbc
       }
       return;
     }
-    else if (addr < 0x8000)
+    else if (addr < 0x8000) // MBC control ranges
     {
       switch (this->m_version) {
         case 5:
@@ -167,7 +167,10 @@ namespace gbc
           if (this->m_rtc_enabled == false)
           {
             addr -= RAMbankX.first;
-            this->m_ram.at(m_ram_bank_offset | addr) = value;
+            addr |= m_ram_bank_offset;
+            if (addr < this->m_ram_bank_size) {
+                this->m_ram.at(addr) = value;
+            }
           }
           else {
             // TODO: Write to RTC register
@@ -196,13 +199,12 @@ namespace gbc
 
   void MBC::set_rombank(int reg)
   {
-    if (reg == 0) reg = 1;
-    if (this->m_version < 3) { // bug!
-      if (reg == 0x20 || reg == 0x40 || reg == 0x60) reg++;
-    }
+    const int rom_banks = m_rom.size() / rombank_size();
+    reg &= (rom_banks-1);
+
     // cant select bank 0
     const int offset = reg * rombank_size();
-    if (verbose_banking()) {
+    if (UNLIKELY(verbose_banking())) {
       printf("Selecting ROM bank 0x%02x offset %#x max %#zx\n", reg, offset, m_rom.size());
     }
     if (UNLIKELY((offset + rombank_size()) > m_rom.size()))
@@ -215,17 +217,13 @@ namespace gbc
   }
   void MBC::set_rambank(int reg)
   {
-    // NOTE: we have to remove bits here
-    reg &= (this->m_ram_banks-1);
+    if (m_ram_banks >= 0) {
+      // NOTE: we have to remove bits here
+      reg &= (this->m_ram_banks-1);
+    }
     const int offset = reg * rambank_size();
     if (UNLIKELY(verbose_banking())) {
       printf("Selecting RAM bank 0x%02x offset %#x max %#x\n", reg, offset, m_ram_bank_size);
-    }
-    if (UNLIKELY((offset + rambank_size()) > m_ram_bank_size))
-    {
-      printf("Invalid RAM bank 0x%02x offset %#x\n", reg, offset);
-      this->m_memory.machine().break_now();
-      return;
     }
     this->m_ram_bank_offset = offset;
   }
