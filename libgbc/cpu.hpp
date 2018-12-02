@@ -40,6 +40,7 @@ namespace gbc
     void     push_and_jump(uint16_t addr);
     void     stop();
     void     wait(); // wait for interrupts
+    void     buggy_halt();
     instruction_t& decode(uint8_t opcode);
 
     regs_t& registers() noexcept { return m_registers; }
@@ -55,9 +56,7 @@ namespace gbc
     bool ime() const noexcept { return m_intr_master_enable; }
 
     bool is_stopping() const noexcept { return m_stopped; }
-    bool is_halting() const noexcept { return m_asleep || m_haltbug != 0; }
-
-
+    bool is_halting() const noexcept { return m_asleep; }
 
     // debugging
     void  breakpoint(uint16_t address, breakpoint_t func);
@@ -87,8 +86,8 @@ namespace gbc
     int8_t   m_intr_pending = 0;
     bool     m_stopped = false;
     bool     m_asleep = false;
+    bool     m_haltbug = false;
     uint8_t  m_switch_cycles = 0;
-    uint8_t  m_haltbug = 0;
     // debugging
     bool     m_break = false;
     mutable int16_t  m_break_steps = 0;

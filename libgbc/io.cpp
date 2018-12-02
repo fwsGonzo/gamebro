@@ -64,7 +64,7 @@ namespace gbc
         // timer interrupt when overflowing to 0
         if (this->reg(REG_TIMA) == 0) {
           this->trigger(this->timerint);
-          // BUB: TIMA does not get reset before after 4 cycles
+          // BUG: TIMA does not get reset before after 4 cycles
           this->m_timabug = 4;
         }
       }

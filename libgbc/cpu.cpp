@@ -53,10 +53,6 @@ namespace gbc
     {
       // make sure time passes when not executing instructions
       this->hardware_tick();
-      // skip instructions after halting
-      if (this->m_asleep == false) {
-        if (this->m_haltbug) this->m_haltbug--;
-      }
       // speed switch
       this->handle_speed_switch();
     }
@@ -130,15 +126,11 @@ namespace gbc
     }
     // check if interrupts are enabled and pending
     const uint8_t imask = machine().io.interrupt_mask();
-    // HALT bug: resume operation
-    if (this->is_halting() && imask != 0)
-    {
-      this->m_asleep = false;
-    }
     if (this->ime() && imask != 0x0)
     {
       // disable interrupts immediately
       this->m_intr_master_enable = false;
+      this->m_asleep = false;
       // execute pending interrupts (sorted by priority)
       auto& io = machine().io;
       if      (imask &  0x1) io.interrupt(io.vblank);
@@ -146,6 +138,12 @@ namespace gbc
       else if (imask &  0x4) io.interrupt(io.timerint);
       else if (imask &  0x8) io.interrupt(io.serialint);
       else if (imask & 0x10) io.interrupt(io.joypadint);
+    }
+    else if (this->m_haltbug && imask != 0)
+    {
+      // do *NOT* call interrupt handler when buggy HALTing
+      this->m_asleep = false;
+      this->m_haltbug = false;
     }
   }
 
@@ -399,7 +397,12 @@ namespace gbc
   void CPU::wait()
   {
     this->m_asleep = true;
-    this->m_haltbug = 2;
+    this->m_haltbug = false;
+  }
+  void CPU::buggy_halt()
+  {
+    this->m_asleep = true;
+    this->m_haltbug = true;
   }
 
   void CPU::push_value(uint16_t address)

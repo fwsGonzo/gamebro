@@ -480,17 +480,11 @@ namespace gbc
   INSTRUCTION(HALT) (CPU& cpu, const uint8_t)
   {
     if (cpu.ime()) {
-        cpu.wait();
+      cpu.wait();
     }
-    else if (cpu.machine().io.interrupt_mask() != 0)
+    else
     {
-      // wait for an interrupt to be ready
-      while (cpu.machine().io.interrupt_mask() == 0) {
-        cpu.hardware_tick();
-      }
-    }
-    else {
-      // TODO: weird stuff happening here
+      cpu.buggy_halt();
     }
   }
   PRINTER(HALT) (char* buffer, size_t len, CPU&, uint8_t) {
