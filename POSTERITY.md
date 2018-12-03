@@ -27,3 +27,9 @@ HDMA source and destination registers should always return 0xFF when read.
 Interrupts are only executed for IE & IF (anded together). When executing an interrupt the CPU disables IME with no delay. Interrupts have priorities, with V-blank being the highest and so must be run first. The next interrupt can only run after IME is on again after IE instruction + a delay tick.
 
 If you are creating a timing-accurate emulator you have to keep in mind that the CB opcode is not an instruction. It is an atomic read that LEADS to the actual instructions. If you execute a hardware tick between those bytes it could lead to a very subtle bug. For example an interrupt could end up executing and then returning into the middle of the two-byte opcode, or pass it altogether without executing it.
+
+Double- and triple-check your helper functions. I had my is_hblank() function return true when LCDC mode == 3, which is not true. H-blank is mode 0.
+
+VRAM attributes are in the same area tiles would be in, except VRAM bank is 1. That means the attributes are not in a fixed place. Use the same offset as for tiles.
+
+And last, but not least: Don't despair if not every game works flawlessly. There are many emulators, and most only have support up to a point. Simply getting to the point where a GBC game runs the intro and you can safely get into the game is a long and arduous process. Give yourself some credit!
