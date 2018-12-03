@@ -1,6 +1,5 @@
 #include "memory.hpp"
 #include "machine.hpp"
-#include "bios.hpp"
 
 namespace gbc
 {
@@ -35,10 +34,7 @@ namespace gbc
       func(*this, address, 0x0);
     }
     if (this->is_within(address, ProgramArea)) {
-      if (address >= 0x100 || this->m_bootrom_enabled == false)
-        return m_mbc.read(address);
-      else
-        return dmg0_rom.at(address);
+      return m_mbc.read(address);
     }
     else if (this->is_within(address, VideoRAM)) {
       // cant read from Video RAM when working on scanline

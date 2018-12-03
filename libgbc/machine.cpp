@@ -1,5 +1,4 @@
 #include "machine.hpp"
-#include "bios.hpp"
 
 namespace gbc
 {

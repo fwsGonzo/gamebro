@@ -41,7 +41,7 @@ namespace gbc
 
     Machine& machine() noexcept { return m_machine; }
     bool rom_valid() const noexcept;
-    bool bootrom_enabled() const noexcept { return m_bootrom_enabled; }
+    bool bootrom_enabled() const noexcept { return false; }
     void disable_bootrom();
 
     bool double_speed() const noexcept;
