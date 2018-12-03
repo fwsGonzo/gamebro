@@ -31,10 +31,14 @@ void Service::start()
   assert(rombuffer.is_valid());
   auto romdata = std::move(*rombuffer.get());
 
+  // settings
+  constexpr auto PixelMode = gbc::PM_PALETTE; // fastest
+  //constexpr auto PixelMode = gbc::PM_RGB15;
+  //constexpr auto PixelMode = gbc::PM_RGBA;
+
   static gbc::Machine* machine = nullptr;
   machine = new gbc::Machine(romdata);
-  //machine->gpu.set_pixelmode(gbc::PM_RGBA);
-  machine->gpu.set_pixelmode(gbc::PM_PALETTE);
+  machine->gpu.set_pixelmode(PixelMode);
 
   // trap on V-blank
   static bool vblanked = false;
@@ -43,20 +47,34 @@ void Service::start()
     {
       const int W = machine.gpu.SCREEN_W;
       const int H = machine.gpu.SCREEN_H;
-      //restart_indexing();
+      if constexpr (PixelMode == gbc::PM_RGB15 || PixelMode == gbc::PM_RGBA) {
+        restart_indexing(); // can be made smarter
+      }
 
       for (int y = 0; y < H; y++)
       for (int x = 0; x < W; x++)
       {
         const auto& pixels = machine.gpu.pixels();
-        // Palette mode
-        const uint32_t idx = pixels.at(W * y + x);
-        assert((idx & 0xff) == idx);
-        set_pixel(x+80, y+32, idx);
-        // RGBA mode
-        //const uint32_t color = pixels.at(W * y + x);
-        //int index = auto_indexed_color(color);
-        //set_pixel(x+80, y+32, index);
+        if constexpr (PixelMode == gbc::PM_PALETTE)
+        {
+          // Palette mode
+          const uint32_t idx = pixels.at(W * y + x);
+          set_pixel(x+80, y+32, idx);
+        }
+        else if constexpr (PixelMode == gbc::PM_RGB15)
+        {
+          // RGB15 mode
+          const uint16_t rgb15 = pixels.at(W * y + x);
+          rgb18_t rgb = rgb18_t::from_rgb15(rgb15);
+          if (machine.is_cgb()) rgb.curvify();
+          int index = auto_indexed_rgb18(rgb);
+          set_pixel(x+80, y+32, index);
+        }
+        else {
+          const uint32_t color = pixels.at(W * y + x);
+          int index = auto_indexed_rgba(color);
+          set_pixel(x+80, y+32, index);
+        }
       }
       // blit to front framebuffer here
       VGA_gfx::blit_from(backbuffer.data());
@@ -72,17 +90,17 @@ void Service::start()
   }
   else
   {
-    // build palette in real-time
-    machine->gpu.on_palchange(
-      [] (const uint8_t idx, const uint16_t color)
-      {
-        const uint8_t r = (color >>  0) & 0x1f;
-        const uint8_t g = (color >>  5) & 0x1f;
-        const uint8_t b = (color >> 10) & 0x1f;
-        int rgb[3] {r << 1, g << 1, b << 1};
-        if (machine->is_cgb()) color_curvify(rgb);
-        VGA_gfx::set_palette(idx, rgb[0], rgb[1], rgb[2]);
-      });
+    if constexpr (PixelMode == gbc::PM_PALETTE)
+    {
+      // build palette in real-time
+      machine->gpu.on_palchange(
+        [] (const uint8_t idx, const uint16_t color)
+        {
+          rgb18_t rgb = rgb18_t::from_rgb15(color);
+          if (machine->is_cgb()) rgb.curvify();
+          rgb.apply_palette(idx);
+        });
+    }
   }
 
   // framebuffer

@@ -185,12 +185,13 @@ namespace gbc
         // window on can be under sprites
         if (window && scan_x >= window_x()-7)
         {
-          const int sx = scan_x - window_x()+7;
-          const int sy = scan_y - window_y();
+          const int wpx = scan_x - window_x()+7;
+          const int wpy = scan_y - window_y();
           // draw window pixel
-          const int t = wtd.tile_id(sx / 8, sy / 8);
-          const int tidx = wtd.pattern(t, tattr, sx & 7, sy & 7);
-          color = this->colorize_tile(tattr, tidx);
+          const int wtile = wtd.tile_id(wpx / 8, wpy / 8);
+          const int wattr = wtd.tile_attr(wpx / 8, wpy / 8);
+          const int widx = wtd.pattern(wtile, wattr, wpx & 7, wpy & 7);
+          color = this->colorize_tile(wattr, widx);
         }
 
         // render sprites within this x
@@ -223,6 +224,9 @@ namespace gbc
     if (m_pixelmode == PM_PALETTE) {
       return index;
     }
+    else if (m_pixelmode == PM_RGB15) {
+      return get_cgb_color(index * 2);
+    }
     // convert to 32-bit color
     if (is_cgb) {
       return expand_cgb_color(get_cgb_color(index * 2));
@@ -242,6 +246,9 @@ namespace gbc
     // no conversion
     if (m_pixelmode == PM_PALETTE) {
       return index;
+    }
+    else if (m_pixelmode == PM_RGB15) {
+      return get_cgb_color(index * 2);
     }
     // convert to 32-bit color
     if (machine().is_cgb()) {
@@ -309,17 +316,17 @@ namespace gbc
   {
     const auto* oam = memory().oam_ram_ptr();
     const Sprite* sprite_begin = (Sprite*) oam;
-    const Sprite* sprite_end = &sprite_begin[40];
+    const Sprite* sprite_back = &sprite_begin[39];
     std::vector<const Sprite*> results;
     // draw sprites from right to left
-    const Sprite* sprite = sprite_end - 1;
-
-    while (sprite >= sprite_begin) {
+    for (const Sprite* sprite = sprite_back; sprite >= sprite_begin; sprite--)
+    {
       if (sprite->hidden() == false)
-      if (sprite->is_within_scanline(config)) results.push_back(sprite);
-      sprite--;
-      // GB/GBC supports 10 sprites max per scanline
-      if (results.size() == 10) break;
+      if (sprite->is_within_scanline(config)) {
+        results.push_back(sprite);
+        // GB/GBC supports 10 sprites max per scanline
+        if (results.size() == 10) break;
+      }
     }
     return results;
   }

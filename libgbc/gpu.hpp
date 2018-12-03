@@ -9,6 +9,7 @@ namespace gbc
 {
   enum pixelmode_t {
     PM_RGBA = 0,     // regular 32-bit RGBA
+    PM_RGB15,
     PM_PALETTE,      // no conversion
   };
   enum dmg_variant_t {
