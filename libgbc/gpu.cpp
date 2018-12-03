@@ -77,6 +77,8 @@ namespace gbc
         m_reg_ly = 0;
         // still in V-blank mode
         assert(this->is_vblank());
+        // new frame!
+        this->m_frame_count++;
       }
       else if (m_reg_ly == 1 && get_mode() == 1)
       {
@@ -122,7 +124,7 @@ namespace gbc
     return get_mode() == 1;
   }
   bool GPU::is_hblank() const noexcept {
-    return get_mode() == 3;
+    return get_mode() == 0;
   }
   uint8_t GPU::get_mode() const noexcept {
     return m_reg_stat & 0x3;
@@ -174,11 +176,11 @@ namespace gbc
       const int sx = (scan_x + scroll_x) % 256;
       const int sy = (scan_y + scroll_y) % 256;
       // get the tile id
-      const int t = td.tile_id(sx / 8, sy / 8);
+      const int tid = td.tile_id(sx / 8, sy / 8);
       const int tattr = td.tile_attr(sx / 8, sy / 8);
       // copy the 16-byte tile into buffer
-      const int tidx = td.pattern(t, tattr, sx & 7, sy & 7);
-      uint32_t color = this->colorize_tile(tattr, tidx);
+      const int tile_color = td.pattern(tid, tattr, sx & 7, sy & 7);
+      uint32_t color = this->colorize_tile(tattr, tile_color);
 
       if ((tattr & 0x80) == 0 || !machine().is_cgb())
       {
@@ -199,7 +201,7 @@ namespace gbc
         for (const auto* sprite : sprites) {
           const uint8_t idx = sprite->pixel(sprconf);
           if (idx != 0) {
-            if (!sprite->behind() || tidx == 0) {
+            if (!sprite->behind() || tile_color == 0) {
               color = this->colorize_sprite(sprite, sprconf, idx);
             }
           }
@@ -297,8 +299,12 @@ namespace gbc
     //        bg_tiles(), tile_data());
     const auto* tile_base = &vram[tiles    - 0x8000];
     const auto* patt_base = &vram[patterns - 0x8000];
-    const auto* attr_base = &vram[0x1800 + 0x2000];
-    return TileData{tile_base, patt_base, attr_base, is_signed, machine().is_cgb()};
+    const uint8_t* attr_base = nullptr;
+    if (machine().is_cgb()) {
+      // attributes are always in VRAM bank 1 (which is off=0x2000)
+      attr_base = &vram[tiles - 0x8000 + 0x2000];
+    }
+    return TileData{tile_base, patt_base, attr_base, is_signed};
   }
   sprite_config_t GPU::sprite_config()
   {
@@ -309,6 +315,7 @@ namespace gbc
     config.scan_x = 0;
     config.scan_y = 0;
     config.mode8x16 = m_reg_lcdc & 0x4;
+    config.is_cgb   = machine().is_cgb();
     return config;
   }
 
@@ -341,27 +348,28 @@ namespace gbc
     for (int x = 0; x < 256; x++)
     {
       // get the tile id
-      const int t = td.tile_id(x >> 3, y >> 3);
+      const int tid = td.tile_id(x >> 3, y >> 3);
       const int tattr = td.tile_attr(x >> 3, y >> 3);
       // copy the 16-byte tile into buffer
-      const int idx = td.pattern(t, tattr, x & 7, y & 7);
+      const int idx = td.pattern(tid, tattr, x & 7, y & 7);
       data.at(y * 256 + x) = this->colorize_tile(tattr, idx);
     }
     return data;
   }
-  std::vector<uint32_t> GPU::dump_tiles()
+  std::vector<uint32_t> GPU::dump_tiles(int bank)
   {
     std::vector<uint32_t> data(16*24 * 8*8);
     // tiles start at the beginning of video RAM
-    auto td = this->create_tiledata(0x8000, tile_data());
+    auto td = this->create_tiledata(0x8000, 0x8000);
+    const uint8_t attr = (bank == 0) ? 0x00 : 0x08;
 
     for (int y = 0; y < 24*8; y++)
     for (int x = 0; x < 16*8; x++)
     {
       int tile = (y / 8) * 16 + (x / 8);
       // copy the 16-byte tile into buffer
-      const int idx = td.pattern(tile, 0, x & 7, y & 7);
-      data.at(y * 128 + x) = this->colorize_tile(0, idx);
+      const int idx = td.pattern(tile, attr, x & 7, y & 7);
+      data.at(y * 128 + x) = this->colorize_tile(attr, idx);
     }
     return data;
   }

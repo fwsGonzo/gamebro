@@ -39,6 +39,7 @@ namespace gbc
       readv1 [addr]         Read byte from VRAM1:[addr] and print
       debug                 Trigger the debug interrupt handler
       vblank                Render current screen and call vblank
+      frame                 Show frame number and extra frame info
 )V0G0N";
     printf("%s\n", help_text);
   }
@@ -156,6 +157,10 @@ namespace gbc
     }
     else if (cmd == "vblank") {
       cpu.machine().gpu.render_and_vblank();
+      return true;
+    }
+    else if (cmd == "frame") {
+      printf("Frame: %lu\n", cpu.machine().gpu.frame_count());
       return true;
     }
     else if (cmd == "debug") {

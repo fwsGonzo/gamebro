@@ -165,7 +165,6 @@ namespace gbc
 
   void iowrite_VBK(IO& io, uint16_t addr, uint8_t value)
   {
-    //printf("VBK 0x%04x write 0x%02x\n", addr, value);
     io.reg(addr) = value & 1;
     io.machine().gpu.set_video_bank(value & 1);
   }

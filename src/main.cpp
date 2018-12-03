@@ -47,7 +47,6 @@ int main(int argc, char** args)
 
 	machine = new gbc::Machine(romdata);
 	machine->break_now();
-	machine->verbose_banking = true;
 	/*
 	//machine->cpu.default_pausepoint(0x453);
 	machine->memory.breakpoint(gbc::Memory::READ,
@@ -66,28 +65,34 @@ int main(int argc, char** args)
 			});
 	*/
 	//machine->cpu.default_pausepoint(0x3b89);
+	//machine->verbose_banking = true;
 	//machine->verbose_instructions = true;
 	//machine->break_on_interrupts = true;
 	//machine->stop_when_undefined = true;
 	signal(SIGINT, int_handler);
 
+	static bool start_screenshotting = false;
 	// wire up gameboy vblank
 	machine->set_handler(gbc::Machine::VBLANK,
 		[] (gbc::Machine& machine, gbc::interrupt_t&)
 		{
-			const char* filename = "screenshot.bmp";
-			static int counter = 0;
-			if (counter++ % 120 == 0)
-			save_screenshot(filename, machine.gpu.pixels());
-			//usleep(1000000);
+			if (start_screenshotting) {
+				static const char* filename = "screenshot.bmp";
+				save_screenshot(filename, machine.gpu.pixels());
+				//usleep(1000000);
+			}
 		});
 	machine->set_handler(gbc::Machine::DEBUG,
 		[] (gbc::Machine& machine, gbc::interrupt_t&)
 		{
 			const char* bgfile = "background.bmp";
 			save_screenshot(bgfile, machine.gpu.dump_background());
-			const char* tilefile = "tiles.bmp";
-			save_screenshot(tilefile, machine.gpu.dump_tiles());
+			const char* tilefile = "tiles0.bmp";
+			save_screenshot(tilefile, machine.gpu.dump_tiles(0));
+			if (machine.is_cgb()) {
+				const char* tilefile = "tiles1.bmp";
+				save_screenshot(tilefile, machine.gpu.dump_tiles(1));
+			}
 		});
 	machine->gpu.on_palchange(
     [] (const uint8_t idx, const uint16_t color)
@@ -102,6 +107,7 @@ int main(int argc, char** args)
 	extern void do_test_machine();
 	//do_test_machine();
 
+	uint64_t last_frame = 0;
 	while (machine->is_running())
 	{
 		machine->simulate();
@@ -111,6 +117,14 @@ int main(int argc, char** args)
 		machine->set_inputs(inputs.at(counter));
 		counter = (counter + 1) % inputs.size();
 		*/
+		const uint64_t frame = machine->gpu.frame_count();
+		if (last_frame != frame) {
+			last_frame = frame;
+			if (frame == 1450) {
+				start_screenshotting = true;
+				machine->break_now();
+			}
+		}
 	}
 	save_screenshot("exitshot.bmp", machine->gpu.pixels());
 

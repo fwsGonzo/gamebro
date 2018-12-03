@@ -10,12 +10,11 @@ namespace gbc
     static const int TILE_H = 8;
 
     TileData(const uint8_t* tile, const uint8_t* pattern,
-             const uint8_t* attr, bool sign, bool cgb)
-      : m_tile_base(tile), m_patt_base(pattern), m_attr_base(attr),
-        m_signed(sign), m_is_cgb(cgb) {}
+             const uint8_t* attr, bool sign)
+      : m_tile_base(tile), m_patt_base(pattern), m_attr_base(attr), m_signed(sign) {}
 
-    int   tile_id(int tx, int ty);
     int   tile_attr(int tx, int ty);
+    int   tile_id(int tx, int ty);
     int   pattern(int t, int tattr, int dx, int dy) const;
     int   pattern(const uint8_t* base, int tattr, int t, int dx, int dy) const;
     void  set_tilebase(const uint8_t* new_base) { m_tile_base = new_base; }
@@ -25,7 +24,6 @@ namespace gbc
     const uint8_t* m_patt_base;
     const uint8_t* m_attr_base;
     const bool m_signed;
-    const bool m_is_cgb;
   };
 
   inline int TileData::tile_id(int x, int y)
@@ -36,7 +34,7 @@ namespace gbc
   }
   inline int TileData::tile_attr(int x, int y)
   {
-    if (m_is_cgb == false) return 0;
+    if (m_attr_base == nullptr) return 0;
     return m_attr_base[y * 32 + x];
   }
 
@@ -45,11 +43,9 @@ namespace gbc
   {
     assert(tx >= 0 && tx < 8);
     assert(ty >= 0 && ty < 8);
-    if (this->m_is_cgb) {
-      if (tattr & 0x20) tx = 7 - tx;
-      if (tattr & 0x40) ty = 7 - ty;
-      if (tattr & 0x08) base += 0x2000;
-    }
+    if (tattr & 0x20) tx = 7 - tx;
+    if (tattr & 0x40) ty = 7 - ty;
+    if (tattr & 0x08) base += 0x2000;
     const int offset = 16*tid + ty * 2;
     //printf("Offset: 16*%d + %d*2 = %d\n", tid, ty, offset);
     // get 16-bit c0, c1

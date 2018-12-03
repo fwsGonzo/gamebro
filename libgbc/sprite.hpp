@@ -10,6 +10,7 @@ namespace gbc
     int  scan_x;
     int  scan_y;
     bool mode8x16;
+    bool is_cgb;
 
     int height() const noexcept {
       return mode8x16 ? 16 : 8;
@@ -71,7 +72,8 @@ namespace gbc
     if (this->flipx()) tx = SPRITE_W-1 - tx;
     if (this->flipy()) ty = config.height()-1 - ty;
 
-    const int offset = this->pattern*16 + ty*2;
+    int offset = this->pattern*16 + ty*2;
+    if (config.is_cgb) offset += cgb_bank() * 0x2000;
     uint8_t c0 = config.patterns[offset];
     uint8_t c1 = config.patterns[offset + 1];
     // return combined 4-bits, right to left

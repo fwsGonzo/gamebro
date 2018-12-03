@@ -40,6 +40,7 @@ namespace gbc
     void render_and_vblank();
     bool is_vblank() const noexcept;
     bool is_hblank() const noexcept;
+    uint64_t frame_count() const noexcept { return this->m_frame_count; }
 
     void    set_mode(uint8_t mode);
     uint8_t get_mode() const noexcept;
@@ -66,7 +67,7 @@ namespace gbc
     IO&      io() noexcept { return m_io; }
     std::vector<uint32_t> dump_background();
     std::vector<uint32_t> dump_window();
-    std::vector<uint32_t> dump_tiles();
+    std::vector<uint32_t> dump_tiles(int bank);
 
   private:
     uint64_t scanline_cycles();
@@ -98,6 +99,7 @@ namespace gbc
     dmg_variant_t m_variant = LIGHTER_GREEN;
     int m_current_scanline = 0;
     uint16_t m_video_offset = 0x0;
+    uint64_t m_frame_count = 0;
 
     // 0-63: tiles 64-127: sprites
     std::array<uint8_t, 128> m_cgb_palette;
