@@ -166,7 +166,6 @@ namespace gbc
     else if (cmd == "debug") {
       auto& io = cpu.machine().io;
       io.debugint.callback(cpu.machine(), io.debugint);
-      io.debugint.last_time = cpu.gettime();
       return true;
     }
     else if (cmd == "help" || cmd == "?") {

@@ -175,8 +175,8 @@ namespace gbc
     m_joypad.keypad  = ~(mask & 0xF);
     m_joypad.buttons = ~(mask >> 4);
     // trigger joypad interrupt on every change
-    if (joypadint.last_time != mask) {
-      joypadint.last_time = mask;
+    if (joypadint.mode != mask) {
+      joypadint.mode = mask;
       this->trigger(joypadint);
     }
   }

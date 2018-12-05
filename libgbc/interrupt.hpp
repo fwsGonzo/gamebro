@@ -11,7 +11,6 @@ namespace gbc
     const uint8_t  mask;
     const uint16_t fixed_address;
     const char* name = "";
-    uint64_t last_time = 0;
     int mode = 0;
     interrupt_handler callback = nullptr;
 

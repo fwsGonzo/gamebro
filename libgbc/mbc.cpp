@@ -42,14 +42,18 @@ namespace gbc
       case 0x1A: // MBC 5
       case 0x1B:
       case 0x1C:
+          this->m_version = 5;
+          this->m_rumble = false;
+          break;
       case 0x1D:
       case 0x1E:
           this->m_version = 5;
+          this->m_rumble = true;
           break;
       default:
           assert(0 && "Unknown cartridge type");
     }
-    printf("MBC version %u\n", this->m_version);
+    printf("MBC version %u  Rumble: %d\n", this->m_version, this->m_rumble);
     switch (m.read8(0x149)) {
       case 0x0:
           m_ram_banks = 0;

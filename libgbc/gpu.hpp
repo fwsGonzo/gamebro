@@ -65,14 +65,16 @@ namespace gbc
     Machine& machine() noexcept { return m_memory.machine(); }
     Memory&  memory() noexcept { return m_memory; }
     IO&      io() noexcept { return m_io; }
+    const Memory& memory() const noexcept { return m_memory; }
     std::vector<uint32_t> dump_background();
     std::vector<uint32_t> dump_window();
     std::vector<uint32_t> dump_tiles(int bank);
 
   private:
-    uint64_t scanline_cycles();
-    uint64_t oam_cycles();
-    uint64_t vram_cycles();
+    uint64_t scanline_cycles() const noexcept;
+    uint64_t oam_cycles() const noexcept;
+    uint64_t vram_cycles() const noexcept;
+    uint64_t hblank_cycles() const noexcept;
     void render_scanline(int y);
     void do_ly_comparison();
     TileData create_tiledata(uint16_t tiles, uint16_t patt);
@@ -95,11 +97,12 @@ namespace gbc
     uint8_t&    m_reg_ly;
     std::vector<uint32_t> m_pixels;
     palchange_func_t m_on_palchange = nullptr;
+    uint64_t    m_period = 0;
+    uint64_t    m_frame_count = 0;
     pixelmode_t m_pixelmode = PM_RGBA;
     dmg_variant_t m_variant = LIGHTER_GREEN;
     int m_current_scanline = 0;
     uint16_t m_video_offset = 0x0;
-    uint64_t m_frame_count = 0;
 
     // 0-63: tiles 64-127: sprites
     std::array<uint8_t, 128> m_cgb_palette;

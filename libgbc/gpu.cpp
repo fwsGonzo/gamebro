@@ -23,17 +23,24 @@ namespace gbc
     this->m_video_offset = 0;
     //set_mode((m_reg_ly >= 144) ? 1 : 2);
   }
-  uint64_t GPU::scanline_cycles()
+  uint64_t GPU::scanline_cycles() const noexcept
   {
-    return memory().speed_factor() * 456;
+    return oam_cycles() + vram_cycles() + hblank_cycles();
   }
-  uint64_t GPU::oam_cycles()
+  uint64_t GPU::oam_cycles() const noexcept
   {
-    return memory().speed_factor() * 80;
+    return 83 * memory().speed_factor();
+    //return memory().speed_factor() * 80;
   }
-  uint64_t GPU::vram_cycles()
+  uint64_t GPU::vram_cycles() const noexcept
   {
-    return memory().speed_factor() * 172;
+    return 175 * memory().speed_factor();
+    //return memory().speed_factor() * 172;
+  }
+  uint64_t GPU::hblank_cycles() const noexcept
+  {
+    return 207 * memory().speed_factor();
+    //return memory().speed_factor() * 204;
   }
   void GPU::simulate()
   {
@@ -45,14 +52,15 @@ namespace gbc
     auto& vblank   = io().vblank;
     auto& lcd_stat = io().lcd_stat;
 
-    const uint64_t tnow = machine().now();
-    const uint64_t period = tnow - lcd_stat.last_time;
+    this->m_period += 4;
+    const uint64_t period = this->m_period;
+    //assert(period == 4);
     bool new_scanline = false;
 
     // scanline logic when screen on
-    if (tnow >= lcd_stat.last_time + scanline_cycles())
+    if (period >= scanline_cycles())
     {
-      lcd_stat.last_time += scanline_cycles();
+      this->m_period = 0; // start over each scanline
       // scanline LY increment logic
       static const int MAX_LINES = 154;
       m_current_scanline = (m_current_scanline + 1) % MAX_LINES;
@@ -389,19 +397,19 @@ namespace gbc
   void GPU::lcd_power_changed(const bool online)
   {
     //printf("Screen turned %s\n", online ? "ON" : "OFF");
-    auto& lcd_stat = io().lcd_stat;
     if (online)
     {
       // at the start of a new frame
-      lcd_stat.last_time = machine().now() - scanline_cycles();
-      m_current_scanline = 153;
-      m_reg_ly = m_current_scanline;
+      this->m_period = this->scanline_cycles();
+      this->m_current_scanline = 153;
+      this->m_reg_ly = this->m_current_scanline;
     }
     else
     {
       // LCD off, just reset to LY 0
-      m_current_scanline = 0;
-      m_reg_ly = 0;
+      this->m_period = 0;
+      this->m_current_scanline = 0;
+      this->m_reg_ly = 0;
       // modify stat to V-blank?
       this->set_mode(1);
     }
@@ -414,6 +422,9 @@ namespace gbc
   void GPU::setpal(uint16_t index, uint8_t value)
   {
     this->getpal(index) = value;
+    // sprite palette index 0 is unused
+    if (index >= 64 && (index & 3) == 0) return;
+    //
     if (this->m_on_palchange) {
       const uint8_t base = index / 2;
       const uint16_t c16 = getpal(base*2) | (getpal(base*2+1) << 8);
