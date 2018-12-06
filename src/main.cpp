@@ -47,6 +47,7 @@ int main(int argc, char** args)
 
 	machine = new gbc::Machine(romdata);
 	machine->break_now();
+	machine->gpu.set_pixelmode(gbc::PM_RGBA);
 	/*
 	//machine->cpu.default_pausepoint(0x453);
 	machine->memory.breakpoint(gbc::Memory::READ,
@@ -111,18 +112,21 @@ int main(int argc, char** args)
 	while (machine->is_running())
 	{
 		machine->simulate();
-		/*
+
 		static int counter = 0;
 		std::array<uint8_t, 8> inputs = {0x80, 0x10, 0x10, 0x80, 0x10, 0x80, 0x0, 0x0};
 		machine->set_inputs(inputs.at(counter));
 		counter = (counter + 1) % inputs.size();
-		*/
+
 		const uint64_t frame = machine->gpu.frame_count();
 		if (last_frame != frame) {
 			last_frame = frame;
-			if (frame == 1450) {
+			if (frame == 248) {
 				start_screenshotting = true;
 				machine->break_now();
+				// save screenshot
+				static const char* filename = "screenshot.bmp";
+				save_screenshot(filename, machine->gpu.pixels());
 			}
 		}
 	}

@@ -44,7 +44,7 @@ namespace gbc
       return (attr & 0x8) >> 3;
     }
     int cgb_pal() const noexcept {
-      return attr & 0x3;
+      return attr & 0x7;
     }
 
     uint8_t pixel(const sprite_config_t&) const;
