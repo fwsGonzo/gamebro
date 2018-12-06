@@ -46,7 +46,6 @@ namespace gbc
     uint8_t get_mode() const noexcept;
 
     uint16_t video_offset() const noexcept { return m_video_offset; }
-    bool     video_writable() noexcept;
     void     set_video_bank(uint8_t bank);
     void     lcd_power_changed(bool state);
 

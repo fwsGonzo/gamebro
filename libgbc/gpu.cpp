@@ -387,13 +387,6 @@ namespace gbc
     assert(bank < 2);
     this->m_video_offset = bank * 0x2000;
   }
-  bool GPU::video_writable() noexcept
-  {
-    if (lcd_enabled()) {
-      return is_vblank() || is_hblank();
-    }
-    return true; // when LCD is off, always writable
-  }
   void GPU::lcd_power_changed(const bool online)
   {
     //printf("Screen turned %s\n", online ? "ON" : "OFF");
