@@ -4,24 +4,26 @@
 #include <service>
 #include <timers>
 #include <memdisk>
-#include <hw/vga_gfx.hpp>
 #include <hw/ps2.hpp>
 
 #include <machine.hpp>
-static gbc::Machine* machine = nullptr;
+static int vblank_timer = -1;
 static bool vblanked = false;
-static void timer_function(int);
-void timer_function(int)
+void set_gamespeed(gbc::Machine* machine, std::chrono::milliseconds vbl_delay)
 {
-  // create a new frame
-  while (vblanked == false)
-  {
-    machine->simulate();
-  }
-  vblanked = false;
-  Timers::oneshot(std::chrono::milliseconds(16), timer_function);
+  if (vblank_timer >= 0) Timers::stop(vblank_timer);
+  vblank_timer = Timers::periodic(vbl_delay,
+   [machine] (int) {
+     // create a new frame
+     while (vblanked == false)
+     {
+       machine->simulate();
+     }
+     vblanked = false;
+   });
 }
 
+#include <hw/vga_gfx.hpp>
 #include "backbuffer.cpp"
 void Service::start()
 {
@@ -46,7 +48,8 @@ void Service::start()
   assert(rombuffer.is_valid());
   auto romdata = std::move(*rombuffer.get());
 
-  // settings
+  // the gbz80 machine
+  static gbc::Machine* machine = nullptr;
   machine = new gbc::Machine(romdata);
 
   // trap on V-blank
@@ -88,16 +91,8 @@ void Service::start()
       });
   }
 
-  // framebuffer
-  Timers::periodic(std::chrono::milliseconds(16),
-   [] (int) {
-     // create a new frame
-     while (vblanked == false)
-     {
-       machine->simulate();
-     }
-     vblanked = false;
-   });
+  // vblank update speed
+  set_gamespeed(machine, std::chrono::milliseconds(24));
 
   // input
   hw::KBM::init();
@@ -121,6 +116,15 @@ void Service::start()
     case hw::KBM::VK_2:
     case hw::KBM::VK_X:
         gbc::setflag(pressed, keys, gbc::BUTTON_A);
+        break;
+    case hw::KBM::VK_8:
+        set_gamespeed(machine, std::chrono::milliseconds(17));
+        break;
+    case hw::KBM::VK_9:
+        set_gamespeed(machine, std::chrono::milliseconds(8));
+        break;
+    case hw::KBM::VK_0:
+        set_gamespeed(machine, std::chrono::milliseconds(24));
         break;
     case hw::KBM::VK_UP:
         gbc::setflag(pressed, keys, gbc::DPAD_UP);
