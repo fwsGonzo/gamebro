@@ -21,7 +21,7 @@ namespace gbc
     uint64_t gettime() const noexcept { return m_cycles_total; }
 
     uint8_t  current_opcode() const noexcept { return m_cur_opcode; }
-    void     execute(const uint8_t);
+    void     execute();
     // read and increment PC, and cycle counters, then tick hardware
     uint8_t  readop8();
     uint16_t readop16();

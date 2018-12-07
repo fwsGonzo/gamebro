@@ -41,8 +41,8 @@ namespace gbc
   inline int TileData::pattern(const uint8_t* base, int tid, int tattr,
                                int tx, int ty) const
   {
-    assert(tx >= 0 && tx < 8);
-    assert(ty >= 0 && ty < 8);
+    //assert(tx >= 0 && tx < 8);
+    //assert(ty >= 0 && ty < 8);
     if (tattr & 0x20) tx = 7 - tx;
     if (tattr & 0x40) ty = 7 - ty;
     if (tattr & 0x08) base += 0x2000;

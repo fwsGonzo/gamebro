@@ -44,8 +44,8 @@ namespace gbc
     bool bootrom_enabled() const noexcept { return false; }
     void disable_bootrom();
 
-    bool double_speed() const noexcept;
-    int  speed_factor() const noexcept;
+    bool double_speed() const noexcept { return m_speed_factor != 1; }
+    int  speed_factor() const noexcept { return m_speed_factor; }
     void do_switch_speed();
 
     // debugging
@@ -76,4 +76,13 @@ namespace gbc
     else if (mode == WRITE)
         m_write_breakpoints.push_back(func);
   }
+
+  inline uint16_t Memory::read16(uint16_t address) {
+    return read8(address) | read8(address+1) << 8;
+  }
+  inline void Memory::write16(uint16_t address, uint16_t value) {
+    write8(address+0, value & 0xff);
+    write8(address+1, value >> 8);
+  }
+
 }

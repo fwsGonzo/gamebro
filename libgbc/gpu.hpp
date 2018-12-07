@@ -7,11 +7,6 @@
 
 namespace gbc
 {
-  enum pixelmode_t {
-    PM_RGBA = 0,     // regular 32-bit RGBA
-    PM_RGB15,
-    PM_PALETTE,      // no conversion
-  };
   enum dmg_variant_t {
     LIGHTER_GREEN = 0,
     DARKER_GREEN,
@@ -26,7 +21,6 @@ namespace gbc
     GPU(Machine&) noexcept;
     void reset() noexcept;
     void simulate();
-    void set_pixelmode(pixelmode_t);
     // the vector is resized to exactly fit the screen
     const auto& pixels() const noexcept { return m_pixels; }
     // trap on palette changes
@@ -65,9 +59,9 @@ namespace gbc
     Memory&  memory() noexcept { return m_memory; }
     IO&      io() noexcept { return m_io; }
     const Memory& memory() const noexcept { return m_memory; }
-    std::vector<uint32_t> dump_background();
-    std::vector<uint32_t> dump_window();
-    std::vector<uint32_t> dump_tiles(int bank);
+    std::vector<uint16_t> dump_background();
+    std::vector<uint16_t> dump_window();
+    std::vector<uint16_t> dump_tiles(int bank);
 
   private:
     uint64_t scanline_cycles() const noexcept;
@@ -94,11 +88,10 @@ namespace gbc
     uint8_t&    m_reg_lcdc;
     uint8_t&    m_reg_stat;
     uint8_t&    m_reg_ly;
-    std::vector<uint32_t> m_pixels;
+    std::vector<uint16_t> m_pixels;
     palchange_func_t m_on_palchange = nullptr;
     uint64_t    m_period = 0;
     uint64_t    m_frame_count = 0;
-    pixelmode_t m_pixelmode = PM_RGBA;
     dmg_variant_t m_variant = LIGHTER_GREEN;
     int m_current_scanline = 0;
     uint16_t m_video_offset = 0x0;
@@ -106,10 +99,6 @@ namespace gbc
     // 0-63: tiles 64-127: sprites
     std::array<uint8_t, 128> m_cgb_palette;
   };
-
-  inline void GPU::set_pixelmode(pixelmode_t pm) {
-    this->m_pixelmode = pm;
-  }
 
   inline std::array<uint32_t, 4> GPU::dmg_colors(dmg_variant_t variant)
   {

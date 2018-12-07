@@ -47,12 +47,7 @@ void Service::start()
   auto romdata = std::move(*rombuffer.get());
 
   // settings
-  constexpr auto PixelMode = gbc::PM_PALETTE; // fastest
-  //constexpr auto PixelMode = gbc::PM_RGB15;
-  //constexpr auto PixelMode = gbc::PM_RGBA;
-
   machine = new gbc::Machine(romdata);
-  machine->gpu.set_pixelmode(PixelMode);
 
   // trap on V-blank
   machine->set_handler(gbc::Machine::VBLANK,
@@ -60,34 +55,14 @@ void Service::start()
     {
       const int W = machine.gpu.SCREEN_W;
       const int H = machine.gpu.SCREEN_H;
-      if constexpr (PixelMode == gbc::PM_RGB15 || PixelMode == gbc::PM_RGBA) {
-        restart_indexing(); // can be made smarter
-      }
 
       for (int y = 0; y < H; y++)
       for (int x = 0; x < W; x++)
       {
         const auto& pixels = machine.gpu.pixels();
-        if constexpr (PixelMode == gbc::PM_PALETTE)
-        {
-          // Palette mode
-          const uint32_t idx = pixels.at(W * y + x);
-          set_pixel(x+80, y+32, idx);
-        }
-        else if constexpr (PixelMode == gbc::PM_RGB15)
-        {
-          // RGB15 mode
-          const uint16_t rgb15 = pixels.at(W * y + x);
-          rgb18_t rgb = rgb18_t::from_rgb15(rgb15);
-          if (machine.is_cgb()) rgb.curvify();
-          int index = auto_indexed_rgb18(rgb);
-          set_pixel(x+80, y+32, index);
-        }
-        else {
-          const uint32_t color = pixels.at(W * y + x);
-          int index = auto_indexed_rgba(color);
-          set_pixel(x+80, y+32, index);
-        }
+        // Palette mode
+        const uint32_t idx = pixels.at(W * y + x);
+        set_pixel(x+80, y+32, idx);
       }
       // blit to front framebuffer here
       gbz80_limited_blit(backbuffer.data());
@@ -103,21 +78,26 @@ void Service::start()
   }
   else
   {
-    if constexpr (PixelMode == gbc::PM_PALETTE)
-    {
-      // build palette in real-time
-      machine->gpu.on_palchange(
-        [] (const uint8_t idx, const uint16_t color)
-        {
-          rgb18_t rgb = rgb18_t::from_rgb15(color);
-          if (machine->is_cgb()) rgb.curvify();
-          rgb.apply_palette(idx);
-        });
-    }
+    // build palette in real-time
+    machine->gpu.on_palchange(
+      [] (const uint8_t idx, const uint16_t color)
+      {
+        rgb18_t rgb = rgb18_t::from_rgb15(color);
+        if (machine->is_cgb()) rgb.curvify();
+        rgb.apply_palette(idx);
+      });
   }
 
   // framebuffer
-  Timers::oneshot(std::chrono::milliseconds(16), timer_function);
+  Timers::periodic(std::chrono::milliseconds(16),
+   [] (int) {
+     // create a new frame
+     while (vblanked == false)
+     {
+       machine->simulate();
+     }
+     vblanked = false;
+   });
 
   // input
   hw::KBM::init();

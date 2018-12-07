@@ -7,7 +7,7 @@ namespace gbc
     : m_machine(mach), m_rom(std::move(rom)), m_mbc{*this, m_rom}
   {
     assert(this->rom_valid());
-    this->m_bootrom_enabled = false;
+    this->disable_bootrom();
   }
   void Memory::reset()
   {
@@ -121,22 +121,6 @@ namespace gbc
            address, value);
   }
 
-  uint16_t Memory::read16(uint16_t address) {
-    return read8(address) | read8(address+1) << 8;
-  }
-  void Memory::write16(uint16_t address, uint16_t value) {
-    write8(address+0, value & 0xff);
-    write8(address+1, value >> 8);
-  }
-
-  bool Memory::double_speed() const noexcept
-  {
-    return m_speed_factor != 1;
-  }
-  int  Memory::speed_factor() const noexcept
-  {
-    return m_speed_factor;
-  }
   void Memory::do_switch_speed()
   {
     auto& reg = machine().io.reg(IO::REG_KEY1);

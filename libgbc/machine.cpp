@@ -29,14 +29,6 @@ namespace gbc
   {
     return cpu.gettime();
   }
-  bool Machine::is_running() const noexcept
-  {
-    return this->m_running;
-  }
-  bool Machine::is_cgb() const noexcept
-  {
-    return this->m_cgb_mode;
-  }
 
   void Machine::set_handler(interrupt i, interrupt_handler handler)
   {

@@ -68,7 +68,7 @@ namespace gbc
       new_scanline = true;
       //printf("LY is now %#x\n", this->m_current_scanline);
 
-      if (m_reg_ly == 144)
+      if (UNLIKELY(m_reg_ly == 144))
       {
         // enable MODE 1: V-blank
         set_mode(1);
@@ -79,7 +79,7 @@ namespace gbc
         // if STAT vblank interrupt is enabled
         if (m_reg_stat & 0x10) io().trigger(lcd_stat);
       }
-      else if (m_reg_ly == 153)
+      else if (UNLIKELY(m_reg_ly == 153))
       {
         // BUG: LY stays at 0 for one scanline
         m_reg_ly = 0;
@@ -165,6 +165,7 @@ namespace gbc
   {
     const uint8_t scroll_y = memory().read8(IO::REG_SCY);
     const uint8_t scroll_x = memory().read8(IO::REG_SCX);
+    const int sy = (scan_y + scroll_y) % 256;
 
     // create tiledata object from LCDC register
     auto td = this->create_tiledata(bg_tiles(), tile_data());
@@ -178,14 +179,25 @@ namespace gbc
     // create list of sprites that are on this scanline
     auto sprites = this->find_sprites(sprconf);
 
+    // pre-fetch tiles and tile attributes
+    std::array<int, 21> tile_ids;
+    std::array<int, 21> tile_attrs;
+    for (int idx = 0; idx < 21; idx++)
+    {
+      const int sx = (idx*8 + scroll_x) % 256;
+      // get the tile id and attribute
+      tile_ids[idx]   = td.tile_id(sx / 8, sy / 8);
+      tile_attrs[idx] = td.tile_attr(sx / 8, sy / 8);
+    }
+
     // render whole scanline
     for (int scan_x = 0; scan_x < SCREEN_W; scan_x++)
     {
-      const int sx = (scan_x + scroll_x) % 256;
-      const int sy = (scan_y + scroll_y) % 256;
-      // get the tile id
-      const int tid = td.tile_id(sx / 8, sy / 8);
-      const int tattr = td.tile_attr(sx / 8, sy / 8);
+      const int sx = scan_x + scroll_x;
+      // get the tile id and attribute
+      const int taid = (scan_x + 7 - (sx & 0x7)) / 8;
+      const int tid = tile_ids.at(taid);
+      const int tattr = tile_attrs.at(taid);
       // copy the 16-byte tile into buffer
       const int tile_color = td.pattern(tid, tattr, sx & 7, sy & 7);
       uint32_t color = this->colorize_tile(tattr, tile_color);
@@ -221,9 +233,8 @@ namespace gbc
 
   uint32_t GPU::colorize_tile(const int tattr, const uint8_t idx)
   {
-    const bool is_cgb = machine().is_cgb();
     size_t index = 0;
-    if (is_cgb) {
+    if (machine().is_cgb()) {
         const uint8_t pal = tattr & 0x7;
         index = 4 * pal + idx;
     } else {
@@ -231,17 +242,7 @@ namespace gbc
         index = (pal >> (idx*2)) & 0x3;
     }
     // no conversion
-    if (m_pixelmode == PM_PALETTE) {
-      return index;
-    }
-    else if (m_pixelmode == PM_RGB15) {
-      return get_cgb_color(index * 2);
-    }
-    // convert to 32-bit color
-    if (is_cgb) {
-      return expand_cgb_color(get_cgb_color(index * 2));
-    }
-    return expand_dmg_color(index);
+    return index;
   }
   uint32_t GPU::colorize_sprite(const Sprite* sprite,
                                 sprite_config_t& sprconf, const uint8_t idx)
@@ -254,17 +255,7 @@ namespace gbc
         index = (pal >> (idx*2)) & 0x3;
     }
     // no conversion
-    if (m_pixelmode == PM_PALETTE) {
-      return index;
-    }
-    else if (m_pixelmode == PM_RGB15) {
-      return get_cgb_color(index * 2);
-    }
-    // convert to 32-bit color
-    if (machine().is_cgb()) {
-      return expand_cgb_color(get_cgb_color(index * 2));
-    }
-    return expand_dmg_color(index);
+    return index;
   }
   uint16_t GPU::get_cgb_color(size_t idx) const
   {
@@ -346,9 +337,9 @@ namespace gbc
     return results;
   }
 
-  std::vector<uint32_t> GPU::dump_background()
+  std::vector<uint16_t> GPU::dump_background()
   {
-    std::vector<uint32_t> data(256 * 256);
+    std::vector<uint16_t> data(256 * 256);
     // create tiledata object from LCDC register
     auto td = this->create_tiledata(bg_tiles(), tile_data());
 
@@ -364,9 +355,9 @@ namespace gbc
     }
     return data;
   }
-  std::vector<uint32_t> GPU::dump_tiles(int bank)
+  std::vector<uint16_t> GPU::dump_tiles(int bank)
   {
-    std::vector<uint32_t> data(16*24 * 8*8);
+    std::vector<uint16_t> data(16*24 * 8*8);
     // tiles start at the beginning of video RAM
     auto td = this->create_tiledata(0x8000, 0x8000);
     const uint8_t attr = (bank == 0) ? 0x00 : 0x08;

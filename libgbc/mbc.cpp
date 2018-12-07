@@ -243,9 +243,6 @@ namespace gbc
       this->m_memory.machine().break_now();
       return;
     }
-    if (UNLIKELY(verbose_banking())) {
-      printf("Work RAM bank 0x%02x offset %#x\n", reg, offset);
-    }
     this->m_wram_offset = offset;
   }
   void MBC::set_mode(int mode)

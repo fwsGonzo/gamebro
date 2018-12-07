@@ -450,7 +450,7 @@ namespace gbc
   {
     const imm8_t disp { .u8 = cpu.readop8() };
     cpu.hardware_tick();
-    if ((opcode & 0x20) == 0 || (cpu.registers().compare_flags(opcode))) {
+    if (opcode == 0x18 || (cpu.registers().compare_flags(opcode))) {
       cpu.jump(cpu.registers().pc + disp.s8);
     }
   }
@@ -517,18 +517,26 @@ namespace gbc
 
   INSTRUCTION(LD_FF00_A) (CPU& cpu, const uint8_t opcode)
   {
-    const bool from_a = (opcode & 0x10) == 0;
     uint16_t addr;
-    if ((opcode & 0xa) == 0x0) {
-      addr = 0xFF00 + cpu.readop8();
+    switch (opcode) {
+      case 0xE2:
+          addr = 0xFF00 + cpu.registers().c;
+          cpu.mtwrite8(addr, cpu.registers().accum);
+          return;
+      case 0xF2:
+          addr = 0xFF00 + cpu.registers().c;
+          cpu.registers().accum = cpu.mtread8(addr);
+          return;
+      case 0xE0:
+          addr = 0xFF00 + cpu.readop8();
+          cpu.mtwrite8(addr, cpu.registers().accum);
+          return;
+      case 0xF0:
+          addr = 0xFF00 + cpu.readop8();
+          cpu.registers().accum = cpu.mtread8(addr);
+          return;
     }
-    else {
-      addr = 0xFF00 + cpu.registers().c;
-    }
-    if (from_a)
-        cpu.mtwrite8(addr, cpu.registers().accum);
-    else
-        cpu.registers().accum = cpu.mtread8(addr);
+    assert(0);
   }
   PRINTER(LD_FF00_A) (char* buffer, size_t len, CPU& cpu, uint8_t opcode)
   {

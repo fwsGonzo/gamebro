@@ -34,8 +34,8 @@ namespace gbc
     void     simulate();
     void     reset();
     uint64_t now() noexcept;
-    bool     is_running() const noexcept;
-    bool     is_cgb() const noexcept;
+    bool     is_running() const noexcept { return this->m_running; }
+    bool     is_cgb() const noexcept { return this->m_cgb_mode; }
 
     // set delegates to be notified on interrupts
     enum interrupt {

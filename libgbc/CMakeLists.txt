@@ -1,5 +1,6 @@
 
 set(SOURCES
+    apu.cpp
     cpu.cpp
     debug.cpp
     gpu.cpp

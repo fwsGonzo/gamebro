@@ -44,10 +44,7 @@ namespace gbc
 
     if (!this->is_halting() && !this->is_stopping())
     {
-      // 1. read instruction from memory
-      this->m_cur_opcode = this->peekop8(0);
-      // 2. execute instruction
-      this->execute(this->m_cur_opcode);
+      this->execute();
     }
     else
     {
@@ -58,26 +55,28 @@ namespace gbc
     }
   }
 
-  void CPU::execute(const uint8_t opcode)
+  void CPU::execute()
   {
-    // decode into executable instruction
-    auto& instr = decode(opcode);
+    // 1. read instruction from memory
+    this->m_cur_opcode = this->peekop8(0);
+    // 2. decode into executable instruction
+    auto& instr = decode(this->m_cur_opcode);
 
-    // print the instruction (when enabled)
+    // 2a. print the instruction (when enabled)
     if (UNLIKELY(machine().verbose_instructions))
     {
       char prn[128];
-      instr.printer(prn, sizeof(prn), *this, opcode);
+      instr.printer(prn, sizeof(prn), *this, this->m_cur_opcode);
       printf("%9lu: [pc %04X] opcode %02X: %s\n",
-              gettime(), registers().pc,  opcode, prn);
+              gettime(), registers().pc,  this->m_cur_opcode, prn);
     }
 
-    // read, increment PC, hardware tick
-    const uint8_t op = this->readop8();
-    assert(opcode == op);
+    // 3. increment PC, hardware tick
+    registers().pc++;
+    this->hardware_tick();
 
-    // run instruction handler
-    instr.handler(*this, opcode);
+    // 4. run instruction handler
+    instr.handler(*this, this->m_cur_opcode);
 
     if (UNLIKELY(machine().verbose_instructions))
     {
@@ -133,17 +132,20 @@ namespace gbc
   void CPU::handle_interrupts()
   {
     // enable/disable interrupts over cycles
-    if (m_intr_pending > 0) {
-      m_intr_pending--;
-      if (!m_intr_pending) this->m_intr_master_enable = true;
-    }
-    else if (m_intr_pending < 0) {
-      m_intr_pending++;
-      if (!m_intr_pending) this->m_intr_master_enable = false;
+    if (UNLIKELY(m_intr_pending != 0))
+    {
+      if (m_intr_pending > 0) {
+        m_intr_pending--;
+        if (!m_intr_pending) this->m_intr_master_enable = true;
+      }
+      else if (m_intr_pending < 0) {
+        m_intr_pending++;
+        if (!m_intr_pending) this->m_intr_master_enable = false;
+      }
     }
     // check if interrupts are enabled and pending
     const uint8_t imask = machine().io.interrupt_mask();
-    if (this->ime() && imask != 0x0)
+    if (UNLIKELY(this->ime() && imask != 0x0))
     {
       // disable interrupts immediately
       this->m_intr_master_enable = false;
@@ -156,7 +158,7 @@ namespace gbc
       else if (imask &  0x8) io.interrupt(io.serialint);
       else if (imask & 0x10) io.interrupt(io.joypadint);
     }
-    else if (this->m_haltbug && imask != 0)
+    else if (UNLIKELY(this->m_haltbug && imask != 0))
     {
       // do *NOT* call interrupt handler when buggy HALTing
       this->m_asleep = false;
@@ -398,7 +400,7 @@ namespace gbc
   }
   void CPU::handle_speed_switch()
   {
-    if (this->m_switch_cycles > 0) {
+    if (UNLIKELY(this->m_switch_cycles > 0)) {
       this->m_switch_cycles--;
       if (this->m_switch_cycles == 0) {
         // stop the stopping

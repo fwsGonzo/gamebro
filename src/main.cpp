@@ -3,8 +3,10 @@
 #include <bmp/bmp.h>
 #include <signal.h>
 
+static std::array<uint32_t, 64> palette = {};
+
 static void save_screenshot(const char* filename,
-														const std::vector<uint32_t>& pixels)
+														const std::vector<uint16_t>& pixels)
 {
 	int size_x = 0, size_y = 0;
 	if (pixels.size() == 160 * 144) {
@@ -23,8 +25,8 @@ static void save_screenshot(const char* filename,
 	for (int y = 0; y < size_y; y++)
 	for (int x = 0; x < size_x; x++)
 	{
-		const uint32_t px = pixels.at(y * size_x + x);
-		bmp_set(array.data(), x, y, px);
+		const uint16_t idx = pixels.at(y * size_x + x);
+		bmp_set(array.data(), x, y, palette.at(idx));
 	}
 	// save it!
 	save_file(filename, array);
@@ -47,7 +49,6 @@ int main(int argc, char** args)
 
 	machine = new gbc::Machine(romdata);
 	machine->break_now();
-	machine->gpu.set_pixelmode(gbc::PM_RGBA);
 	/*
 	//machine->cpu.default_pausepoint(0x453);
 	machine->memory.breakpoint(gbc::Memory::READ,
@@ -103,6 +104,7 @@ int main(int argc, char** args)
       const uint32_t b = ((color >> 10) & 0x1f) << 3;
 			const uint32_t rgba = r | (g << 8) | (b << 16);
 			printf("GPU: %u changes color to %04X (%06X)\n", idx, color, rgba);
+			palette.at(idx) = rgba;
     });
 
 	extern void do_test_machine();
