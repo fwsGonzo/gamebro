@@ -138,4 +138,12 @@ namespace gbc
     // LCD on/off during STOP?
     bool m_lcd_powered = false;
   };
+
+  inline void IO::trigger(interrupt_t& intr)
+  {
+    this->reg(REG_IF) |= intr.mask;
+  }
+  inline uint8_t IO::interrupt_mask() const {
+    return this->m_reg_ie & this->reg(REG_IF);
+  }
 }

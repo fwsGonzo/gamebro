@@ -185,14 +185,6 @@ namespace gbc
     return (reg(REG_P1) & 0x30) == 0x30;
   }
 
-  void IO::trigger(interrupt_t& intr)
-  {
-    //printf("Triggering interrupt: 0x%02x => 0x%02x\n", intr.mask, reg(REG_IF));
-    this->reg(REG_IF) |= intr.mask;
-  }
-  uint8_t IO::interrupt_mask() const {
-    return this->m_reg_ie & this->reg(REG_IF);
-  }
   void IO::interrupt(interrupt_t& intr)
   {
     if (machine().verbose_interrupts) {
