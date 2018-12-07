@@ -128,7 +128,7 @@ namespace gbc
   {
     // default: just return the register value
     if (addr >= 0xff00 && addr < 0xff80) {
-      if (machine().break_on_io && !machine().is_breaking()) {
+      if (UNLIKELY(machine().break_on_io && !machine().is_breaking())) {
         printf("[io] * I/O read 0x%04x => 0x%02x\n", addr, reg(addr));
         machine().break_now();
       }
@@ -149,7 +149,7 @@ namespace gbc
   {
     // default: just write to register
     if (addr >= 0xff00 && addr < 0xff80) {
-      if (machine().break_on_io && !machine().is_breaking()) {
+      if (UNLIKELY(machine().break_on_io && !machine().is_breaking())) {
         printf("[io] * I/O write 0x%04x value 0x%02x\n", addr, value);
         machine().break_now();
       }

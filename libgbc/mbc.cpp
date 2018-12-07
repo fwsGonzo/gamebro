@@ -87,49 +87,41 @@ namespace gbc
 
   uint8_t MBC::read(uint16_t addr)
   {
-    if (addr < ROMbank0.second)
+    switch (addr & 0xF000)
     {
-      return m_rom.at(addr);
-    }
-    else if (addr < ROMbankX.second)
-    {
-      addr -= ROMbankX.first;
-      if (addr < rombank_size()) {
-          //printf("Reading ROM bank at %#x\n", m_rom_bank_offset | addr);
-          return m_rom.at(m_rom_bank_offset | addr);
-      } else {
-          return 0xff;
-      }
-    }
-    else if (addr >= RAMbankX.first && addr < RAMbankX.second)
-    {
-      if (this->ram_enabled()) {
-        if (this->m_rtc_enabled == false)
-        {
-          addr -= RAMbankX.first;
-          addr |= m_ram_bank_offset;
-          if (addr < this->m_ram_bank_size)
-              return m_ram.at(addr);
-          return 0xff; // small 2kb RAM banks
+    case 0x0000: case 0x1000: case 0x2000: case 0x3000:
+        return m_rom.at(addr);
+    case 0x4000: case 0x5000: case 0x6000: case 0x7000:
+        addr -= ROMbankX.first;
+        if (addr < rombank_size()) {
+            //printf("Reading ROM bank at %#x\n", m_rom_bank_offset | addr);
+            return m_rom.at(m_rom_bank_offset | addr);
+        } else {
+            return 0xff;
         }
-        else {
-          return 0xff; // TODO: Read from RTC register
+    case 0xA000: case 0xB000:
+        if (this->ram_enabled()) {
+          if (this->m_rtc_enabled == false)
+          {
+            addr -= RAMbankX.first;
+            addr |= m_ram_bank_offset;
+            if (addr < this->m_ram_bank_size)
+                return m_ram.at(addr);
+            return 0xff; // small 2kb RAM banks
+          }
+          else {
+            return 0xff; // TODO: Read from RTC register
+          }
+        } else {
+            return 0xff;
         }
-      } else {
-          return 0xff;
-      }
-    }
-    else if (addr >= WRAM_0.first && addr < WRAM_0.second)
-    {
-      return m_wram.at(addr - WRAM_0.first);
-    }
-    else if (addr >= WRAM_bX.first && addr < WRAM_bX.second)
-    {
-      return m_wram.at(m_wram_offset + addr - WRAM_bX.first);
-    }
-    else if (addr >= EchoRAM.first && addr < EchoRAM.second)
-    {
-      return this->read(addr - 0x2000);
+    case 0xC000:
+        return m_wram.at(addr - WRAM_0.first);
+    case 0xD000:
+        return m_wram.at(m_wram_offset + addr - WRAM_bX.first);
+    case 0xE000: // echo RAM
+    case 0xF000:
+        return this->read(addr - 0x2000);
     }
     printf("* Invalid MBC read: 0x%04x\n", addr);
     return 0xff;
@@ -137,20 +129,22 @@ namespace gbc
 
   void MBC::write(uint16_t addr, uint8_t value)
   {
-    if (UNLIKELY(addr < 0x2000)) // RAM enable
+    switch (addr & 0xF000)
     {
-      bool old_ram_enabled = this->m_ram_enabled;
+    case 0x0000:
+    case 0x1000:
+      // RAM enable
       if (m_version == 2)
           this->m_ram_enabled = value != 0;
       else
           this->m_ram_enabled = ((value & 0xF) == 0xA);
-      if (UNLIKELY(verbose_banking() && old_ram_enabled != m_ram_enabled)) {
+      if (UNLIKELY(verbose_banking())) {
           printf("* External RAM enabled: %d\n", this->m_ram_enabled);
       }
       return;
-    }
-    else if (addr < 0x8000) // MBC control ranges
-    {
+    case 0x2000: case 0x3000: case 0x4000:
+    case 0x5000: case 0x6000: case 0x7000:
+      // MBC control ranges
       switch (this->m_version) {
         case 5:
             this->write_MBC5(addr, value); break;
@@ -164,9 +158,8 @@ namespace gbc
             assert(0 && "Unimplemented MBC version");
       }
       return;
-    }
-    else if (addr >= RAMbankX.first && addr < RAMbankX.second)
-    {
+    case 0xA000:
+    case 0xB000:
       if (this->ram_enabled()) {
           if (this->m_rtc_enabled == false)
           {
@@ -181,19 +174,14 @@ namespace gbc
           }
       }
       return;
-    }
-    else if (addr >= WRAM_0.first && addr < WRAM_0.second)
-    {
+    case 0xC000: // WRAM bank 0
       this->m_wram.at(addr - WRAM_0.first) = value;
       return;
-    }
-    else if (addr >= WRAM_bX.first && addr < WRAM_bX.second)
-    {
+    case 0xD000: // WRAM bank X
       this->m_wram.at(m_wram_offset + addr - WRAM_bX.first) = value;
       return;
-    }
-    else if (addr >= EchoRAM.first && addr < EchoRAM.second)
-    {
+    case 0xE000: // Echo RAM
+    case 0xF000:
       this->write(addr - 0x2000, value);
       return;
     }
