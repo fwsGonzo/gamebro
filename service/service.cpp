@@ -7,8 +7,22 @@
 #include <hw/vga_gfx.hpp>
 #include <hw/ps2.hpp>
 
-#include "backbuffer.cpp"
 #include <machine.hpp>
+static gbc::Machine* machine = nullptr;
+static bool vblanked = false;
+static void timer_function(int);
+void timer_function(int)
+{
+  // create a new frame
+  while (vblanked == false)
+  {
+    machine->simulate();
+  }
+  vblanked = false;
+  Timers::oneshot(std::chrono::milliseconds(16), timer_function);
+}
+
+#include "backbuffer.cpp"
 void Service::start()
 {
   VGA_gfx::set_mode(VGA_gfx::MODE_320_200_256);
@@ -20,8 +34,8 @@ void Service::start()
     assert(!err);
   });
   auto& filesys = fs::memdisk().fs();
-  //auto rombuffer = filesys.read_file("/floracy.gbc");
-  auto rombuffer = filesys.read_file("/tloz_seasons.gbc");
+  auto rombuffer = filesys.read_file("/ucity.gbc");
+  //auto rombuffer = filesys.read_file("/tloz_seasons.gbc");
   //auto rombuffer = filesys.read_file("/tloz_la_dx.gbc");
   //auto rombuffer = filesys.read_file("/tloz_la12.gb");
   //auto rombuffer = filesys.read_file("/smbland2.gb");
@@ -37,12 +51,10 @@ void Service::start()
   //constexpr auto PixelMode = gbc::PM_RGB15;
   //constexpr auto PixelMode = gbc::PM_RGBA;
 
-  static gbc::Machine* machine = nullptr;
   machine = new gbc::Machine(romdata);
   machine->gpu.set_pixelmode(PixelMode);
 
   // trap on V-blank
-  static bool vblanked = false;
   machine->set_handler(gbc::Machine::VBLANK,
     [] (gbc::Machine& machine, gbc::interrupt_t&)
     {
@@ -78,7 +90,7 @@ void Service::start()
         }
       }
       // blit to front framebuffer here
-      VGA_gfx::blit_from(backbuffer.data());
+      gbz80_limited_blit(backbuffer.data());
       vblanked = true;
     });
 
@@ -105,16 +117,7 @@ void Service::start()
   }
 
   // framebuffer
-  using namespace std::chrono;
-  Timers::periodic(16ms,
-  [] (int) {
-    // create a new frame
-    while (vblanked == false)
-  	{
-  		machine->simulate();
-  	}
-    vblanked = false;
-  });
+  Timers::oneshot(std::chrono::milliseconds(16), timer_function);
 
   // input
   hw::KBM::init();
@@ -127,12 +130,15 @@ void Service::start()
     case hw::KBM::VK_SPACE:
         gbc::setflag(pressed, keys, gbc::BUTTON_START);
         break;
+    case hw::KBM::VK_ESCAPE:
     case hw::KBM::VK_BACK:
         gbc::setflag(pressed, keys, gbc::BUTTON_SELECT);
         break;
+    case hw::KBM::VK_1:
     case hw::KBM::VK_Z:
         gbc::setflag(pressed, keys, gbc::BUTTON_B);
         break;
+    case hw::KBM::VK_2:
     case hw::KBM::VK_X:
         gbc::setflag(pressed, keys, gbc::BUTTON_A);
         break;

@@ -1,6 +1,7 @@
 #include <cstdint>
 #include <cstring>
 #include <map>
+#include <x86intrin.h>
 
 static std::array<uint8_t, 320*200> backbuffer __attribute__((aligned(16))) = {};
 inline void set_pixel(int x, int y, uint8_t cl)
@@ -8,6 +9,20 @@ inline void set_pixel(int x, int y, uint8_t cl)
   //assert(x >= 0 && x < 320 && y >= 0 && y < 200);
   if (x >= 0 && x < 320 && y >= 0 && y < 200)
       backbuffer[y * 320 + x] = cl;
+}
+void gbz80_limited_blit(const uint8_t* backbuffer)
+{
+  auto* addr = (__m128i*) VGA_gfx::address();
+  auto* src  = (__m128i*) backbuffer;
+  const int X = 80; const int W = 160;
+  const int Y = 32; const int H = 144;
+
+  for (int y = Y; y < Y+H; y++)
+  for (int x = X; x < X+W; x += 16)
+  {
+    const int i = (y * 320 + x) / 16;
+    _mm_stream_si128(&addr[i], src[i]);
+  }
 }
 inline void clear(const uint8_t cl = 0)
 {
