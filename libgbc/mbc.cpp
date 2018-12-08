@@ -89,16 +89,6 @@ namespace gbc
   {
     switch (addr & 0xF000)
     {
-    case 0x0000: case 0x1000: case 0x2000: case 0x3000:
-        return m_rom.at(addr);
-    case 0x4000: case 0x5000: case 0x6000: case 0x7000:
-        addr -= ROMbankX.first;
-        if (addr < rombank_size()) {
-            //printf("Reading ROM bank at %#x\n", m_rom_bank_offset | addr);
-            return m_rom.at(m_rom_bank_offset | addr);
-        } else {
-            return 0xff;
-        }
     case 0xA000: case 0xB000:
         if (this->ram_enabled()) {
           if (this->m_rtc_enabled == false)

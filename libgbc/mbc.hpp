@@ -20,6 +20,9 @@ namespace gbc
 
     MBC(Memory&, const std::vector<uint8_t>& rom);
 
+    const auto& rom() const noexcept { return m_rom; }
+    uint32_t rombank_offset() const noexcept  { return m_rom_bank_offset; }
+
     bool   ram_enabled() const noexcept   { return m_ram_enabled; }
     size_t rombank_size() const noexcept  { return 0x4000; }
     size_t rambank_size() const noexcept  { return 0x2000; }

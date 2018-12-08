@@ -38,8 +38,10 @@ namespace gbc
     switch (address & 0xF000)
     {
     case 0x0000: case 0x1000: case 0x2000: case 0x3000:
+        return m_mbc.rom()[address];
     case 0x4000: case 0x5000: case 0x6000: case 0x7000:
-        return m_mbc.read(address);
+        address -= 0x4000;
+        return m_mbc.rom()[m_mbc.rombank_offset() | address];
     case 0x8000: case 0x9000:
         // cant read from Video RAM when working on scanline
         if (UNLIKELY(machine().gpu.get_mode() != 3)) {

@@ -179,25 +179,13 @@ namespace gbc
     // create list of sprites that are on this scanline
     auto sprites = this->find_sprites(sprconf);
 
-    // pre-fetch tiles and tile attributes
-    std::array<int, 21> tile_ids;
-    std::array<int, 21> tile_attrs;
-    for (int idx = 0; idx < 21; idx++)
-    {
-      const int sx = (idx*8 + scroll_x) % 256;
-      // get the tile id and attribute
-      tile_ids[idx]   = td.tile_id(sx / 8, sy / 8);
-      tile_attrs[idx] = td.tile_attr(sx / 8, sy / 8);
-    }
-
     // render whole scanline
     for (int scan_x = 0; scan_x < SCREEN_W; scan_x++)
     {
-      const int sx = scan_x + scroll_x;
+      const int sx = (scan_x + scroll_x) % 256;
       // get the tile id and attribute
-      const int taid = (scan_x + 7 - (sx & 0x7)) / 8;
-      const int tid = tile_ids.at(taid);
-      const int tattr = tile_attrs.at(taid);
+      const int tid = td.tile_id(sx / 8, sy / 8);
+      const int tattr = td.tile_attr(sx / 8, sy / 8);
       // copy the 16-byte tile into buffer
       const int tile_color = td.pattern(tid, tattr, sx & 7, sy & 7);
       uint32_t color = this->colorize_tile(tattr, tile_color);
