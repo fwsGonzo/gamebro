@@ -92,7 +92,7 @@ void Service::start()
   }
 
   // vblank update speed
-  set_gamespeed(machine, std::chrono::milliseconds(24));
+  set_gamespeed(machine, std::chrono::milliseconds(17));
 
   // input
   hw::KBM::init();

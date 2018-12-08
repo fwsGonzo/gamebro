@@ -114,7 +114,7 @@ int main(int argc, char** args)
 	while (machine->is_running())
 	{
 		machine->simulate();
-
+		/*
 		static int counter = 0;
 		std::array<uint8_t, 8> inputs = {0x80, 0x10, 0x10, 0x80, 0x10, 0x80, 0x0, 0x0};
 		machine->set_inputs(inputs.at(counter));
@@ -131,6 +131,7 @@ int main(int argc, char** args)
 				save_screenshot(filename, machine->gpu.pixels());
 			}
 		}
+		*/
 	}
 	save_screenshot("exitshot.bmp", machine->gpu.pixels());
 
