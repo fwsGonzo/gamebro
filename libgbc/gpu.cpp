@@ -179,6 +179,9 @@ namespace gbc
     // create list of sprites that are on this scanline
     auto sprites = this->find_sprites(sprconf);
 
+    // tile configuration
+    tileconf_t tileconf = this->tile_config();
+
     // render whole scanline
     for (int scan_x = 0; scan_x < SCREEN_W; scan_x++)
     {
@@ -188,7 +191,7 @@ namespace gbc
       const int tattr = td.tile_attr(sx / 8, sy / 8);
       // copy the 16-byte tile into buffer
       const int tile_color = td.pattern(tid, tattr, sx & 7, sy & 7);
-      uint32_t color = this->colorize_tile(tattr, tile_color);
+      uint32_t color = this->colorize_tile(tileconf, tattr, tile_color);
 
       if ((tattr & 0x80) == 0 || !machine().is_cgb())
       {
@@ -201,7 +204,7 @@ namespace gbc
           const int wtile = wtd.tile_id(wpx / 8, wpy / 8);
           const int wattr = wtd.tile_attr(wpx / 8, wpy / 8);
           const int widx = wtd.pattern(wtile, wattr, wpx & 7, wpy & 7);
-          color = this->colorize_tile(wattr, widx);
+          color = this->colorize_tile(tileconf, wattr, widx);
         }
 
         // render sprites within this x
@@ -219,14 +222,15 @@ namespace gbc
     } // x
   } // render_to(...)
 
-  uint32_t GPU::colorize_tile(const int tattr, const uint8_t idx)
+  uint32_t GPU::colorize_tile(const tileconf_t& conf,
+                              const uint8_t attr, const uint8_t idx)
   {
     size_t index = 0;
-    if (machine().is_cgb()) {
-        const uint8_t pal = tattr & 0x7;
+    if (conf.is_cgb) {
+        const uint8_t pal = attr & 0x7;
         index = 4 * pal + idx;
     } else {
-        const uint8_t pal = memory().read8(IO::REG_BGP);
+        const uint8_t pal = conf.dmg_pal;
         index = (pal >> (idx*2)) & 0x3;
     }
     // no conversion
@@ -293,6 +297,13 @@ namespace gbc
     }
     return TileData{tile_base, patt_base, attr_base, is_signed};
   }
+  tileconf_t GPU::tile_config()
+  {
+    return tileconf_t {
+      .is_cgb  = machine().is_cgb(),
+      .dmg_pal = memory().read8(IO::REG_BGP),
+    };
+  }
   sprite_config_t GPU::sprite_config()
   {
     sprite_config_t config;
@@ -330,6 +341,7 @@ namespace gbc
     std::vector<uint16_t> data(256 * 256);
     // create tiledata object from LCDC register
     auto td = this->create_tiledata(bg_tiles(), tile_data());
+    auto tconf = this->tile_config();
 
     for (int y = 0; y < 256; y++)
     for (int x = 0; x < 256; x++)
@@ -339,7 +351,7 @@ namespace gbc
       const int tattr = td.tile_attr(x >> 3, y >> 3);
       // copy the 16-byte tile into buffer
       const int idx = td.pattern(tid, tattr, x & 7, y & 7);
-      data.at(y * 256 + x) = this->colorize_tile(tattr, idx);
+      data.at(y * 256 + x) = this->colorize_tile(tconf, tattr, idx);
     }
     return data;
   }
@@ -348,6 +360,7 @@ namespace gbc
     std::vector<uint16_t> data(16*24 * 8*8);
     // tiles start at the beginning of video RAM
     auto td = this->create_tiledata(0x8000, 0x8000);
+    auto tconf = this->tile_config();
     const uint8_t attr = (bank == 0) ? 0x00 : 0x08;
 
     for (int y = 0; y < 24*8; y++)
@@ -356,7 +369,7 @@ namespace gbc
       int tile = (y / 8) * 16 + (x / 8);
       // copy the 16-byte tile into buffer
       const int idx = td.pattern(tile, attr, x & 7, y & 7);
-      data.at(y * 128 + x) = this->colorize_tile(attr, idx);
+      data.at(y * 128 + x) = this->colorize_tile(tconf, attr, idx);
     }
     return data;
   }

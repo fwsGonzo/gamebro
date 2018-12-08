@@ -71,9 +71,10 @@ namespace gbc
     void render_scanline(int y);
     void do_ly_comparison();
     TileData create_tiledata(uint16_t tiles, uint16_t patt);
+    tileconf_t      tile_config();
     sprite_config_t sprite_config();
     std::vector<const Sprite*> find_sprites(const sprite_config_t&);
-    uint32_t colorize_tile(int tattr, uint8_t idx);
+    uint32_t colorize_tile(const tileconf_t&, uint8_t attr, uint8_t idx);
     uint32_t colorize_sprite(const Sprite*, sprite_config_t&, uint8_t);
     uint16_t get_cgb_color(size_t idx) const;
     uint32_t expand_cgb_color(uint16_t c16) const noexcept;

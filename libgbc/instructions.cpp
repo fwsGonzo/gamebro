@@ -517,23 +517,18 @@ namespace gbc
 
   INSTRUCTION(LD_FF00_A) (CPU& cpu, const uint8_t opcode)
   {
-    uint16_t addr;
     switch (opcode) {
       case 0xE2:
-          addr = 0xFF00 + cpu.registers().c;
-          cpu.mtwrite8(addr, cpu.registers().accum);
+          cpu.mtwrite8(0xFF00 + cpu.registers().c, cpu.registers().accum);
           return;
       case 0xF2:
-          addr = 0xFF00 + cpu.registers().c;
-          cpu.registers().accum = cpu.mtread8(addr);
+          cpu.registers().accum = cpu.mtread8(0xFF00 + cpu.registers().c);
           return;
       case 0xE0:
-          addr = 0xFF00 + cpu.readop8();
-          cpu.mtwrite8(addr, cpu.registers().accum);
+          cpu.mtwrite8(0xFF00 + cpu.readop8(), cpu.registers().accum);
           return;
       case 0xF0:
-          addr = 0xFF00 + cpu.readop8();
-          cpu.registers().accum = cpu.mtread8(addr);
+          cpu.registers().accum = cpu.mtread8(0xFF00 + cpu.readop8());
           return;
     }
     assert(0);

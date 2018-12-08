@@ -3,6 +3,11 @@
 
 namespace gbc
 {
+  struct tileconf_t {
+    const bool    is_cgb;
+    const uint8_t dmg_pal;
+  };
+
   class TileData
   {
   public:
