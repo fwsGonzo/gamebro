@@ -9,6 +9,8 @@ namespace gbc
   class IO
   {
   public:
+    static const uint16_t SND_START = 0xff10;
+    static const uint16_t SND_END   = 0xff40;
     enum regnames_t {
       REG_P1    = 0xff00,
       // TIMER
@@ -38,7 +40,8 @@ namespace gbc
       REG_NR50  = 0xff24,
       REG_NR51  = 0xff25,
       REG_NR52  = 0xff26,
-      REG_WAVE  = 0xff30,
+      REG_WAV0  = 0xff30,
+      REG_WAVF  = 0xff3f,
       // LCD
       REG_LCDC  = 0xff40,
       REG_STAT  = 0xff41,

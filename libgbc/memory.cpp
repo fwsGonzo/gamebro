@@ -30,10 +30,12 @@ namespace gbc
 
   uint8_t Memory::read8(uint16_t address)
   {
-    if (UNLIKELY(!m_read_breakpoints.empty())) {
+    if (UNLIKELY(!m_read_breakpoints.empty() && !m_is_busy)) {
+      m_is_busy = true;
       for (auto& func : m_read_breakpoints) {
         func(*this, address, 0x0);
       }
+      m_is_busy = false;
     }
     switch (address & 0xF000)
     {
@@ -81,8 +83,12 @@ namespace gbc
 
   void Memory::write8(uint16_t address, uint8_t value)
   {
-    for (auto& func : m_write_breakpoints) {
-      func(*this, address, value);
+    if (UNLIKELY(!m_write_breakpoints.empty() && !m_is_busy)) {
+      m_is_busy = true;
+      for (auto& func : m_write_breakpoints) {
+        func(*this, address, value);
+      }
+      m_is_busy = false;
     }
     switch (address & 0xF000)
     {
@@ -144,4 +150,34 @@ namespace gbc
       reg = 0x80;
     }
   }
+
+  std::string Memory::explain(const uint16_t addr) const
+  {
+    switch (addr & 0xF000) {
+      case 0x0000: case 0x1000: case 0x2000: case 0x3000:
+          return "Program 0";
+      case 0x4000: case 0x5000: case 0x6000: case 0x7000:
+          return "Program " + std::to_string(m_mbc.rombank_offset() / 0x4000);
+      case 0x8000: case 0x9000: {
+          const uint16_t offset = machine().gpu.video_offset();
+          return "VideoRAM " + std::to_string(offset / 0x2000);
+        }
+      case 0xA000: case 0xB000:
+          return "ExtRAM";
+      case 0xC000: case 0xD000:
+          return "WorkRAM";
+      case 0xE000:
+          return "EchoRAM";
+      case 0xF000:
+          if (this->is_within(addr, EchoRAM))
+              return "EchoRAM";
+          if (this->is_within(addr, OAM_RAM))
+              return "OAM RAM";
+          if (this->is_within(addr, ZRAM))
+              return "ZRAM";
+          return "I/O port";
+    }
+    return "Unknown";
+  }
+
 }

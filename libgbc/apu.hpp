@@ -15,6 +15,9 @@ namespace gbc
     void on_audio_out(audio_stream_t);
     void simulate();
 
+    uint8_t read(uint16_t, uint8_t& reg);
+    void    write(uint16_t, uint8_t, uint8_t& reg);
+
     Machine& machine() noexcept { return m_machine; }
   private:
     struct generator_t {

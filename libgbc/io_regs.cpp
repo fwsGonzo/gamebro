@@ -138,17 +138,13 @@ namespace gbc
     return 0xFF;
   }
 
-  void iowrite_SND_ONOFF(IO& io, uint16_t, uint8_t value)
+  void iowrite_AUDIO(IO& io, uint16_t addr, uint8_t value)
   {
-    // TODO: writing bit7 should clear all sound registers
-    //printf("NR52 Sound ON/OFF 0x%04x write 0x%02x\n", addr, value);
-    io.reg(IO::REG_NR52) &= 0xF;
-    io.reg(IO::REG_NR52) |= value & 0x80;
-    //assert(0 && "NR52 Sound ON/OFF register write");
+    io.machine().apu.write(addr, value, io.reg(addr));
   }
-  uint8_t ioread_SND_ONOFF(IO& io, uint16_t addr)
+  uint8_t ioread_AUDIO(IO& io, uint16_t addr)
   {
-    return io.reg(addr);
+    return io.machine().apu.read(addr, io.reg(addr));
   }
 
   void iowrite_KEY1(IO& io, uint16_t addr, uint8_t value)
@@ -236,7 +232,7 @@ namespace gbc
     IOHANDLER(IO::REG_LCDC,  LCDC);
     IOHANDLER(IO::REG_STAT,  STAT);
     IOHANDLER(IO::REG_DMA,   DMA);
-    IOHANDLER(IO::REG_NR52,  SND_ONOFF);
+    IOHANDLER(IO::REG_NR52,  AUDIO);
     // CGB registers
     IOHANDLER(IO::REG_KEY1,  KEY1);
     IOHANDLER(IO::REG_VBK,   VBK);

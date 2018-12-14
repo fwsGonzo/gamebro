@@ -39,6 +39,7 @@ namespace gbc
 
     static constexpr uint16_t range_size(range_t range) { return range.second - range.first; }
 
+    Machine& machine() const noexcept { return m_machine; }
     Machine& machine() noexcept { return m_machine; }
     bool rom_valid() const noexcept;
     bool bootrom_enabled() const noexcept { return false; }
@@ -49,6 +50,7 @@ namespace gbc
     void do_switch_speed();
 
     // debugging
+    std::string explain(uint16_t address) const;
     enum amode_t { READ, WRITE };
     using access_t = delegate<void(Memory&, uint16_t, uint8_t)>;
     void breakpoint(amode_t, access_t);
@@ -67,6 +69,7 @@ namespace gbc
     std::vector<access_t> m_read_breakpoints;
     std::vector<access_t> m_write_breakpoints;
     bool   m_bootrom_enabled = true;
+    bool   m_is_busy = false;
     int8_t m_speed_factor = 1;
   };
 

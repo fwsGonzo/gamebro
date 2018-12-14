@@ -32,11 +32,14 @@ namespace gbc
       s, step [steps=1]     Run [steps] instructions, then break
       v, verbose            Toggle verbose instruction execution
       b, break [addr]       Breakpoint on executing [addr]
+      rb [addr]             Breakpoint on reading from [addr]
+      wb [addr]             Breakpoint on writing to [addr]
       clear                 Clear all breakpoints
       reset                 Reset the machine
       read [addr] (len=1)   Read from [addr] (len) bytes and print
       write [addr] [value]  Write [value] to memory location [addr]
-      readv1 [addr]         Read byte from VRAM1:[addr] and print
+      readv0 [addr]         Print byte from VRAM0:[addr]
+      readv1 [addr]         Print byte from VRAM1:[addr]
       debug                 Trigger the debug interrupt handler
       vblank                Render current screen and call vblank
       frame                 Show frame number and extra frame info
@@ -87,6 +90,33 @@ namespace gbc
     }
     else if (cmd == "clear") {
       cpu.breakpoints().clear();
+      return true;
+    }
+    else if (cmd == "rb" || cmd == "wb")
+    {
+      const auto mode = (cmd == "rb") ? Memory::READ : Memory::WRITE;
+      if (params.size() < 2) {
+        printf(">>> Not enough parameters: rb/wb [addr]\n");
+        return true;
+      }
+      uint16_t traploc = std::strtoul(params[1].c_str(), 0, 16) & 0xFFFF;
+      printf("Breaking after any %s %04X (%s)\n", (mode) ? "write to" : "read from",
+             traploc, cpu.memory().explain(traploc).c_str());
+      cpu.memory().breakpoint(mode,
+        [traploc, mode] (Memory& mem, uint16_t addr, uint8_t value)
+        {
+          if (addr == traploc) {
+            if (mode == Memory::READ) {
+              printf("Breaking after read from %04X (%s) with value %02X\n",
+                     addr, mem.explain(addr).c_str(), mem.read8(addr));
+            }
+            else { // WRITE
+              printf("Breaking after write to %04X (%s) with value %02X (old: %02X)\n",
+                     addr, mem.explain(addr).c_str(), value, mem.read8(addr));
+            }
+            mem.machine().break_now();
+          }
+        });
       return true;
     }
     // verbose instructions
@@ -143,23 +173,23 @@ namespace gbc
       return true;
     }
     // read from VRAM bank 1
-    else if (cmd == "readv1")
+    else if (cmd == "readv0" || cmd == "readv1")
     {
+      const uint16_t off = (cmd == "readv0") ? 0x0 : 0x2000;
       if (params.size() < 2) {
         printf(">>> Not enough parameters: readv1 [addr]\n");
         return true;
       }
       unsigned long hex = std::strtoul(params[1].c_str(), 0, 16);
-      if (hex > 0x8000) hex -= 0x8000;
       hex &= 0x1FFF;
-      printf("VRAM1:%04lX -> %02X\n", hex, cpu.memory().video_ram_ptr()[0x2000 + hex]);
+      printf("VRAM1:%04lX -> %02X\n", hex, cpu.memory().video_ram_ptr()[off + hex]);
       return true;
     }
-    else if (cmd == "vblank") {
+    else if (cmd == "vblank" || cmd == "vbl") {
       cpu.machine().gpu.render_and_vblank();
       return true;
     }
-    else if (cmd == "frame") {
+    else if (cmd == "frame" || cmd == "fr") {
       printf("Frame: %lu\n", cpu.machine().gpu.frame_count());
       return true;
     }
