@@ -70,6 +70,16 @@ namespace gbc
 
       if (UNLIKELY(m_reg_ly == 144))
       {
+        if (this->m_white_frame)
+        {
+          this->m_white_frame = false;
+          // create white palette value at color 32
+          if (this->m_on_palchange) {
+            this->m_on_palchange(WHITE_IDX, 0xFFFF);
+          }
+          // clear pixelbuffer with white
+          std::fill_n(m_pixels.begin(), m_pixels.size(), WHITE_IDX);
+        }
         // enable MODE 1: V-blank
         set_mode(1);
         // MODE 1: vblank interrupt
@@ -79,21 +89,12 @@ namespace gbc
         // if STAT vblank interrupt is enabled
         if (m_reg_stat & 0x10) io().trigger(lcd_stat);
       }
-      else if (UNLIKELY(m_reg_ly == 153))
-      {
-        // BUG: LY stays at 0 for one scanline
-        m_reg_ly = 0;
-        // still in V-blank mode
-        assert(this->is_vblank());
-        // new frame!
-        this->m_frame_count++;
-      }
       else if (m_reg_ly == 1 && get_mode() == 1)
       {
         assert(this->is_vblank());
         // start over in regular mode
-        m_current_scanline = 0;
-        m_reg_ly = 0;
+        this->m_current_scanline = 0;
+        this->m_reg_ly = 0;
         set_mode(0);
       }
       // LY == LYC comparison on each line
@@ -154,6 +155,7 @@ namespace gbc
 
   void GPU::render_and_vblank()
   {
+    this->m_white_frame = false;
     for (int y = 0; y < SCREEN_H; y++) {
       this->render_scanline(y);
     }
@@ -163,6 +165,7 @@ namespace gbc
 
   void GPU::render_scanline(int scan_y)
   {
+    if (UNLIKELY(this->m_white_frame)) return;
     const uint8_t scroll_y = memory().read8(IO::REG_SCY);
     const uint8_t scroll_x = memory().read8(IO::REG_SCX);
     const int sy = (scan_y + scroll_y) % 256;
@@ -397,6 +400,8 @@ namespace gbc
       this->m_reg_ly = 0;
       // modify stat to V-blank?
       this->set_mode(1);
+      // theres a full white frame when turning on again
+      this->m_white_frame = true;
     }
   }
 
@@ -408,7 +413,7 @@ namespace gbc
   {
     this->getpal(index) = value;
     // sprite palette index 0 is unused
-    if (index >= 64 && (index & 3) == 0) return;
+    if (index >= 64 && (index & 7) < 2) return;
     //
     if (this->m_on_palchange) {
       const uint8_t base = index / 2;

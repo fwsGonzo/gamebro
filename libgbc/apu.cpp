@@ -1,6 +1,7 @@
 #include "apu.hpp"
 #include "machine.hpp"
 #include "io.hpp"
+#include "generators.hpp"
 
 namespace gbc
 {

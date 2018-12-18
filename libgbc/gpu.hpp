@@ -17,6 +17,9 @@ namespace gbc
   public:
     static const int SCREEN_W = 160;
     static const int SCREEN_H = 144;
+    static const int NUM_PALETTES = 64;
+    // this palette idx is used when the screen is off
+    static const int WHITE_IDX = 32;
 
     GPU(Machine&) noexcept;
     void reset() noexcept;
@@ -96,6 +99,7 @@ namespace gbc
     dmg_variant_t m_variant = LIGHTER_GREEN;
     int m_current_scanline = 0;
     uint16_t m_video_offset = 0x0;
+    bool m_white_frame = false;
 
     // 0-63: tiles 64-127: sprites
     std::array<uint8_t, 128> m_cgb_palette;

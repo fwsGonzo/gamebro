@@ -27,10 +27,6 @@ namespace gbc
       bool generators_enabled[4] = {false};
       bool enabled = true;
     };
-    struct waveform_t {
-      uint16_t left;
-      uint16_t right;
-    };
 
     Machine& m_machine;
     audio_stream_t m_audio_out;

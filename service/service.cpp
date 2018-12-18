@@ -9,10 +9,12 @@
 #include <machine.hpp>
 static int vblank_timer = -1;
 static bool vblanked = false;
+static std::chrono::milliseconds vblspeed;
 void set_gamespeed(gbc::Machine* machine, std::chrono::milliseconds vbl_delay)
 {
   if (vblank_timer >= 0) Timers::stop(vblank_timer);
-  vblank_timer = Timers::periodic(vbl_delay,
+  vblspeed = vbl_delay;
+  vblank_timer = Timers::oneshot(vblspeed,
    [machine] (int) {
      // create a new frame
      while (vblanked == false)
@@ -20,6 +22,7 @@ void set_gamespeed(gbc::Machine* machine, std::chrono::milliseconds vbl_delay)
        machine->simulate();
      }
      vblanked = false;
+     set_gamespeed(machine, vblspeed);
    });
 }
 
@@ -36,9 +39,9 @@ void Service::start()
     assert(!err);
   });
   auto& filesys = fs::memdisk().fs();
-  auto rombuffer = filesys.read_file("/ucity.gbc");
+  //auto rombuffer = filesys.read_file("/ucity.gbc");
   //auto rombuffer = filesys.read_file("/tloz_seasons.gbc");
-  //auto rombuffer = filesys.read_file("/tloz_la_dx.gbc");
+  auto rombuffer = filesys.read_file("/tloz_la_dx.gbc");
   //auto rombuffer = filesys.read_file("/tloz_la12.gb");
   //auto rombuffer = filesys.read_file("/smbland2.gb");
   //auto rombuffer = filesys.read_file("/pokemon_yellow.gbc");
@@ -92,7 +95,7 @@ void Service::start()
   }
 
   // vblank update speed
-  set_gamespeed(machine, std::chrono::milliseconds(17));
+  set_gamespeed(machine, std::chrono::milliseconds(11));
 
   // input
   hw::KBM::init();
@@ -118,13 +121,13 @@ void Service::start()
         gbc::setflag(pressed, keys, gbc::BUTTON_A);
         break;
     case hw::KBM::VK_8:
-        set_gamespeed(machine, std::chrono::milliseconds(17));
+        set_gamespeed(machine, std::chrono::milliseconds(11));
         break;
     case hw::KBM::VK_9:
-        set_gamespeed(machine, std::chrono::milliseconds(8));
+        set_gamespeed(machine, std::chrono::milliseconds(1));
         break;
     case hw::KBM::VK_0:
-        set_gamespeed(machine, std::chrono::milliseconds(24));
+        set_gamespeed(machine, std::chrono::milliseconds(128));
         break;
     case hw::KBM::VK_UP:
         gbc::setflag(pressed, keys, gbc::DPAD_UP);

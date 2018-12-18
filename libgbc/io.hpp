@@ -102,11 +102,11 @@ namespace gbc
     void reset();
     void simulate();
 
-    inline uint8_t& reg(uint16_t addr) {
-      return m_ioregs.at(addr & 0xff);
+    inline uint8_t& reg(const uint16_t addr) {
+      return m_ioregs[addr & 0x7f];
     }
-    inline const uint8_t& reg(uint16_t addr) const {
-      return m_ioregs.at(addr & 0xff);
+    inline const uint8_t& reg(const uint16_t addr) const {
+      return m_ioregs[addr & 0x7f];
     }
 
     struct joypad_t {
