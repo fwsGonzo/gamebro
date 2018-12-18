@@ -192,7 +192,7 @@ namespace gbc
       const int tattr = td.tile_attr(sx / 8, sy / 8);
       // copy the 16-byte tile into buffer
       const int tile_color = td.pattern(tid, tattr, sx & 7, sy & 7);
-      uint32_t color = this->colorize_tile(tileconf, tattr, tile_color);
+      uint16_t color = this->colorize_tile(tileconf, tattr, tile_color);
 
       if ((tattr & 0x80) == 0 || !machine().is_cgb())
       {
@@ -223,7 +223,7 @@ namespace gbc
     } // x
   } // render_to(...)
 
-  uint32_t GPU::colorize_tile(const tileconf_t& conf,
+  uint16_t GPU::colorize_tile(const tileconf_t& conf,
                               const uint8_t attr, const uint8_t idx)
   {
     size_t index = 0;
@@ -237,7 +237,7 @@ namespace gbc
     // no conversion
     return index;
   }
-  uint32_t GPU::colorize_sprite(const Sprite* sprite,
+  uint16_t GPU::colorize_sprite(const Sprite* sprite,
                                 sprite_config_t& sprconf, const uint8_t idx)
   {
     size_t index = 0;
@@ -249,10 +249,6 @@ namespace gbc
     }
     // no conversion
     return index;
-  }
-  uint16_t GPU::get_cgb_color(size_t idx) const
-  {
-    return m_state.cgb_palette.at(idx) | (m_state.cgb_palette.at(idx+1) << 8);
   }
 
   bool GPU::lcd_enabled() const noexcept {
@@ -403,10 +399,6 @@ namespace gbc
     }
   }
 
-  uint8_t& GPU::getpal(uint16_t index)
-  {
-    return m_state.cgb_palette.at(index);
-  }
   void GPU::setpal(uint16_t index, uint8_t value)
   {
     this->getpal(index) = value;
@@ -424,19 +416,6 @@ namespace gbc
   void GPU::set_dmg_variant(dmg_variant_t variant)
   {
     this->m_variant = variant;
-  }
-  // convert palette to grayscale colors
-  uint32_t GPU::expand_dmg_color(const uint8_t color) const noexcept
-  {
-    return dmg_colors(m_variant).at(color);
-  }
-  // convert 15-bit color to 32-bit RGBA
-  uint32_t GPU::expand_cgb_color(const uint16_t color) const noexcept
-  {
-    const uint16_t r = ((color >>  0) & 0x1f) << 3;
-    const uint16_t g = ((color >>  5) & 0x1f) << 3;
-    const uint16_t b = ((color >> 10) & 0x1f) << 3;
-    return r | (g << 8) | (b << 16);
   }
 
   // serialization

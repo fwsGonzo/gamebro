@@ -33,6 +33,9 @@ namespace gbc
     static std::array<uint32_t, 4> dmg_colors(dmg_variant_t = GRAYSCALE);
     // set GB palette used in RGBA mode
     void set_dmg_variant(dmg_variant_t);
+    // get the 32-bit RGB colors (with alpha=0)
+    uint32_t expand_cgb_color(uint8_t idx) const noexcept;
+    uint32_t expand_dmg_color(uint8_t idx) const noexcept;
 
     void render_and_vblank();
     bool is_vblank() const noexcept;
@@ -54,9 +57,9 @@ namespace gbc
     int  window_y();
 
     // CGB palette registers
-    enum pal_t { PAL_BG, PAL_SPR };
-    uint8_t& getpal(uint16_t index);
+    uint8_t& getpal(uint16_t index) noexcept { return m_state.cgb_palette[index]; }
     void     setpal(uint16_t index, uint8_t value);
+    uint8_t  getpal(uint16_t index) const { return m_state.cgb_palette.at(index); }
 
     // serialization
     int  restore_state(const std::vector<uint8_t>&, int);
@@ -81,11 +84,8 @@ namespace gbc
     tileconf_t      tile_config();
     sprite_config_t sprite_config();
     std::vector<const Sprite*> find_sprites(const sprite_config_t&);
-    uint32_t colorize_tile(const tileconf_t&, uint8_t attr, uint8_t idx);
-    uint32_t colorize_sprite(const Sprite*, sprite_config_t&, uint8_t);
-    uint16_t get_cgb_color(size_t idx) const;
-    uint32_t expand_cgb_color(uint16_t c16) const noexcept;
-    uint32_t expand_dmg_color(uint8_t idx) const noexcept;
+    uint16_t colorize_tile(const tileconf_t&, uint8_t attr, uint8_t idx);
+    uint16_t colorize_sprite(const Sprite*, sprite_config_t&, uint8_t);
     // addresses
     uint16_t bg_tiles() const noexcept;
     uint16_t window_tiles() const noexcept;
@@ -114,7 +114,7 @@ namespace gbc
 
   inline std::array<uint32_t, 4> GPU::dmg_colors(dmg_variant_t variant)
   {
-    #define mRGB(r, g, b) (r | (g << 8) | (b << 16) | (255u << 24))
+    #define mRGB(r, g, b) (r | (g << 8) | (b << 16))
     switch (variant) {
       case LIGHTER_GREEN:
         return std::array<uint32_t, 4>{
@@ -140,5 +140,20 @@ namespace gbc
           };
     }
     #undef mRGB
+  }
+
+  // convert palette to grayscale colors
+  inline uint32_t GPU::expand_dmg_color(const uint8_t index) const noexcept
+  {
+    return dmg_colors(m_variant).at(index);
+  }
+  // convert 15-bit color to 32-bit RGBA
+  inline uint32_t GPU::expand_cgb_color(const uint8_t index) const noexcept
+  {
+    const uint16_t color15 = getpal(index*2) | (getpal(index*2+1) << 8);
+    const uint16_t r = ((color15 >>  0) & 0x1f) << 3;
+    const uint16_t g = ((color15 >>  5) & 0x1f) << 3;
+    const uint16_t b = ((color15 >> 10) & 0x1f) << 3;
+    return r | (g << 8) | (b << 16);
   }
 }

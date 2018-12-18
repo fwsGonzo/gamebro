@@ -1,12 +1,10 @@
-#include <libgbc/machine.hpp>
-#include <bmp/bmp.h>
 #include <signal.h>
 #include "../src/stuff.hpp"
 
+#include <libgbc/machine.hpp>
 static gbc::Machine* machine = nullptr;
 static void int_handler(int) {
-	if (machine->cpu.is_breaking()) machine->cpu.stop();
-	else machine->break_now();
+	machine->break_now();
 }
 
 int main(int argc, char** args)
@@ -21,7 +19,6 @@ int main(int argc, char** args)
 	machine->break_now();
 	signal(SIGINT, int_handler);
 
-	uint64_t last_frame = 0;
 	while (machine->is_running())
 	{
 		machine->simulate();
