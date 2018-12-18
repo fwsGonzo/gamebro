@@ -1,7 +1,7 @@
 #pragma once
 #include <array>
 #include <cstdint>
-#include <util/delegate.hpp>
+#include "util/delegate.hpp"
 #include "common.hpp"
 
 namespace gbc

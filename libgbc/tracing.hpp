@@ -1,6 +1,6 @@
 #pragma once
 #include <cstdint>
-#include <util/delegate.hpp>
+#include "util/delegate.hpp"
 
 namespace gbc
 {

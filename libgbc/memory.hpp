@@ -2,7 +2,7 @@
 #include <array>
 #include <cstdint>
 #include <vector>
-#include <util/delegate.hpp>
+#include "util/delegate.hpp"
 #include "common.hpp"
 #include "mbc.hpp"
 

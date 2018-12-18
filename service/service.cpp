@@ -59,6 +59,7 @@ void Service::start()
   machine->set_handler(gbc::Machine::VBLANK,
     [] (gbc::Machine& machine, gbc::interrupt_t&)
     {
+      //const auto vec = machine.serialize_state();
       const int W = machine.gpu.SCREEN_W;
       const int H = machine.gpu.SCREEN_H;
 
@@ -73,6 +74,8 @@ void Service::start()
       // blit to front framebuffer here
       gbz80_limited_blit(backbuffer.data());
       vblanked = true;
+      // restore state
+      //machine.restore_state(vec);
     });
 
   if (!machine->is_cgb())
