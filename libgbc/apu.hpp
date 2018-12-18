@@ -18,6 +18,10 @@ namespace gbc
     uint8_t read(uint16_t, uint8_t& reg);
     void    write(uint16_t, uint8_t, uint8_t& reg);
 
+    // serialization
+    int  restore_state(const std::vector<uint8_t>&, int);
+    void serialize_state(std::vector<uint8_t>&) const;
+
     Machine& machine() noexcept { return m_machine; }
   private:
     struct generator_t {
@@ -27,6 +31,12 @@ namespace gbc
       bool generators_enabled[4] = {false};
       bool enabled = true;
     };
+
+    struct state_t
+    {
+      bool nothing = false;
+
+    } m_state;
 
     Machine& m_machine;
     audio_stream_t m_audio_out;

@@ -91,8 +91,9 @@ namespace gbc
     uint8_t interrupt_mask() const;
     void    start_dma(uint16_t src);
     void    start_hdma(uint16_t src, uint16_t dst, uint16_t bytes);
-    bool    dma_active() const noexcept;
-    bool    hdma_active() const noexcept;
+    bool    dma_active() const noexcept  { return oam_dma().bytes_left > 0; }
+    bool    hdma_active() const noexcept { return hdma().bytes_left > 0; }
+
     void    perform_stop();
     void    deactivate_stop();
     void    reset_divider();
@@ -103,10 +104,10 @@ namespace gbc
     void simulate();
 
     inline uint8_t& reg(const uint16_t addr) {
-      return m_ioregs[addr & 0x7f];
+      return m_state.ioregs[addr & 0x7f];
     }
     inline const uint8_t& reg(const uint16_t addr) const {
-      return m_ioregs[addr & 0x7f];
+      return m_state.ioregs[addr & 0x7f];
     }
 
     struct joypad_t {
@@ -114,7 +115,7 @@ namespace gbc
       uint8_t  keypad  = 0xFF;
       uint8_t  buttons = 0xFF;
     };
-    inline joypad_t& joypad() { return m_joypad; }
+    inline joypad_t& joypad() { return m_state.joypad; }
 
     interrupt_t vblank;
     interrupt_t lcd_stat;
@@ -122,24 +123,38 @@ namespace gbc
     interrupt_t serialint;
     interrupt_t joypadint;
     interrupt_t debugint;
-  private:
-    Machine& m_machine;
-    std::array<uint8_t, 128> m_ioregs = {};
-    uint8_t  m_reg_ie = 0x0;
-    joypad_t m_joypad;
-    uint16_t m_divider = 0;
-    uint16_t m_timabug = 0;
 
+    // serialization
+    int  restore_state(const std::vector<uint8_t>&, int);
+    void serialize_state(std::vector<uint8_t>&) const;
+
+  private:
     struct dma_t {
       uint64_t cur_line;
       int8_t   slow_start = 0;
       uint16_t src;
       uint16_t dst;
       int32_t  bytes_left = 0;
-    } m_dma;
-    dma_t m_hdma;
-    // LCD on/off during STOP?
-    bool m_lcd_powered = false;
+    };
+    const dma_t& oam_dma() const noexcept { return m_state.dma; }
+    dma_t& oam_dma() noexcept { return m_state.dma; }
+    const dma_t& hdma() const noexcept { return m_state.hdma; }
+    dma_t& hdma() noexcept { return m_state.hdma; }
+
+    Machine& m_machine;
+    struct state_t
+    {
+      std::array<uint8_t, 128> ioregs = {};
+      joypad_t joypad;
+      uint16_t divider = 0;
+      uint16_t timabug = 0;
+      // LCD on/off during STOP?
+      bool     lcd_powered = false;
+      uint8_t  reg_ie = 0x0;
+
+      dma_t dma;
+      dma_t hdma;
+    } m_state;
   };
 
   inline void IO::trigger(interrupt_t& intr)
@@ -147,6 +162,6 @@ namespace gbc
     this->reg(REG_IF) |= intr.mask;
   }
   inline uint8_t IO::interrupt_mask() const {
-    return this->m_reg_ie & this->reg(REG_IF);
+    return this->m_state.reg_ie & this->reg(REG_IF);
   }
 }

@@ -37,12 +37,12 @@ namespace gbc
     void render_and_vblank();
     bool is_vblank() const noexcept;
     bool is_hblank() const noexcept;
-    uint64_t frame_count() const noexcept { return this->m_frame_count; }
+    uint64_t frame_count() const noexcept { return this->m_state.frame_count; }
 
     void    set_mode(uint8_t mode);
     uint8_t get_mode() const noexcept;
 
-    uint16_t video_offset() const noexcept { return m_video_offset; }
+    uint16_t video_offset() const noexcept { return m_state.video_offset; }
     void     set_video_bank(uint8_t bank);
     void     lcd_power_changed(bool state);
 
@@ -57,6 +57,10 @@ namespace gbc
     enum pal_t { PAL_BG, PAL_SPR };
     uint8_t& getpal(uint16_t index);
     void     setpal(uint16_t index, uint8_t value);
+
+    // serialization
+    int  restore_state(const std::vector<uint8_t>&, int);
+    void serialize_state(std::vector<uint8_t>&) const;
 
     Machine& machine() noexcept { return m_memory.machine(); }
     Memory&  memory() noexcept { return m_memory; }
@@ -94,15 +98,18 @@ namespace gbc
     uint8_t&    m_reg_ly;
     std::vector<uint16_t> m_pixels;
     palchange_func_t m_on_palchange = nullptr;
-    uint64_t    m_period = 0;
-    uint64_t    m_frame_count = 0;
     dmg_variant_t m_variant = LIGHTER_GREEN;
-    int m_current_scanline = 0;
-    uint16_t m_video_offset = 0x0;
-    bool m_white_frame = false;
 
-    // 0-63: tiles 64-127: sprites
-    std::array<uint8_t, 128> m_cgb_palette;
+    struct state_t
+    {
+      uint64_t period = 0;
+      uint64_t frame_count = 0;
+      int      current_scanline = 0;
+      uint16_t video_offset = 0x0;
+      bool     white_frame = false;
+      // 0-63: tiles 64-127: sprites
+      std::array<uint8_t, 128> cgb_palette;
+    } m_state;
   };
 
   inline std::array<uint32_t, 4> GPU::dmg_colors(dmg_variant_t variant)

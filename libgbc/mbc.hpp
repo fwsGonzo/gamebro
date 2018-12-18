@@ -21,9 +21,9 @@ namespace gbc
     MBC(Memory&, const std::vector<uint8_t>& rom);
 
     const auto& rom() const noexcept { return m_rom; }
-    uint32_t rombank_offset() const noexcept  { return m_rom_bank_offset; }
+    uint32_t rombank_offset() const noexcept  { return m_state.rom_bank_offset; }
 
-    bool   ram_enabled() const noexcept   { return m_ram_enabled; }
+    bool   ram_enabled() const noexcept   { return m_state.ram_enabled; }
     size_t rombank_size() const noexcept  { return 0x4000; }
     size_t rambank_size() const noexcept  { return 0x2000; }
     size_t wrambank_size() const noexcept { return 0x1000; }
@@ -36,6 +36,10 @@ namespace gbc
     void set_wrambank(int offset);
     void set_mode(int mode);
 
+    // serialization
+    int  restore_state(const std::vector<uint8_t>&, int);
+    void serialize_state(std::vector<uint8_t>&) const;
+
   private:
     void write_MBC1M(uint16_t, uint8_t);
     void write_MBC3(uint16_t, uint8_t);
@@ -44,19 +48,22 @@ namespace gbc
 
     Memory&  m_memory;
     const std::vector<uint8_t>& m_rom;
-    std::array<uint8_t, 131072> m_ram;
-    std::array<uint8_t, 32768>  m_wram;
-    uint32_t m_rom_bank_offset = 0x4000;
-    uint16_t m_ram_banks       = 0;
-    uint32_t m_ram_bank_size   = 0x0;
-    uint16_t m_ram_bank_offset = 0x0;
-    uint16_t m_wram_offset  = 0x1000;
-    uint16_t m_wram_size    = 0x2000;
-    bool     m_ram_enabled  = false;
-    bool     m_rtc_enabled  = false;
-    bool     m_rumble       = false;
-    uint16_t m_rom_bank_reg = 0x1;
-    uint8_t  m_mode_select  = 0;
-    uint8_t  m_version = 1;
+    struct state_t
+    {
+      std::array<uint8_t, 131072> ram;
+      std::array<uint8_t, 32768>  wram;
+      uint32_t rom_bank_offset = 0x4000;
+      uint16_t ram_banks       = 0;
+      uint32_t ram_bank_size   = 0x0;
+      uint16_t ram_bank_offset = 0x0;
+      uint16_t wram_offset  = 0x1000;
+      uint16_t wram_size    = 0x2000;
+      bool     ram_enabled  = false;
+      bool     rtc_enabled  = false;
+      bool     rumble       = false;
+      uint16_t rom_bank_reg = 0x1;
+      uint8_t  mode_select  = 0;
+      uint8_t  version = 1;
+    } m_state;
   };
 }

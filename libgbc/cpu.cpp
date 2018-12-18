@@ -32,7 +32,7 @@ namespace gbc
     registers().sp = 0xfffe;
     registers().pc =
         memory().bootrom_enabled() ? 0x0 : 0x100;
-    this->m_cycles_total = 0;
+    this->m_state.cycles_total = 0;
   }
 
   void CPU::simulate()
@@ -58,17 +58,17 @@ namespace gbc
   void CPU::execute()
   {
     // 1. read instruction from memory
-    this->m_cur_opcode = this->peekop8(0);
+    const uint8_t opcode = this->peekop8(0);
     // 2. decode into executable instruction
-    auto& instr = decode(this->m_cur_opcode);
+    auto& instr = decode(opcode);
 
     // 2a. print the instruction (when enabled)
     if (UNLIKELY(machine().verbose_instructions))
     {
       char prn[128];
-      instr.printer(prn, sizeof(prn), *this, this->m_cur_opcode);
+      instr.printer(prn, sizeof(prn), *this, opcode);
       printf("%9lu: [pc %04X] opcode %02X: %s\n",
-              gettime(), registers().pc,  this->m_cur_opcode, prn);
+              gettime(), registers().pc,  opcode, prn);
     }
 
     // 3. increment PC, hardware tick
@@ -76,14 +76,14 @@ namespace gbc
     this->hardware_tick();
 
     // 4. run instruction handler
-    instr.handler(*this, this->m_cur_opcode);
+    instr.handler(*this, opcode);
 
     if (UNLIKELY(machine().verbose_instructions))
     {
       // print out the resulting flags reg
-      if (m_last_flags != registers().flags)
+      if (m_state.last_flags != registers().flags)
       {
-        m_last_flags = registers().flags;
+        m_state.last_flags = registers().flags;
         char fbuf[5];
         printf("* Flags changed: [%s]\n",
                 cstr_flags(fbuf, registers().flags));
@@ -121,26 +121,26 @@ namespace gbc
 
   // it takes 2 instruction-cycles to toggle interrupts
   void CPU::enable_interrupts() noexcept {
-    if (this->m_intr_pending <= 0) {
-        this->m_intr_pending = 2;
+    if (this->m_state.intr_pending <= 0) {
+        this->m_state.intr_pending = 2;
     }
   }
   void CPU::disable_interrupts() noexcept {
-    this->m_intr_pending = -2;
+    this->m_state.intr_pending = -2;
   }
 
   void CPU::handle_interrupts()
   {
     // enable/disable interrupts over cycles
-    if (UNLIKELY(m_intr_pending != 0))
+    if (UNLIKELY(m_state.intr_pending != 0))
     {
-      if (m_intr_pending > 0) {
-        m_intr_pending--;
-        if (!m_intr_pending) this->m_intr_master_enable = true;
+      if (m_state.intr_pending > 0) {
+        m_state.intr_pending--;
+        if (!m_state.intr_pending) this->m_state.ime = true;
       }
-      else if (m_intr_pending < 0) {
-        m_intr_pending++;
-        if (!m_intr_pending) this->m_intr_master_enable = false;
+      else if (m_state.intr_pending < 0) {
+        m_state.intr_pending++;
+        if (!m_state.intr_pending) this->m_state.ime = false;
       }
     }
     // check if interrupts are enabled and pending
@@ -148,8 +148,8 @@ namespace gbc
     if (UNLIKELY(this->ime() && imask != 0x0))
     {
       // disable interrupts immediately
-      this->m_intr_master_enable = false;
-      this->m_asleep = false;
+      this->m_state.ime    = false;
+      this->m_state.asleep = false;
       // execute pending interrupts (sorted by priority)
       auto& io = machine().io;
       if      (imask &  0x1) io.interrupt(io.vblank);
@@ -158,11 +158,11 @@ namespace gbc
       else if (imask &  0x8) io.interrupt(io.serialint);
       else if (imask & 0x10) io.interrupt(io.joypadint);
     }
-    else if (UNLIKELY(this->m_haltbug && imask != 0))
+    else if (UNLIKELY(this->m_state.haltbug && imask != 0))
     {
       // do *NOT* call interrupt handler when buggy HALTing
-      this->m_asleep = false;
-      this->m_haltbug = false;
+      this->m_state.asleep = false;
+      this->m_state.haltbug = false;
     }
   }
 
@@ -384,27 +384,27 @@ namespace gbc
   void CPU::incr_cycles(int count)
   {
     assert(count >= 0);
-    this->m_cycles_total += count;
+    this->m_state.cycles_total += count;
   }
 
   void CPU::stop()
   {
-    this->m_stopped = true;
+    this->m_state.stopped = true;
     // preparing a speed switch?
     if (machine().io.reg(IO::REG_KEY1) & 0x1)
     {
-      this->m_switch_cycles = 4;
+      this->m_state.switch_cycles = 4;
     }
     // disable screen etc.
     machine().io.perform_stop();
   }
   void CPU::handle_speed_switch()
   {
-    if (UNLIKELY(this->m_switch_cycles > 0)) {
-      this->m_switch_cycles--;
-      if (this->m_switch_cycles == 0) {
+    if (UNLIKELY(this->m_state.switch_cycles > 0)) {
+      this->m_state.switch_cycles--;
+      if (this->m_state.switch_cycles == 0) {
         // stop the stopping
-        this->m_stopped = false;
+        this->m_state.stopped = false;
         // change speed
         memory().do_switch_speed();
         // this can turn the LCD back on
@@ -415,13 +415,13 @@ namespace gbc
 
   void CPU::wait()
   {
-    this->m_asleep = true;
-    this->m_haltbug = false;
+    this->m_state.asleep = true;
+    this->m_state.haltbug = false;
   }
   void CPU::buggy_halt()
   {
-    this->m_asleep = true;
-    this->m_haltbug = true;
+    this->m_state.asleep = true;
+    this->m_state.haltbug = true;
   }
 
   void CPU::jump(const uint16_t dest)
@@ -442,5 +442,15 @@ namespace gbc
   {
     this->push_value(registers().pc);
     this->jump(address);
+  }
+
+  int  CPU::restore_state(const std::vector<uint8_t>& data, int off)
+  {
+    this->m_state = *(state_t*) &data.at(off);
+    return sizeof(m_state);
+  }
+  void CPU::serialize_state(std::vector<uint8_t>& res) const
+  {
+    res.insert(res.end(), (uint8_t*) &m_state, (uint8_t*) &m_state + sizeof(m_state));
   }
 }

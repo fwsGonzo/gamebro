@@ -34,8 +34,8 @@ namespace gbc
     uint16_t read16(uint16_t address);
     void     write16(uint16_t address, uint16_t value);
 
-    uint8_t* oam_ram_ptr() noexcept { return m_oam_ram.data(); }
-    uint8_t* video_ram_ptr() noexcept { return m_video_ram.data(); }
+    uint8_t* oam_ram_ptr() noexcept { return m_state.oam_ram.data(); }
+    uint8_t* video_ram_ptr() noexcept { return m_state.video_ram.data(); }
 
     static constexpr uint16_t range_size(range_t range) { return range.second - range.first; }
 
@@ -45,9 +45,13 @@ namespace gbc
     bool bootrom_enabled() const noexcept { return false; }
     void disable_bootrom();
 
-    bool double_speed() const noexcept { return m_speed_factor != 1; }
-    int  speed_factor() const noexcept { return m_speed_factor; }
+    bool double_speed() const noexcept { return m_state.speed_factor != 1; }
+    int  speed_factor() const noexcept { return m_state.speed_factor; }
     void do_switch_speed();
+
+    // serialization
+    int  restore_state(const std::vector<uint8_t>&, int);
+    void serialize_state(std::vector<uint8_t>&) const;
 
     // debugging
     std::string explain(uint16_t address) const;
@@ -55,7 +59,7 @@ namespace gbc
     using access_t = delegate<void(Memory&, uint16_t, uint8_t)>;
     void breakpoint(amode_t, access_t);
 
-    inline bool is_within(uint16_t addr, const range_t& range) const
+    inline static bool is_within(uint16_t addr, const range_t& range)
     {
       return addr >= range.first && addr <= range.second;
     }
@@ -63,14 +67,17 @@ namespace gbc
     Machine& m_machine;
     std::vector<uint8_t>       m_rom;
     MBC                        m_mbc;
-    std::array<uint8_t, 16384> m_video_ram = {};
-    std::array<uint8_t, 256>   m_oam_ram = {};
-    std::array<uint8_t, 128>   m_zram = {}; // high-speed RAM
+    struct state_t
+    {
+      std::array<uint8_t, 16384> video_ram = {};
+      std::array<uint8_t, 256>   oam_ram = {};
+      std::array<uint8_t, 128>   zram = {}; // high-speed RAM
+      bool   bootrom_enabled = true;
+      int8_t speed_factor = 1;
+    } m_state;
+    bool m_is_busy = false;
     std::vector<access_t> m_read_breakpoints;
     std::vector<access_t> m_write_breakpoints;
-    bool   m_bootrom_enabled = true;
-    bool   m_is_busy = false;
-    int8_t m_speed_factor = 1;
   };
 
   inline void Memory::breakpoint(amode_t mode, access_t func) {

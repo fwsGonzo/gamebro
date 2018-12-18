@@ -50,6 +50,31 @@ namespace gbc
     io.trigger_keys(mask);
   }
 
+  void Machine::restore_state(const std::vector<uint8_t>& data)
+  {
+    this->m_running = data.at(0);
+    this->m_cgb_mode = data.at(1);
+    int offset = 2;
+    offset += cpu.restore_state(data, offset);
+    offset += memory.restore_state(data, offset);
+    offset += io.restore_state(data, offset);
+    offset += gpu.restore_state(data, offset);
+    offset += apu.restore_state(data, offset);
+  }
+  std::vector<uint8_t> Machine::serialize_state() const
+  {
+    std::vector<uint8_t> result;
+    result.push_back(m_running);
+    result.push_back(m_cgb_mode);
+    // sub-components
+    cpu.serialize_state(result);
+    memory.serialize_state(result);
+    io.serialize_state(result);
+    gpu.serialize_state(result);
+    apu.serialize_state(result);
+    return result;
+  }
+
   void Machine::break_now()
   {
     cpu.break_now();

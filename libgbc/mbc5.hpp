@@ -10,15 +10,15 @@ namespace gbc
     switch (addr & 0xF000) {
       case 0x2000:
           // ROM bank select (lower)
-          this->m_rom_bank_reg &= 0x100;
-          this->m_rom_bank_reg |= value & 0xFF;
-          this->set_rombank(this->m_rom_bank_reg);
+          this->m_state.rom_bank_reg &= 0x100;
+          this->m_state.rom_bank_reg |= value & 0xFF;
+          this->set_rombank(this->m_state.rom_bank_reg);
           return;
       case 0x3000:
           // ROM bank select (upper)
-          this->m_rom_bank_reg &= 0xFF;
-          this->m_rom_bank_reg |= value & 0x100;
-          this->set_rombank(this->m_rom_bank_reg);
+          this->m_state.rom_bank_reg &= 0xFF;
+          this->m_state.rom_bank_reg |= value & 0x100;
+          this->set_rombank(this->m_state.rom_bank_reg);
           return;
       case 0x4000:
       case 0x5000:

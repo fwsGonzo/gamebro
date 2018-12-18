@@ -44,4 +44,15 @@ namespace gbc
            addr, value, reg);
     assert(0 && "Unhandled APU write");
   }
+
+  // serialization
+  int  APU::restore_state(const std::vector<uint8_t>& data, int off)
+  {
+    this->m_state = *(state_t*) &data.at(off);
+    return sizeof(m_state);
+  }
+  void APU::serialize_state(std::vector<uint8_t>& res) const
+  {
+    res.insert(res.end(), (uint8_t*) &m_state, (uint8_t*) &m_state + sizeof(m_state));
+  }
 }

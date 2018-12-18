@@ -48,6 +48,10 @@ namespace gbc
     // use keys_t to form an 8-bit mask
     void set_inputs(uint8_t mask);
 
+    // serialization (state-keeping)
+    void restore_state(const std::vector<uint8_t>&);
+    std::vector<uint8_t> serialize_state() const;
+
     /// debugging aids ///
     bool verbose_instructions = false;
     bool verbose_interrupts   = false;

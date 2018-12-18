@@ -42,14 +42,14 @@ namespace gbc
     reg(REG_BOOT)  = 0x00;
     reg(REG_HDMA5) = 0xFF;
 
-    this->m_reg_ie = 0x00;
+    this->m_state.reg_ie = 0x00;
   }
 
   void IO::simulate()
   {
     // 1. DIV timer
-    this->m_divider += 256 / 64;
-    this->reg(REG_DIV) = this->m_divider >> 8;
+    this->m_state.divider += 256 / 64;
+    this->reg(REG_DIV) = this->m_state.divider >> 8;
 
     // 2. TIMA timer
     if (this->reg(REG_TAC) & 0x4)
@@ -57,7 +57,7 @@ namespace gbc
       const std::array<int, 4> TIMA_CYCLES = {1024, 16, 64, 256};
       const int speed = this->reg(REG_TAC) & 0x3;
       // TIMA counter timer
-      if (m_divider % (TIMA_CYCLES[speed]) == 0)
+      if (m_state.divider % (TIMA_CYCLES[speed]) == 0)
       {
         this->reg(REG_TIMA)++;
         //if (reg(REG_TIMA) > 16) machine().break_now();
@@ -65,13 +65,13 @@ namespace gbc
         if (this->reg(REG_TIMA) == 0) {
           this->trigger(this->timerint);
           // BUG: TIMA does not get reset before after 4 cycles
-          this->m_timabug = 4;
+          this->m_state.timabug = 4;
         }
       }
-      else if (UNLIKELY(this->m_timabug > 0))
+      else if (UNLIKELY(this->m_state.timabug > 0))
       {
-        this->m_timabug--;
-        if (this->m_timabug == 0) {
+        this->m_state.timabug--;
+        if (this->m_state.timabug == 0) {
           // restart at modulo
           this->reg(REG_TIMA) = this->reg(REG_TMA);
         }
@@ -79,11 +79,11 @@ namespace gbc
     }
 
     // 3. OAM DMA operation
-    if (this->m_dma.bytes_left > 0)
+    if (this->m_state.dma.bytes_left > 0)
     {
-      if (this->m_dma.slow_start > 0)
+      if (this->m_state.dma.slow_start > 0)
       {
-        this->m_dma.slow_start--;
+        this->m_state.dma.slow_start--;
       }
       else
       {
@@ -92,30 +92,30 @@ namespace gbc
         // do the copying
         auto& memory = machine().memory;
         for (int i = 0; i < btw; i++) {
-          memory.write8(m_dma.dst++, memory.read8(m_dma.src++));
+          memory.write8(m_state.dma.dst++, memory.read8(m_state.dma.src++));
         }
-        assert(m_dma.bytes_left >= btw);
-        m_dma.bytes_left -= btw;
+        assert(m_state.dma.bytes_left >= btw);
+        m_state.dma.bytes_left -= btw;
       }
     }
 
     // 4. HDMA operation
-    if (this->m_hdma.bytes_left > 0)
+    if (this->hdma().bytes_left > 0)
     {
       // during H-blank, once for each line
-      if (machine().gpu.is_hblank() && m_hdma.cur_line != reg(REG_LY))
+      if (machine().gpu.is_hblank() && hdma().cur_line != reg(REG_LY))
       {
-        m_hdma.cur_line = reg(REG_LY);
+        hdma().cur_line = reg(REG_LY);
         auto& memory = machine().memory;
-        int btw = std::min(16, m_hdma.bytes_left);
+        int btw = std::min(16, hdma().bytes_left);
         // do the copying
         for (int i = 0; i < btw; i++) {
-          memory.write8(m_hdma.dst++, memory.read8(m_hdma.src++));
+          memory.write8(hdma().dst++, memory.read8(hdma().src++));
         }
-        m_hdma.dst &= 0x9FFF; // make sure it wraps around VRAM
-        assert(m_hdma.bytes_left >= btw);
-        m_hdma.bytes_left -= btw;
-        if (m_hdma.bytes_left == 0)
+        hdma().dst &= 0x9FFF; // make sure it wraps around VRAM
+        assert(hdma().bytes_left >= btw);
+        hdma().bytes_left -= btw;
+        if (hdma().bytes_left == 0)
         {
           // transfer complete
           this->reg(REG_HDMA5) = 0xFF;
@@ -139,7 +139,7 @@ namespace gbc
       return reg(addr);
     }
     if (addr == REG_IE) {
-      return m_reg_ie;
+      return this->m_state.reg_ie;
     }
     printf("[io] * Unknown read 0x%04x\n", addr);
     machine().undefined();
@@ -163,7 +163,7 @@ namespace gbc
       return;
     }
     if (addr == REG_IE) {
-      m_reg_ie = value;
+      this->m_state.reg_ie = value;
       return;
     }
     printf("[io] * Unknown write 0x%04x value 0x%02x\n", addr, value);
@@ -172,8 +172,8 @@ namespace gbc
 
   void IO::trigger_keys(uint8_t mask)
   {
-    m_joypad.keypad  = ~(mask & 0xF);
-    m_joypad.buttons = ~(mask >> 4);
+    m_state.joypad.keypad  = ~(mask & 0xF);
+    m_state.joypad.buttons = ~(mask >> 4);
     // trigger joypad interrupt on every change
     if (joypadint.mode != mask) {
       joypadint.mode = mask;
@@ -194,7 +194,7 @@ namespace gbc
     // disable interrupt request
     reg(REG_IF) &= ~intr.mask;
     // set interrupt bit
-    //this->m_reg_ie |= intr.mask;
+    //this->m_state.reg_ie |= intr.mask;
     machine().cpu.hardware_tick();
     machine().cpu.hardware_tick();
     // push PC and jump to INTR addr
@@ -208,26 +208,18 @@ namespace gbc
 
   void IO::start_dma(uint16_t src)
   {
-    m_dma.slow_start = 2;
-    m_dma.src = src;
-    m_dma.dst = 0xfe00;
-    m_dma.bytes_left = 160; // 160 bytes total
-  }
-  bool IO::dma_active() const noexcept
-  {
-    return m_dma.bytes_left > 0;
+    oam_dma().slow_start = 2;
+    oam_dma().src = src;
+    oam_dma().dst = 0xfe00;
+    oam_dma().bytes_left = 160; // 160 bytes total
   }
 
   void IO::start_hdma(uint16_t src, uint16_t dst, uint16_t bytes)
   {
-    m_hdma.src = src;
-    m_hdma.dst = dst;
-    m_hdma.bytes_left = bytes;
-    m_hdma.cur_line = 0xff;
-  }
-  bool IO::hdma_active() const noexcept
-  {
-    return m_hdma.bytes_left > 0;
+    hdma().src = src;
+    hdma().dst = dst;
+    hdma().bytes_left = bytes;
+    hdma().cur_line = 0xff;
   }
 
   void IO::perform_stop()
@@ -235,22 +227,32 @@ namespace gbc
     // bit 1 = stopped, bit 8 = LCD on/off
     this->reg(REG_KEY1) = 0x1;
     // remember previous LCD on/off value
-    this->m_lcd_powered = reg(REG_LCDC) & 0x80;
+    this->m_state.lcd_powered = reg(REG_LCDC) & 0x80;
     // disable LCD
     reg(REG_LCDC) &= ~0x80;
     // enable joypad interrupts
-    this->m_reg_ie |= joypadint.mask;
+    this->m_state.reg_ie |= joypadint.mask;
   }
   void IO::deactivate_stop()
   {
     // turn screen back on, if it was turned off
-    if (this->m_lcd_powered) reg(REG_LCDC) |= 0x80;
+    if (this->m_state.lcd_powered) reg(REG_LCDC) |= 0x80;
     reg(REG_KEY1) = machine().memory.double_speed() ? 0x80 : 0x0;
   }
 
   void IO::reset_divider()
   {
-    this->m_divider = 0;
+    this->m_state.divider = 0;
     this->reg(REG_DIV) = 0;
+  }
+
+  int  IO::restore_state(const std::vector<uint8_t>& data, int off)
+  {
+    this->m_state = *(state_t*) &data.at(off);
+    return sizeof(m_state);
+  }
+  void IO::serialize_state(std::vector<uint8_t>& res) const
+  {
+    res.insert(res.end(), (uint8_t*) &m_state, (uint8_t*) &m_state + sizeof(m_state));
   }
 }

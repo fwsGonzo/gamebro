@@ -18,9 +18,8 @@ namespace gbc
     CPU(Machine&) noexcept;
     void  reset() noexcept;
     void  simulate();
-    uint64_t gettime() const noexcept { return m_cycles_total; }
+    uint64_t gettime() const noexcept { return m_state.cycles_total; }
 
-    uint8_t  current_opcode() const noexcept { return m_cur_opcode; }
     void     execute();
     // read and increment PC, and cycle counters, then tick hardware
     uint8_t  readop8();
@@ -44,7 +43,7 @@ namespace gbc
     void     buggy_halt();
     instruction_t& decode(uint8_t opcode);
 
-    regs_t& registers() noexcept { return m_registers; }
+    regs_t& registers() noexcept { return m_state.registers; }
     // helpers for reading and writing (HL)
     uint8_t read_hl();
     void    write_hl(uint8_t);
@@ -54,10 +53,14 @@ namespace gbc
 
     void enable_interrupts() noexcept;
     void disable_interrupts() noexcept;
-    bool ime() const noexcept { return m_intr_master_enable; }
+    bool ime() const noexcept { return m_state.ime; }
 
-    bool is_stopping() const noexcept { return m_stopped; }
-    bool is_halting() const noexcept { return m_asleep; }
+    bool is_stopping() const noexcept { return m_state.stopped; }
+    bool is_halting() const noexcept { return m_state.asleep; }
+
+    // serialization
+    int  restore_state(const std::vector<uint8_t>&, int);
+    void serialize_state(std::vector<uint8_t>&) const;
 
     // debugging
     void  breakpoint(uint16_t address, breakpoint_t func);
@@ -77,18 +80,20 @@ namespace gbc
     void execute_interrupts(const uint8_t);
     bool break_time() const;
 
-    regs_t   m_registers;
     Machine& m_machine;
     Memory&  m_memory;
-    uint64_t m_cycles_total = 0;
-    uint8_t  m_cur_opcode = 0xff;
-    uint8_t  m_last_flags = 0xff;
-    bool     m_intr_master_enable = false;
-    int8_t   m_intr_pending = 0;
-    bool     m_stopped = false;
-    bool     m_asleep = false;
-    bool     m_haltbug = false;
-    uint8_t  m_switch_cycles = 0;
+    struct state_t
+    {
+      regs_t   registers;
+      uint64_t cycles_total = 0;
+      uint8_t  last_flags = 0xff;
+      int8_t   intr_pending = 0;
+      bool     ime     = false;
+      bool     stopped = false;
+      bool     asleep  = false;
+      bool     haltbug = false;
+      uint8_t  switch_cycles = 0;
+    } m_state;
     // debugging
     bool     m_break = false;
     mutable int16_t  m_break_steps = 0;

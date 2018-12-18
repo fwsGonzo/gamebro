@@ -20,7 +20,7 @@ namespace gbc
     return true;
   }
   void Memory::disable_bootrom() {
-    this->m_bootrom_enabled = false;
+    m_state.bootrom_enabled = false;
   }
 
   void Memory::set_wram_bank(uint8_t bank)
@@ -31,11 +31,11 @@ namespace gbc
   uint8_t Memory::read8(uint16_t address)
   {
     if (UNLIKELY(!m_read_breakpoints.empty() && !m_is_busy)) {
-      m_is_busy = true;
+      this->m_is_busy = true;
       for (auto& func : m_read_breakpoints) {
         func(*this, address, 0x0);
       }
-      m_is_busy = false;
+      this->m_is_busy = false;
     }
     switch (address & 0xF000)
     {
@@ -48,7 +48,7 @@ namespace gbc
         // cant read from Video RAM when working on scanline
         if (UNLIKELY(machine().gpu.get_mode() != 3)) {
           const uint16_t offset = machine().gpu.video_offset();
-          return m_video_ram.at(offset + address - VideoRAM.first);
+          return m_state.video_ram.at(offset + address - VideoRAM.first);
         }
         return 0xff;
     case 0xA000: case 0xB000:
@@ -64,14 +64,14 @@ namespace gbc
         else if (this->is_within(address, OAM_RAM)) {
           // TODO: return 0xff when rendering?
           if (!machine().io.dma_active())
-              return m_oam_ram.at(address - OAM_RAM.first);
+              return m_state.oam_ram.at(address - OAM_RAM.first);
           return 0xff;
         }
         else if (this->is_within(address, IO_Ports)) {
           return machine().io.read_io(address);
         }
         else if (this->is_within(address, ZRAM)) {
-          return m_zram.at(address - ZRAM.first);
+          return m_state.zram.at(address - ZRAM.first);
         }
         else if (address == InterruptEn) {
           return machine().io.read_io(address);
@@ -84,11 +84,11 @@ namespace gbc
   void Memory::write8(uint16_t address, uint8_t value)
   {
     if (UNLIKELY(!m_write_breakpoints.empty() && !m_is_busy)) {
-      m_is_busy = true;
+      this->m_is_busy = true;
       for (auto& func : m_write_breakpoints) {
         func(*this, address, value);
       }
-      m_is_busy = false;
+      this->m_is_busy = false;
     }
     switch (address & 0xF000)
     {
@@ -100,7 +100,7 @@ namespace gbc
         if (machine().gpu.get_mode() != 3)
         {
           const uint16_t offset = machine().gpu.video_offset();
-          m_video_ram.at(offset + address - VideoRAM.first) = value;
+          m_state.video_ram.at(offset + address - VideoRAM.first) = value;
         }
         return;
     case 0xA000: case 0xB000:
@@ -118,7 +118,7 @@ namespace gbc
           return;
         }
         else if (this->is_within(address, OAM_RAM)) {
-          m_oam_ram.at(address - OAM_RAM.first) = value;
+          this->m_state.oam_ram.at(address - OAM_RAM.first) = value;
           return;
         }
         else if (this->is_within(address, IO_Ports)) {
@@ -126,7 +126,7 @@ namespace gbc
           return;
         }
         else if (this->is_within(address, ZRAM)) {
-          m_zram.at(address - ZRAM.first) = value;
+          this->m_state.zram.at(address - ZRAM.first) = value;
           return;
         }
         else if (address == InterruptEn) {
@@ -142,11 +142,11 @@ namespace gbc
   {
     auto& reg = machine().io.reg(IO::REG_KEY1);
     if (this->double_speed()) {
-      this->m_speed_factor = 1;
+      this->m_state.speed_factor = 1;
       reg = 0x0;
     }
     else {
-      this->m_speed_factor = 2;
+      this->m_state.speed_factor = 2;
       reg = 0x80;
     }
   }
@@ -180,4 +180,14 @@ namespace gbc
     return "Unknown";
   }
 
+  // serialization
+  int  Memory::restore_state(const std::vector<uint8_t>& data, int off)
+  {
+    this->m_state = *(state_t*) &data.at(off);
+    return sizeof(m_state);
+  }
+  void Memory::serialize_state(std::vector<uint8_t>& res) const
+  {
+    res.insert(res.end(), (uint8_t*) &m_state, (uint8_t*) &m_state + sizeof(m_state));
+  }
 }

@@ -10,14 +10,14 @@ namespace gbc
     switch (addr & 0xF000) {
       case 0x2000:
       case 0x3000:
-          this->m_rom_bank_reg = value & 0x7F;
-          if (m_rom_bank_reg == 0) m_rom_bank_reg = 1;
-          this->set_rombank(this->m_rom_bank_reg);
+          this->m_state.rom_bank_reg = value & 0x7F;
+          if (m_state.rom_bank_reg == 0) m_state.rom_bank_reg = 1;
+          this->set_rombank(this->m_state.rom_bank_reg);
           return;
       case 0x4000:
       case 0x5000:
           this->set_rambank(value & 0x7);
-          this->m_rtc_enabled = (value & 0x80);
+          this->m_state.rtc_enabled = (value & 0x80);
           return;
       case 0x6000:
       case 0x7000:

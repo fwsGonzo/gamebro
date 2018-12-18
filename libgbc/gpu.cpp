@@ -20,7 +20,7 @@ namespace gbc
   void GPU::reset() noexcept
   {
     m_pixels.resize(SCREEN_W * SCREEN_H);
-    this->m_video_offset = 0;
+    this->m_state.video_offset = 0;
     //set_mode((m_reg_ly >= 144) ? 1 : 2);
   }
   uint64_t GPU::scanline_cycles() const noexcept
@@ -52,27 +52,25 @@ namespace gbc
     auto& vblank   = io().vblank;
     auto& lcd_stat = io().lcd_stat;
 
-    this->m_period += 4;
-    const uint64_t period = this->m_period;
+    this->m_state.period += 4;
+    const uint64_t period = this->m_state.period;
     //assert(period == 4);
-    bool new_scanline = false;
+    const bool new_scanline = period >= scanline_cycles();
 
     // scanline logic when screen on
-    if (period >= scanline_cycles())
+    if (UNLIKELY(new_scanline))
     {
-      this->m_period = 0; // start over each scanline
+      this->m_state.period = 0; // start over each scanline
       // scanline LY increment logic
       static const int MAX_LINES = 154;
-      m_current_scanline = (m_current_scanline + 1) % MAX_LINES;
-      m_reg_ly = m_current_scanline;
-      new_scanline = true;
-      //printf("LY is now %#x\n", this->m_current_scanline);
+      m_state.current_scanline = (m_state.current_scanline + 1) % MAX_LINES;
+      m_reg_ly = m_state.current_scanline;
 
       if (UNLIKELY(m_reg_ly == 144))
       {
-        if (this->m_white_frame)
+        if (this->m_state.white_frame)
         {
-          this->m_white_frame = false;
+          this->m_state.white_frame = false;
           // create white palette value at color 32
           if (this->m_on_palchange) {
             this->m_on_palchange(WHITE_IDX, 0xFFFF);
@@ -93,7 +91,7 @@ namespace gbc
       {
         assert(this->is_vblank());
         // start over in regular mode
-        this->m_current_scanline = 0;
+        this->m_state.current_scanline = 0;
         this->m_reg_ly = 0;
         set_mode(0);
       }
@@ -115,7 +113,7 @@ namespace gbc
         // enable MODE 3: Scanline VRAM
         set_mode(3);
         // render a scanline
-        this->render_scanline(m_current_scanline);
+        this->render_scanline(m_state.current_scanline);
         // TODO: perform HDMA transfers here!
       }
       else if (get_mode() == 3 && period >= oam_cycles()+vram_cycles())
@@ -155,7 +153,7 @@ namespace gbc
 
   void GPU::render_and_vblank()
   {
-    this->m_white_frame = false;
+    this->m_state.white_frame = false;
     for (int y = 0; y < SCREEN_H; y++) {
       this->render_scanline(y);
     }
@@ -165,7 +163,7 @@ namespace gbc
 
   void GPU::render_scanline(int scan_y)
   {
-    if (UNLIKELY(this->m_white_frame)) return;
+    if (UNLIKELY(this->m_state.white_frame)) return;
     const uint8_t scroll_y = memory().read8(IO::REG_SCY);
     const uint8_t scroll_x = memory().read8(IO::REG_SCX);
     const int sy = (scan_y + scroll_y) % 256;
@@ -254,7 +252,7 @@ namespace gbc
   }
   uint16_t GPU::get_cgb_color(size_t idx) const
   {
-    return m_cgb_palette.at(idx) | (m_cgb_palette.at(idx+1) << 8);
+    return m_state.cgb_palette.at(idx) | (m_state.cgb_palette.at(idx+1) << 8);
   }
 
   bool GPU::lcd_enabled() const noexcept {
@@ -380,7 +378,7 @@ namespace gbc
   void GPU::set_video_bank(const uint8_t bank)
   {
     assert(bank < 2);
-    this->m_video_offset = bank * 0x2000;
+    this->m_state.video_offset = bank * 0x2000;
   }
   void GPU::lcd_power_changed(const bool online)
   {
@@ -388,26 +386,26 @@ namespace gbc
     if (online)
     {
       // at the start of a new frame
-      this->m_period = this->scanline_cycles();
-      this->m_current_scanline = 153;
-      this->m_reg_ly = this->m_current_scanline;
+      this->m_state.period = this->scanline_cycles();
+      this->m_state.current_scanline = 153;
+      this->m_reg_ly = this->m_state.current_scanline;
     }
     else
     {
       // LCD off, just reset to LY 0
-      this->m_period = 0;
-      this->m_current_scanline = 0;
+      this->m_state.period = 0;
+      this->m_state.current_scanline = 0;
       this->m_reg_ly = 0;
       // modify stat to V-blank?
       this->set_mode(1);
       // theres a full white frame when turning on again
-      this->m_white_frame = true;
+      this->m_state.white_frame = true;
     }
   }
 
   uint8_t& GPU::getpal(uint16_t index)
   {
-    return m_cgb_palette.at(index);
+    return m_state.cgb_palette.at(index);
   }
   void GPU::setpal(uint16_t index, uint8_t value)
   {
@@ -439,5 +437,16 @@ namespace gbc
     const uint16_t g = ((color >>  5) & 0x1f) << 3;
     const uint16_t b = ((color >> 10) & 0x1f) << 3;
     return r | (g << 8) | (b << 16);
+  }
+
+  // serialization
+  int  GPU::restore_state(const std::vector<uint8_t>& data, int off)
+  {
+    this->m_state = *(state_t*) &data.at(off);
+    return sizeof(m_state);
+  }
+  void GPU::serialize_state(std::vector<uint8_t>& res) const
+  {
+    res.insert(res.end(), (uint8_t*) &m_state, (uint8_t*) &m_state + sizeof(m_state));
   }
 }
