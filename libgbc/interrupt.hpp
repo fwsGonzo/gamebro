@@ -4,6 +4,7 @@
 
 namespace gbc
 {
+  class Machine;
   struct interrupt_t;
   using interrupt_handler = delegate<void(Machine&, interrupt_t&)>;
 

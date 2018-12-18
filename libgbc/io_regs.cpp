@@ -18,6 +18,7 @@ namespace gbc
   }
   uint8_t ioread_JOYP(IO& io, uint16_t)
   {
+    io.trigger_joypad_read();
     switch (io.joypad().ioswitch) {
       case 0: return 0xD0 | io.joypad().buttons;
       case 1: return 0xE0 | io.joypad().keypad;

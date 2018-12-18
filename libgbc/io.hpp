@@ -87,7 +87,6 @@ namespace gbc
     void    trigger_keys(uint8_t);
     bool    joypad_is_disabled() const noexcept;
     void    trigger(interrupt_t&);
-    void    interrupt(interrupt_t&);
     uint8_t interrupt_mask() const;
     void    start_dma(uint16_t src);
     void    start_hdma(uint16_t src, uint16_t dst, uint16_t bytes);
@@ -116,6 +115,10 @@ namespace gbc
       uint8_t  buttons = 0xFF;
     };
     inline joypad_t& joypad() { return m_state.joypad; }
+    void on_joypad_read(interrupt_handler h) { m_joypad_handler = h; }
+    void trigger_joypad_read() {
+      if (m_joypad_handler) m_joypad_handler(machine(), joypadint);
+    }
 
     interrupt_t vblank;
     interrupt_t lcd_stat;
@@ -155,6 +158,8 @@ namespace gbc
       dma_t dma;
       dma_t hdma;
     } m_state;
+
+    interrupt_handler m_joypad_handler = nullptr;
   };
 
   inline void IO::trigger(interrupt_t& intr)

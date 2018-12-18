@@ -185,27 +185,6 @@ namespace gbc
     return (reg(REG_P1) & 0x30) == 0x30;
   }
 
-  void IO::interrupt(interrupt_t& intr)
-  {
-    if (machine().verbose_interrupts) {
-      printf("%9lu: Executing interrupt %s (%#x)\n",
-             machine().cpu.gettime(), intr.name, intr.mask);
-    }
-    // disable interrupt request
-    reg(REG_IF) &= ~intr.mask;
-    // set interrupt bit
-    //this->m_state.reg_ie |= intr.mask;
-    machine().cpu.hardware_tick();
-    machine().cpu.hardware_tick();
-    // push PC and jump to INTR addr
-    machine().cpu.push_and_jump(intr.fixed_address);
-    // sometimes we want to break on interrupts
-    if (machine().break_on_interrupts && !machine().is_breaking()) {
-      machine().break_now();
-    }
-    if (intr.callback) intr.callback(machine(), intr);
-  }
-
   void IO::start_dma(uint16_t src)
   {
     oam_dma().slow_start = 2;

@@ -38,7 +38,11 @@ namespace gbc
   void CPU::simulate()
   {
     // breakpoint handling
-    this->break_checks();
+    if (UNLIKELY(this->break_time() || !this->m_breakpoints.empty())) {
+      this->break_checks();
+      // user can quit during break
+      if (!machine().is_running()) return;
+    }
     // handle interrupts
     this->handle_interrupts();
 
@@ -152,11 +156,11 @@ namespace gbc
       this->m_state.asleep = false;
       // execute pending interrupts (sorted by priority)
       auto& io = machine().io;
-      if      (imask &  0x1) io.interrupt(io.vblank);
-      else if (imask &  0x2) io.interrupt(io.lcd_stat);
-      else if (imask &  0x4) io.interrupt(io.timerint);
-      else if (imask &  0x8) io.interrupt(io.serialint);
-      else if (imask & 0x10) io.interrupt(io.joypadint);
+      if      (imask &  0x1) this->interrupt(io.vblank);
+      else if (imask &  0x2) this->interrupt(io.lcd_stat);
+      else if (imask &  0x4) this->interrupt(io.timerint);
+      else if (imask &  0x8) this->interrupt(io.serialint);
+      else if (imask & 0x10) this->interrupt(io.joypadint);
     }
     else if (UNLIKELY(this->m_state.haltbug && imask != 0))
     {
@@ -164,6 +168,26 @@ namespace gbc
       this->m_state.asleep = false;
       this->m_state.haltbug = false;
     }
+  }
+  void CPU::interrupt(interrupt_t& intr)
+  {
+    if (UNLIKELY(machine().verbose_interrupts)) {
+      printf("%9lu: Executing interrupt %s (%#x)\n",
+             this->gettime(), intr.name, intr.mask);
+    }
+    // disable interrupt request
+    machine().io.reg(IO::REG_IF) &= ~intr.mask;
+    // set interrupt bit
+    //this->m_state.reg_ie |= intr.mask;
+    this->hardware_tick();
+    this->hardware_tick();
+    // push PC and jump to INTR addr
+    this->push_and_jump(intr.fixed_address);
+    // sometimes we want to break on interrupts
+    if (UNLIKELY(machine().break_on_interrupts && !machine().is_breaking())) {
+      machine().break_now();
+    }
+    if (intr.callback) intr.callback(machine(), intr);
   }
 
   instruction_t& CPU::decode(const uint8_t opcode)

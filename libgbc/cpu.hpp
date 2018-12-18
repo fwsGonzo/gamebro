@@ -4,6 +4,7 @@
 #include <cassert>
 #include <cstdint>
 #include "instruction.hpp"
+#include "interrupt.hpp"
 #include "registers.hpp"
 #include "tracing.hpp"
 
@@ -79,6 +80,7 @@ namespace gbc
     void handle_speed_switch();
     void execute_interrupts(const uint8_t);
     bool break_time() const;
+    void interrupt(interrupt_t&);
 
     Machine& m_machine;
     Memory&  m_memory;

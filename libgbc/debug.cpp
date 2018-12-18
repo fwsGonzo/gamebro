@@ -256,21 +256,17 @@ namespace gbc
 
   void CPU::break_checks()
   {
-    if (UNLIKELY(this->break_time())) {
+    if (this->break_time()) {
       this->m_break = false;
       // pause for each instruction
       this->print_and_pause(*this, this->peekop8(0));
-      // user can quit during break
-      if (!machine().is_running()) return;
     }
-    else if (UNLIKELY(!m_breakpoints.empty())) {
+    if (!m_breakpoints.empty()) {
       // look for breakpoints
       auto it = m_breakpoints.find(registers().pc);
       if (it != m_breakpoints.end()) {
         auto& bp = it->second;
         bp.callback(*this, this->peekop8(0));
-        // user can quit during break
-        if (!machine().is_running()) return;
       }
     }
   }

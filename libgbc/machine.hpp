@@ -41,7 +41,8 @@ namespace gbc
     enum interrupt {
       VBLANK,
       TIMER,
-      DEBUG
+      JOYPAD,
+      DEBUG,
     };
     void set_handler(interrupt, interrupt_handler);
 
@@ -67,7 +68,6 @@ namespace gbc
   private:
     bool m_running = true;
     bool m_cgb_mode = false;
-    friend class Memory;
   };
 
   inline void Machine::simulate() {
