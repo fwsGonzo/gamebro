@@ -1,0 +1,3 @@
+SMBland2:
+  SCROLL X
+  A227=ED   AF30=F5   FFC2=ED   FFCA=DD

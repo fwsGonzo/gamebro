@@ -4,3 +4,4 @@ build/
 *.bmp
 *.sav
 tests/
+callgraph.svg
