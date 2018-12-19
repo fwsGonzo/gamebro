@@ -14,7 +14,7 @@ option(PGO_ENABLE   "Enable guided profiling (PGO)" OFF)
 option(PGO_GENERATE "PGO is in profile generating mode" ON)
 option(SANITIZE     "Enable undefined- and address sanitizers" OFF)
 option(LIBFUZZER    "Enable in-process fuzzer" OFF)
-option(ENABLE_LTO   "Enable LTO for use with Clang/GCC" OFF)
+option(ENABLE_LTO   "Enable LTO for use with Clang/GCC" ON)
 
 if (PERFORMANCE)
   if (DEBUGGING)
@@ -69,3 +69,6 @@ target_link_libraries(trainer gbc)
 
 target_include_directories(trainer PRIVATE ${CMAKE_SOURCE_DIR})
 target_include_directories(trainer PRIVATE ${CMAKE_SOURCE_DIR}/ext)
+
+find_library(LZO_LIB  NAMES liblzo2.a)
+target_link_libraries(trainer ${LZO_LIB})
