@@ -50,12 +50,10 @@ namespace gbc
     const std::vector<uint8_t>& m_rom;
     struct state_t
     {
-      std::array<uint8_t, 131072> ram;
-      std::array<uint8_t, 32768>  wram;
       uint32_t rom_bank_offset = 0x4000;
       uint16_t ram_banks       = 0;
-      uint32_t ram_bank_size   = 0x0;
       uint16_t ram_bank_offset = 0x0;
+      uint32_t ram_bank_size   = 0x0;
       uint16_t wram_offset  = 0x1000;
       uint16_t wram_size    = 0x2000;
       bool     ram_enabled  = false;
@@ -64,6 +62,9 @@ namespace gbc
       uint16_t rom_bank_reg = 0x1;
       uint8_t  mode_select  = 0;
       uint8_t  version = 1;
+      std::array<uint8_t, 32768>  wram;
     } m_state;
+    // RAM is so big we want to deal with it dynamically
+    std::array<uint8_t, 131072> m_ram;
   };
 }

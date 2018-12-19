@@ -172,11 +172,11 @@ namespace gbc
 
   void IO::trigger_keys(uint8_t mask)
   {
-    m_state.joypad.keypad  = ~(mask & 0xF);
-    m_state.joypad.buttons = ~(mask >> 4);
+    joypad().keypad  = ~(mask & 0xF);
+    joypad().buttons = ~(mask >> 4);
     // trigger joypad interrupt on every change
-    if (joypadint.mode != mask) {
-      joypadint.mode = mask;
+    if (joypad().last_mask != mask) {
+      joypad().last_mask = mask;
       this->trigger(joypadint);
     }
   }

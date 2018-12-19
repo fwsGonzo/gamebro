@@ -51,7 +51,7 @@ namespace gbc
           io.timerint.callback = handler;
           return;
       case JOYPAD:
-          io.on_joypad_read(handler);
+          io.joypadint.callback = handler;
           return;
       case DEBUG:
           io.debugint.callback = handler;
@@ -73,16 +73,13 @@ namespace gbc
     offset += gpu.restore_state(data, offset);
     offset += apu.restore_state(data, offset);
   }
-  std::vector<uint8_t> Machine::serialize_state() const
+  void Machine::serialize_state(std::vector<uint8_t>& result) const
   {
-    std::vector<uint8_t> result;
-    // sub-components
     cpu.serialize_state(result);
     memory.serialize_state(result);
     io.serialize_state(result);
     gpu.serialize_state(result);
     apu.serialize_state(result);
-    return result;
   }
 
   void Machine::break_now()

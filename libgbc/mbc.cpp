@@ -12,11 +12,11 @@ namespace gbc
   MBC::MBC(Memory& m, const std::vector<uint8_t>& rom)
       : m_memory(m), m_rom(rom)
   {
-    this->m_state.ram.at(0x100) = 0x1;
-    this->m_state.ram.at(0x101) = 0x3;
-    this->m_state.ram.at(0x102) = 0x5;
-    this->m_state.ram.at(0x103) = 0x7;
-    this->m_state.ram.at(0x104) = 0x9;
+    this->m_ram.at(0x100) = 0x1;
+    this->m_ram.at(0x101) = 0x3;
+    this->m_ram.at(0x102) = 0x5;
+    this->m_ram.at(0x103) = 0x7;
+    this->m_ram.at(0x104) = 0x9;
     // test ROMs are just instruction arrays
     if (m_rom.size() < 0x150) return;
     // parse ROM header
@@ -96,7 +96,7 @@ namespace gbc
             addr -= RAMbankX.first;
             addr |= this->m_state.ram_bank_offset;
             if (addr < this->m_state.ram_bank_size)
-                return this->m_state.ram.at(addr);
+                return this->m_ram.at(addr);
             return 0xff; // small 2kb RAM banks
           }
           else {
@@ -156,7 +156,7 @@ namespace gbc
             addr -= RAMbankX.first;
             addr |= this->m_state.ram_bank_offset;
             if (addr < this->m_state.ram_bank_size) {
-                this->m_state.ram.at(addr) = value;
+                this->m_ram.at(addr) = value;
             }
           }
           else {
@@ -249,11 +249,16 @@ namespace gbc
   // serialization
   int  MBC::restore_state(const std::vector<uint8_t>& data, int off)
   {
+    // copy state first
     this->m_state = *(state_t*) &data.at(off);
-    return sizeof(m_state);
+    off += sizeof(state_t);
+    // then copy RAM by size
+    std::copy(&data.at(off), &data.at(off) + m_state.ram_bank_size, m_ram.begin());
+    return sizeof(state_t) + m_state.ram_bank_size;
   }
   void MBC::serialize_state(std::vector<uint8_t>& res) const
   {
     res.insert(res.end(), (uint8_t*) &m_state, (uint8_t*) &m_state + sizeof(m_state));
+    res.insert(res.end(), m_ram.begin(), m_ram.begin() + m_state.ram_bank_size);
   }
 }

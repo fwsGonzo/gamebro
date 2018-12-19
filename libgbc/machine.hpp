@@ -52,7 +52,7 @@ namespace gbc
 
     // serialization (state-keeping)
     void restore_state(const std::vector<uint8_t>&);
-    std::vector<uint8_t> serialize_state() const;
+    void serialize_state(std::vector<uint8_t>&) const;
 
     /// debugging aids ///
     bool verbose_instructions = false;

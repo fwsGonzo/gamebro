@@ -184,10 +184,14 @@ namespace gbc
   int  Memory::restore_state(const std::vector<uint8_t>& data, int off)
   {
     this->m_state = *(state_t*) &data.at(off);
-    return sizeof(m_state);
+    off += sizeof(state_t);
+    // also restore MBC
+    return sizeof(state_t) + this->m_mbc.restore_state(data, off);
   }
   void Memory::serialize_state(std::vector<uint8_t>& res) const
   {
     res.insert(res.end(), (uint8_t*) &m_state, (uint8_t*) &m_state + sizeof(m_state));
+    // also serialize MBC
+    this->m_mbc.serialize_state(res);
   }
 }

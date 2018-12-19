@@ -113,11 +113,14 @@ namespace gbc
       uint8_t  ioswitch = 0;
       uint8_t  keypad  = 0xFF;
       uint8_t  buttons = 0xFF;
+      uint8_t  last_mask = 0;
     };
     inline joypad_t& joypad() { return m_state.joypad; }
-    void on_joypad_read(interrupt_handler h) { m_joypad_handler = h; }
+
+    using joypad_read_handler_t = delegate<void(Machine&,int)>;
+    void on_joypad_read(joypad_read_handler_t h) { m_jp_handler = h; }
     void trigger_joypad_read() {
-      if (m_joypad_handler) m_joypad_handler(machine(), joypadint);
+      if (m_jp_handler) m_jp_handler(machine(), joypad().ioswitch);
     }
 
     interrupt_t vblank;
@@ -159,7 +162,7 @@ namespace gbc
       dma_t hdma;
     } m_state;
 
-    interrupt_handler m_joypad_handler = nullptr;
+    joypad_read_handler_t m_jp_handler = nullptr;
   };
 
   inline void IO::trigger(interrupt_t& intr)
