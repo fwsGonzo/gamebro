@@ -25,6 +25,17 @@ namespace gbc
     this->m_running = false;
   }
 
+  void Machine::simulate_one_frame()
+  {
+    while (gpu.current_scanline() != 0) {
+      cpu.simulate();
+    }
+    while (gpu.current_scanline() != 144) {
+      cpu.simulate();
+    }
+    assert(gpu.is_vblank());
+  }
+
   uint64_t Machine::now() noexcept
   {
     return cpu.gettime();

@@ -32,6 +32,7 @@ namespace gbc
     APU    apu;
 
     void     simulate();
+    void     simulate_one_frame();
     void     reset();
     uint64_t now() noexcept;
     bool     is_running() const noexcept { return this->m_running; }

@@ -186,7 +186,11 @@ namespace gbc
       return true;
     }
     else if (cmd == "vblank" || cmd == "vbl") {
-      cpu.machine().gpu.render_and_vblank();
+      cpu.machine().gpu.render_frame();
+      // call vblank handler directly
+      auto& vblank = cpu.machine().io.vblank;
+      if (vblank.callback) vblank.callback(cpu.machine(), vblank);
+      else printf(">>> V-blank callback was not set, and could not be called\n");
       return true;
     }
     else if (cmd == "frame" || cmd == "fr") {

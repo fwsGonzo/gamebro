@@ -36,11 +36,15 @@ namespace gbc
     // get the 32-bit RGB colors (with alpha=0)
     uint32_t expand_cgb_color(uint8_t idx) const noexcept;
     uint32_t expand_dmg_color(uint8_t idx) const noexcept;
+    // enable / disable scanline rendering
+    void scanline_rendering(bool en) noexcept { this->m_render = en; }
+    // render whole frame now (NOTE: changes are often made mid-frame!)
+    void render_frame();
 
-    void render_and_vblank();
     bool is_vblank() const noexcept;
     bool is_hblank() const noexcept;
-    uint64_t frame_count() const noexcept { return this->m_state.frame_count; }
+    int  current_scanline() const noexcept { return m_state.current_scanline; }
+    uint64_t frame_count() const noexcept { return m_state.frame_count; }
 
     void    set_mode(uint8_t mode);
     uint8_t get_mode() const noexcept;
@@ -99,6 +103,7 @@ namespace gbc
     std::vector<uint16_t> m_pixels;
     palchange_func_t m_on_palchange = nullptr;
     dmg_variant_t m_variant = LIGHTER_GREEN;
+    bool m_render = true;
 
     struct state_t
     {

@@ -48,6 +48,7 @@ int main(int argc, char** args)
   printf("Loaded %zu bytes ROM\n", romdata.size());
 
 	machine = new gbc::Machine(romdata);
+	machine->gpu.scanline_rendering(false);
 	machine->break_now();
 	/*
 	//machine->cpu.default_pausepoint(0x453);
@@ -73,20 +74,16 @@ int main(int argc, char** args)
 	//machine->stop_when_undefined = true;
 	signal(SIGINT, int_handler);
 
-	static bool start_screenshotting = false;
-	// wire up gameboy vblank
-	machine->set_handler(gbc::Machine::VBLANK,
-		[] (gbc::Machine& machine, gbc::interrupt_t&)
-		{
-			if (start_screenshotting) {
-				static const char* filename = "screenshot.bmp";
-				save_screenshot(filename, machine.gpu.pixels());
-				//usleep(1000000);
-			}
-		});
 	machine->set_handler(gbc::Machine::DEBUG,
 		[] (gbc::Machine& machine, gbc::interrupt_t&)
 		{
+			// render a full frame before we can make a screenshot
+			machine.gpu.scanline_rendering(true);
+			machine.simulate_one_frame();
+			machine.gpu.scanline_rendering(false);
+			static const char* filename = "screenshot.bmp";
+			save_screenshot(filename, machine.gpu.pixels());
+			// dump background & tiles for this frame
 			const char* bgfile = "background.bmp";
 			save_screenshot(bgfile, machine.gpu.dump_background());
 			const char* tilefile = "tiles0.bmp";
@@ -102,38 +99,15 @@ int main(int argc, char** args)
       const uint32_t r = ((color >>  0) & 0x1f) << 3;
       const uint32_t g = ((color >>  5) & 0x1f) << 3;
       const uint32_t b = ((color >> 10) & 0x1f) << 3;
-			const uint32_t rgba = r | (g << 8) | (b << 16);
+			// TODO: BMP is BGR?
+			const uint32_t rgba = (r << 16) | (g << 8) | (b << 0);
 			printf("GPU: %u changes color to %04X (%06X)\n", idx, color, rgba);
 			palette.at(idx) = rgba;
     });
 
-	extern void do_test_machine();
-	//do_test_machine();
-
-	uint64_t last_frame = 0;
 	while (machine->is_running())
 	{
 		machine->simulate();
-		/*
-		static int counter = 0;
-		std::array<uint8_t, 8> inputs = {0x80, 0x10, 0x10, 0x80, 0x10, 0x80, 0x0, 0x0};
-		machine->set_inputs(inputs.at(counter));
-		counter = (counter + 1) % inputs.size();
-
-		const uint64_t frame = machine->gpu.frame_count();
-		if (last_frame != frame) {
-			last_frame = frame;
-			if (frame == 248) {
-				start_screenshotting = true;
-				machine->break_now();
-				// save screenshot
-				static const char* filename = "screenshot.bmp";
-				save_screenshot(filename, machine->gpu.pixels());
-			}
-		}
-		*/
 	}
-	save_screenshot("exitshot.bmp", machine->gpu.pixels());
-
   return 0;
 }

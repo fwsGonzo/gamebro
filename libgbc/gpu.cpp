@@ -75,8 +75,10 @@ namespace gbc
           if (this->m_on_palchange) {
             this->m_on_palchange(WHITE_IDX, 0xFFFF);
           }
-          // clear pixelbuffer with white
-          std::fill_n(m_pixels.begin(), m_pixels.size(), WHITE_IDX);
+          if (LIKELY(this->m_render)) {
+            // clear pixelbuffer with white
+            std::fill_n(m_pixels.begin(), m_pixels.size(), WHITE_IDX);
+          }
         }
         // enable MODE 1: V-blank
         set_mode(1);
@@ -112,8 +114,12 @@ namespace gbc
       {
         // enable MODE 3: Scanline VRAM
         set_mode(3);
-        // render a scanline
-        this->render_scanline(m_state.current_scanline);
+
+        // render a scanline (if rendering enabled)
+        if (LIKELY(!this->m_state.white_frame && this->m_render))
+        {
+          this->render_scanline(m_state.current_scanline);
+        }
         // TODO: perform HDMA transfers here!
       }
       else if (get_mode() == 3 && period >= oam_cycles()+vram_cycles())
@@ -151,19 +157,23 @@ namespace gbc
     if (equal && (m_reg_stat & 0x40)) io().trigger(io().lcd_stat);
   }
 
-  void GPU::render_and_vblank()
+  void GPU::render_frame()
   {
-    this->m_state.white_frame = false;
-    for (int y = 0; y < SCREEN_H; y++) {
-      this->render_scanline(y);
+    if (!m_state.white_frame && lcd_enabled())
+    {
+      // render each scanline
+      for (int y = 0; y < SCREEN_H; y++) {
+        this->render_scanline(y);
+      }
     }
-    // call vblank handler directly
-    io().vblank.callback(machine(), io().vblank);
+    else {
+      // clear pixelbuffer with white
+      std::fill_n(m_pixels.begin(), m_pixels.size(), WHITE_IDX);
+    }
   }
 
   void GPU::render_scanline(int scan_y)
   {
-    if (UNLIKELY(this->m_state.white_frame)) return;
     const uint8_t scroll_y = memory().read8(IO::REG_SCY);
     const uint8_t scroll_x = memory().read8(IO::REG_SCX);
     const int sy = (scan_y + scroll_y) % 256;
