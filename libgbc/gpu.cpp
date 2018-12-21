@@ -96,6 +96,8 @@ namespace gbc
         this->m_state.current_scanline = 0;
         this->m_reg_ly = 0;
         set_mode(0);
+        // new frame
+        m_state.frame_count++;
       }
       // LY == LYC comparison on each line
       this->do_ly_comparison();
