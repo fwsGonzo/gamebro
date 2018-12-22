@@ -14,21 +14,31 @@ struct snapshot_t
 	uint32_t frame    = 0;
 	buffer_t state;
 	buffer_t inputs;
+	size_t   improve_size = 0;
 
 	bool validate(const uint32_t death_progress) const noexcept {
 		return death_progress - progress > 100;
 	}
-	bool better(const snapshot_t& other) const noexcept {
+	bool improvement(const snapshot_t& other) const noexcept {
 		if (this->progress == other.progress)
 				return this->frame < other.frame;
+		return false;
+	}
+	bool better(const snapshot_t& other) const noexcept {
 		return this->progress > other.progress;
 	}
-	void append(const snapshot_t& other) {
+	void append(const snapshot_t& other, bool improvement) {
 		// set new progress
 		this->progress = other.progress;
 		this->frame    = other.frame;
 		// overwrite machine state
 		this->state = other.state;
+		// for improvements go back to old size
+		if (improvement) {
+			inputs.resize(this->improve_size);
+		}
+		// to be able to improve this snapshot we must remember the old size
+		this->improve_size = other.inputs.size();
 		// append new snapshot inputs to current
 		inputs.insert(inputs.end(), other.inputs.begin(), other.inputs.end());
 	}
@@ -58,6 +68,134 @@ struct training_results_t
 	}
 };
 
+struct Worker
+{
+	void setup_callbacks(gbc::Machine& machine);
+	void simulate_running(gbc::Machine& machine);
+
+	const int tidx;
+	bool      started = false;
+	training_results_t result;
+};
+
+void Worker::setup_callbacks(gbc::Machine& machine)
+{
+	machine.io.on_joypad_read(
+		[this] (gbc::Machine& machine, int mode)
+		{
+			if (mode == 0) {
+				//printf("%zu: Machine is about to read buttons\n", frame);
+			}
+			else {
+				//printf("%zu: Machine is about to read dpad\n", frame);
+				this->simulate_running(machine);
+			}
+		});
+	// check progress on each V-blank
+  machine.set_handler(gbc::Machine::VBLANK,
+    [this] (gbc::Machine& machine, gbc::interrupt_t&)
+    {
+			if (UNLIKELY(started == false))
+			{
+				if (machine.memory.read8(0xA22C) == 5)
+				{
+					//printf("A22C is 5 at frame %zu\n", frame);
+					this->started = true;
+				}
+			}
+			const uint16_t progress = machine.memory.read16(0xFFC2);
+			// record a snapshot each progress interval
+			if (progress % SNAPSHOT_INTERVAL == 0) {
+				auto& snapshot = this->result.snapshot;
+				snapshot.progress = progress;
+				snapshot.frame    = machine.gpu.frame_count();
+				snapshot.state.clear();
+				machine.serialize_state(snapshot.state);
+				snapshot.inputs = result.inputs;
+			}
+		});
+}
+
+// platformer running simulation
+void Worker::simulate_running(gbc::Machine& machine)
+{
+	// memory locations:
+	// LIFE (A043) A22C == 5
+	const uint64_t frame = machine.gpu.frame_count();
+	const double t = frame * 0.0167;
+	//printf("%zu: Machine is about to read dpad\n", frame);
+	// NOTE: to save bytes lets only record for dpad
+	const uint16_t SCROLL_X = machine.memory.read16(0xFFC2);
+	if (this->started)
+	{
+		const uint8_t SCX = machine.memory.read8(gbc::IO::REG_SCX);
+		// stuck detection using SCX register
+		thread_local uint16_t last_scroll = 0;
+		thread_local size_t   stuck_detect = 0;
+		if (last_scroll == SCX) {
+			if (stuck_detect++ >= 500) {
+				printf("T=%d *STUCK* for %zu frames at frame %zu\n", tidx, stuck_detect, frame);
+				result.verdict = training_results_t::STUCK;
+				machine.stop();
+			}
+		}
+		else {
+			last_scroll = SCX;
+			stuck_detect = 0;
+		}
+		// Timeout detection
+		if (t > 120.0)
+		{
+			printf("T=%d *TIMEOUT* detected at frame %zu\n", tidx, frame);
+			result.verdict = training_results_t::TIMEOUT;
+			machine.stop();
+			return;
+		}
+		// Mario sprite change detection
+		if (t > 6.0)
+		{
+			bool death_detected = false;
+			for (const auto* spr = machine.gpu.sprites_begin(); spr < machine.gpu.sprites_end(); spr++)
+			{
+				if (!spr->hidden() && spr->pattern_idx() == 0x4E) {
+					death_detected = true;
+					break;
+				}
+			}
+			if (death_detected)
+			{
+				printf("T=%d *DEATH* *SPRITE* detected at frame %zu\n", tidx, frame);
+				result.verdict = training_results_t::DEATH;
+				machine.stop();
+				return;
+			}
+		}
+
+		if (SCROLL_X >= 4000)
+		{
+			printf("T=%d Finish registered at frame %zu SCROLL_X %u\n",
+							tidx, frame, SCROLL_X);
+			result.verdict = training_results_t::FINISH;
+			machine.stop();
+		}
+	}
+	uint8_t jpad = 0;
+	// use START to get into the level
+	if (t < 4.0) {
+		jpad |= (frame % 2) ? gbc::BUTTON_START : 0;
+	}
+	else {
+		jpad = gbc::BUTTON_B;
+		if (rand() % 10) jpad |= gbc::BUTTON_A;
+		jpad |= gbc::DPAD_RIGHT;
+	}
+	// record
+	machine.set_inputs(jpad);
+	result.inputs.push_back(jpad);
+	result.frame = frame;
+	result.progress = SCROLL_X;
+}
+
 // record gameboy input state
 static void write_recorded_state(const buffer_t& inputs)
 {
@@ -71,141 +209,25 @@ static void write_recorded_state(const buffer_t& inputs)
 #include <thread>
 #include <future>
 static training_results_t
-		training_session(const int      tidx,
-										 const buffer_t romdata,
-										 const buffer_t machine_state)
+		training_session(const int       tidx,
+										 const buffer_t& romdata,
+										 const buffer_t  machine_state)
 {
-	// memory locations:
-	// LIFE (A043) A22C == 5
-	static thread_local bool started = false;
-	static thread_local training_results_t result;
-
-	auto machine = std::make_unique<gbc::Machine> (romdata);
-	machine->gpu.scanline_rendering(false);
+	gbc::Machine machine { romdata };
+	machine.gpu.scanline_rendering(false);
 	if (!machine_state.empty()) {
-		machine->restore_state(machine_state);
+		machine.restore_state(machine_state);
 	}
-	machine->io.on_joypad_read(
-		[tidx] (gbc::Machine& machine, int mode)
-		{
-			const uint64_t frame = machine.gpu.frame_count();
-			const double t = frame * 0.0167;
 
-			if (UNLIKELY(started == false))
-			{
-				if (machine.memory.read8(0xA22C) == 5)
-				{
-					//printf("A22C is 5 at frame %zu\n", frame);
-					started = true;
-				}
-			}
-			else
-			{
-				// death detection
-				if (machine.memory.read8(0xA22C) < 5)
-				{
-					printf("T=%d *DEATH* registered at frame %zu\n", tidx, frame);
-					result.verdict = training_results_t::DEATH;
-					machine.stop();
-					return;
-				}
-			}
-			uint8_t jpad = 0;
-			if (mode == 0) {
-				//printf("%zu: Machine is about to read buttons\n", frame);
-			}
-			else {
-				//printf("%zu: Machine is about to read dpad\n", frame);
-				// NOTE: to save bytes lets only record for dpad
-				const uint16_t SCROLL_X = machine.memory.read16(0xFFC2);
-				if (started)
-				{
-					const uint8_t SCX = machine.memory.read8(gbc::IO::REG_SCX);
-					// stuck detection using SCX register
-					thread_local uint16_t last_scroll = 0;
-					thread_local size_t   stuck_detect = 0;
-					if (last_scroll == SCX) {
-						if (stuck_detect++ >= 500) {
-							printf("T=%d *STUCK* for %zu frames at frame %zu\n", tidx, stuck_detect, frame);
-							result.verdict = training_results_t::STUCK;
-							machine.stop();
-						}
-					}
-					else {
-						last_scroll = SCX;
-						stuck_detect = 0;
-					}
-					// Timeout detection
-					if (t > 120.0)
-					{
-						printf("T=%d *TIMEOUT* detected at frame %zu\n", tidx, frame);
-						result.verdict = training_results_t::TIMEOUT;
-						machine.stop();
-						return;
-					}
-					// Mario sprite change detection
-					if (t > 6.0)
-					{
-						bool death_detected = false;
-						for (const auto* spr = machine.gpu.sprites_begin(); spr < machine.gpu.sprites_end(); spr++)
-						{
-							if (!spr->hidden() && spr->pattern_idx() == 0x4E) {
-								death_detected = true;
-								break;
-							}
-						}
-						if (death_detected)
-						{
-							printf("T=%d *DEATH* *SPRITE* detected at frame %zu\n", tidx, frame);
-							result.verdict = training_results_t::DEATH;
-							machine.stop();
-							return;
-						}
-					}
+	Worker thread_ctx { .tidx = tidx };
+	thread_ctx.setup_callbacks(machine);
 
-					if (SCROLL_X >= 4000)
-					{
-						printf("T=%d Finish registered at frame %zu SCROLL_X %u\n",
-										tidx, frame, SCROLL_X);
-						result.verdict = training_results_t::FINISH;
-						machine.stop();
-					}
-				}
-				// use START to get into the level
-				if (t < 4.0) {
-					jpad |= (frame % 2) ? gbc::BUTTON_START : 0;
-				}
-				else {
-					jpad = gbc::BUTTON_B;
-					if (rand() % 10) jpad |= gbc::BUTTON_A;
-					jpad |= gbc::DPAD_RIGHT;
-				}
-				// record
-				machine.set_inputs(jpad);
-				result.inputs.push_back(jpad);
-				result.frame = frame;
-				result.progress = SCROLL_X;
-			}
-		});
-	// check progress on each V-blank
-  machine->set_handler(gbc::Machine::VBLANK,
-    [] (gbc::Machine& machine, gbc::interrupt_t&)
-    {
-			const uint16_t progress = machine.memory.read16(0xFFC2);
-			// record a snapshot each progress interval
-			if (progress % SNAPSHOT_INTERVAL == 0) {
-				result.snapshot.progress = progress;
-				result.snapshot.frame    = machine.gpu.frame_count();
-				result.snapshot.state.clear();
-				machine.serialize_state(result.snapshot.state);
-				result.snapshot.inputs = result.inputs;
-			}
-		});
-	while (machine->is_running())
+	while (machine.is_running())
 	{
-		machine->simulate();
+		machine.simulate();
 	}
-	return result;
+
+	return std::move(thread_ctx.result);
 }
 
 int main(int argc, char** args)
@@ -226,7 +248,8 @@ int main(int argc, char** args)
 	while (true)
 	{
 		for (size_t i = 0; i < NUM_THREADS; i++) {
-			futures.at(i) = std::async(training_session, i+1, romdata, best_snapshot.state);
+			futures.at(i) = std::async(std::launch::async,
+						training_session, i+1, romdata, best_snapshot.state);
 		}
 		for (size_t i = 0; i < NUM_THREADS; i++) {
 			results.at(i) = futures.at(i).get();
@@ -239,9 +262,17 @@ int main(int argc, char** args)
 				write_recorded_state(best_snapshot.inputs);
 				return 0;
 			}
-			if (result.snapshot.validate(result.progress) && result.snapshot.better(best_snapshot)) {
-				best_snapshot.append(result.snapshot);
-				printf("*** New best snapshot at progress %u\n", best_snapshot.progress);
+			// check if there is a decent snapshot
+			if (result.snapshot.validate(result.progress))
+			{
+				if (result.snapshot.better(best_snapshot)) {
+					best_snapshot.append(result.snapshot, false);
+					printf("*** New best snapshot at progress %u\n", best_snapshot.progress);
+				}
+				else if (result.snapshot.improvement(best_snapshot)) {
+					best_snapshot.append(result.snapshot, true);
+					printf("*** New improved snapshot at progress %u\n", best_snapshot.progress);
+				}
 				//write_recorded_state(best_snapshot.inputs);
 			}
 		}
