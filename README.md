@@ -94,7 +94,43 @@ int main(int argc, char** args)
 
 ```
 
-### Trainer
+### Replaying
+By trapping on joypad reads, the implementor can give the virtual machine inputs exactly only when necessary, reducing state by several magnitudes. 7kB of uncompressed input data (when recording only on dpad reads) is typically 60+ seconds of gameplay. With knowledge about how many times a specific game reads the I/O register per frame, the amount can probably be halved again.
+
+Recording example:
+```C++
+// disable rendering to pixel buffer
+machine->gpu.scanline_rendering(false);
+// trap on joypad reads
+machine->io.on_joypad_read(
+    [] (gbc::Machine& machine, const int mode)
+    {
+        // recording on dpad reads, which saves an extra magnitude of data
+        if (mode == 1) {
+            const uint64_t frame = machine.gpu.frame_count();
+            // create record of sporadic jumps
+            const uint8_t jp = (frame % 2) ? gbc::BUTTON_A : 0;
+            keyboard_buffer.push_back(jp);
+        }
+    });
+```
+Playback example:
+```C++
+// trap on joypad reads
+machine->io.on_joypad_read(
+    [] (gbc::Machine& machine, const int mode)
+    {
+        // recording on dpad reads, which saves an extra magnitude of data
+        if (mode == 1) {
+            if (counter < keyboard_buffer->size()) {
+                // input 1 byte from buffer and increment
+                machine.set_inputs(keyboard_buffer->at(counter++));
+            }
+        }
+    });
+```
+
+### Training
 We can use reinforcement learning with full machine-inspection to train a neural network to play games well. Use cheat searching in other GUI-based emulators to get memory addresses that can be used as rewards.
 
 ### Post-mortem tidbits after writing a GBC emulator
