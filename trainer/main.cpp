@@ -1,26 +1,210 @@
-#include <signal.h>
+//
+//
+//
+#include <libgbc/machine.hpp>
 #include <chrono>
 #include "../src/stuff.hpp"
+using buffer_t = std::vector<uint8_t>;
 
-#include <libgbc/machine.hpp>
-static gbc::Machine* machine = nullptr;
-static void int_handler(int) {
-	machine->break_now();
+static const int SNAPSHOT_INTERVAL = 512;
+
+struct snapshot_t
+{
+	uint32_t progress = 0;
+	uint32_t frame    = 0;
+	buffer_t state;
+	buffer_t inputs;
+
+	bool validate(const uint32_t death_progress) const noexcept {
+		return death_progress - progress > 100;
+	}
+	bool better(const snapshot_t& other) const noexcept {
+		if (this->progress == other.progress)
+				return this->frame < other.frame;
+		return this->progress > other.progress;
+	}
+	void append(const snapshot_t& other) {
+		// set new progress
+		this->progress = other.progress;
+		this->frame    = other.frame;
+		// overwrite machine state
+		this->state = other.state;
+		// append new snapshot inputs to current
+		inputs.insert(inputs.end(), other.inputs.begin(), other.inputs.end());
+	}
+	void append_inputs(const buffer_t& more_inputs) {
+		inputs.insert(inputs.end(), more_inputs.begin(), more_inputs.end());
+	}
+};
+
+struct training_results_t
+{
+	enum verdict_t {
+		DEATH,
+		STUCK,
+		TIMEOUT,
+		FINISH
+	};
+
+	buffer_t inputs;
+	uint64_t frame  = 0;
+	uint32_t progress = 0;
+	verdict_t verdict = DEATH;
+
+	snapshot_t snapshot;
+
+	bool operator< (const training_results_t& other) {
+		return this->frame < other.frame;
+	}
+};
+
+// record gameboy input state
+static void write_recorded_state(const buffer_t& inputs)
+{
+	FILE* outf = fopen("output.gis", "wb");
+	assert(outf != nullptr);
+	fwrite(inputs.data(), inputs.size(), 1, outf);
+	fclose(outf);
+	printf("\n* Recorded %zu bytes of inputs\n", inputs.size());
 }
 
-#include <lzo/lzo1c.h>
-using buffer_t = std::vector<uint8_t>;
-static buffer_t compress(const buffer_t& src, size_t guess, int level = 1)
+#include <thread>
+#include <future>
+static training_results_t
+		training_session(const int      tidx,
+										 const buffer_t romdata,
+										 const buffer_t machine_state)
 {
-	std::array<uint8_t, LZO1C_MEM_COMPRESS> workmem;
-	buffer_t result;
-	result.resize(guess);
-	lzo_uint out_size = result.size();
-	int res = lzo1c_compress(src.data(), src.size(),
-													 result.data(), &out_size,
-													 workmem.data(), level);
-	assert(res == LZO_E_OK);
-	result.resize(out_size);
+	// memory locations:
+	// LIFE (A043) A22C == 5
+	static thread_local bool started = false;
+	static thread_local training_results_t result;
+
+	auto machine = std::make_unique<gbc::Machine> (romdata);
+	machine->gpu.scanline_rendering(false);
+	if (!machine_state.empty()) {
+		machine->restore_state(machine_state);
+	}
+	machine->io.on_joypad_read(
+		[tidx] (gbc::Machine& machine, int mode)
+		{
+			const uint64_t frame = machine.gpu.frame_count();
+			const double t = frame * 0.0167;
+
+			if (UNLIKELY(started == false))
+			{
+				if (machine.memory.read8(0xA22C) == 5)
+				{
+					//printf("A22C is 5 at frame %zu\n", frame);
+					started = true;
+				}
+			}
+			else
+			{
+				// death detection
+				if (machine.memory.read8(0xA22C) < 5)
+				{
+					printf("T=%d *DEATH* registered at frame %zu\n", tidx, frame);
+					result.verdict = training_results_t::DEATH;
+					machine.stop();
+					return;
+				}
+			}
+			uint8_t jpad = 0;
+			if (mode == 0) {
+				//printf("%zu: Machine is about to read buttons\n", frame);
+			}
+			else {
+				//printf("%zu: Machine is about to read dpad\n", frame);
+				// NOTE: to save bytes lets only record for dpad
+				const uint16_t SCROLL_X = machine.memory.read16(0xFFC2);
+				if (started)
+				{
+					const uint8_t SCX = machine.memory.read8(gbc::IO::REG_SCX);
+					// stuck detection using SCX register
+					thread_local uint16_t last_scroll = 0;
+					thread_local size_t   stuck_detect = 0;
+					if (last_scroll == SCX) {
+						if (stuck_detect++ >= 500) {
+							printf("T=%d *STUCK* for %zu frames at frame %zu\n", tidx, stuck_detect, frame);
+							result.verdict = training_results_t::STUCK;
+							machine.stop();
+						}
+					}
+					else {
+						last_scroll = SCX;
+						stuck_detect = 0;
+					}
+					// Timeout detection
+					if (t > 120.0)
+					{
+						printf("T=%d *TIMEOUT* detected at frame %zu\n", tidx, frame);
+						result.verdict = training_results_t::TIMEOUT;
+						machine.stop();
+						return;
+					}
+					// Mario sprite change detection
+					if (t > 6.0)
+					{
+						bool death_detected = false;
+						for (const auto* spr = machine.gpu.sprites_begin(); spr < machine.gpu.sprites_end(); spr++)
+						{
+							if (!spr->hidden() && spr->pattern_idx() == 0x4E) {
+								death_detected = true;
+								break;
+							}
+						}
+						if (death_detected)
+						{
+							printf("T=%d *DEATH* *SPRITE* detected at frame %zu\n", tidx, frame);
+							result.verdict = training_results_t::DEATH;
+							machine.stop();
+							return;
+						}
+					}
+
+					if (SCROLL_X >= 4000)
+					{
+						printf("T=%d Finish registered at frame %zu SCROLL_X %u\n",
+										tidx, frame, SCROLL_X);
+						result.verdict = training_results_t::FINISH;
+						machine.stop();
+					}
+				}
+				// use START to get into the level
+				if (t < 4.0) {
+					jpad |= (frame % 2) ? gbc::BUTTON_START : 0;
+				}
+				else {
+					jpad = gbc::BUTTON_B;
+					if (rand() % 10) jpad |= gbc::BUTTON_A;
+					jpad |= gbc::DPAD_RIGHT;
+				}
+				// record
+				machine.set_inputs(jpad);
+				result.inputs.push_back(jpad);
+				result.frame = frame;
+				result.progress = SCROLL_X;
+			}
+		});
+	// check progress on each V-blank
+  machine->set_handler(gbc::Machine::VBLANK,
+    [] (gbc::Machine& machine, gbc::interrupt_t&)
+    {
+			const uint16_t progress = machine.memory.read16(0xFFC2);
+			// record a snapshot each progress interval
+			if (progress % SNAPSHOT_INTERVAL == 0) {
+				result.snapshot.progress = progress;
+				result.snapshot.frame    = machine.gpu.frame_count();
+				result.snapshot.state.clear();
+				machine.serialize_state(result.snapshot.state);
+				result.snapshot.inputs = result.inputs;
+			}
+		});
+	while (machine->is_running())
+	{
+		machine->simulate();
+	}
 	return result;
 }
 
@@ -32,36 +216,37 @@ int main(int argc, char** args)
   const auto romdata = load_file(romfile);
   printf("Loaded %zu bytes ROM\n", romdata.size());
 
-	machine = new gbc::Machine(romdata);
-	machine->break_now();
-	signal(SIGINT, int_handler);
+	srand(time(0));
 
-	machine->io.on_joypad_read(
-		[] (gbc::Machine& machine, int mode) {
-			if (mode == 0) {
-				//printf("Machine is about to read buttons\n");
-				machine.set_inputs((rand() % 15) << 4);
-			}
-			else {
-				//printf("Machine is about to read dpad\n");
-				machine.set_inputs((rand() % 15) << 0);
-			}
-		});
+	static const int NUM_THREADS = 4;
+	std::array<std::future<training_results_t>, NUM_THREADS> futures;
+	std::array<training_results_t, NUM_THREADS> results;
+	snapshot_t best_snapshot;
 
-	std::vector<uint8_t> state;
-	while (machine->is_running())
+	while (true)
 	{
-		machine->simulate();
-
-		auto start = std::chrono::high_resolution_clock::now();
-		state.clear();
-		machine->serialize_state(state);
-		auto compr = compress(state, 8192);
-		auto finish = std::chrono::high_resolution_clock::now();
-		std::chrono::duration<double> delta = finish - start;
-
-		printf("Compressed Machine state is %zu bytes vs %zu raw\n", compr.size(), state.size());
-		printf("Serialization and compression took %.5f millis\n", delta.count() * 1000.0);
+		for (size_t i = 0; i < NUM_THREADS; i++) {
+			futures.at(i) = std::async(training_session, i+1, romdata, best_snapshot.state);
+		}
+		for (size_t i = 0; i < NUM_THREADS; i++) {
+			results.at(i) = futures.at(i).get();
+			const auto& result = results.at(i);
+			if (result.verdict == training_results_t::FINISH)
+			{
+				printf("*** Final result frame %zu\n", result.frame);
+				best_snapshot.append_inputs(result.inputs);
+				best_snapshot.inputs.push_back(0); // disable inputs
+				write_recorded_state(best_snapshot.inputs);
+				return 0;
+			}
+			if (result.snapshot.validate(result.progress) && result.snapshot.better(best_snapshot)) {
+				best_snapshot.append(result.snapshot);
+				printf("*** New best snapshot at progress %u\n", best_snapshot.progress);
+				//write_recorded_state(best_snapshot.inputs);
+			}
+		}
 	}
+	//auto best = std::min_element(std::begin(results), std::end(results));
+	//printf("Final result frame %zu\n", best->frame);
   return 0;
 }

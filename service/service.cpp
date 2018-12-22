@@ -16,6 +16,7 @@ void set_gamespeed(gbc::Machine* machine, std::chrono::milliseconds vbl_delay)
   vblspeed = vbl_delay;
   vblank_timer = Timers::oneshot(vblspeed,
    [machine] (int) {
+     if (!machine->is_running()) return;
      // create a new frame
      while (vblanked == false)
      {
@@ -25,6 +26,11 @@ void set_gamespeed(gbc::Machine* machine, std::chrono::milliseconds vbl_delay)
      set_gamespeed(machine, vblspeed);
    });
 }
+
+// use training data
+static constexpr bool USE_GIS = true;
+static fs::buffer_t keyboard_buffer = nullptr;
+static size_t gis_counter = 0;
 
 #include <hw/vga_gfx.hpp>
 #include "backbuffer.cpp"
@@ -41,25 +47,49 @@ void Service::start()
   auto& filesys = fs::memdisk().fs();
   //auto rombuffer = filesys.read_file("/ucity.gbc");
   //auto rombuffer = filesys.read_file("/tloz_seasons.gbc");
-  auto rombuffer = filesys.read_file("/tloz_la_dx.gbc");
+  //auto rombuffer = filesys.read_file("/tloz_la_dx.gbc");
   //auto rombuffer = filesys.read_file("/tloz_la12.gb");
-  //auto rombuffer = filesys.read_file("/smbland2.gb");
+  auto rombuffer = filesys.read_file("/smbland2.gb");
   //auto rombuffer = filesys.read_file("/pokemon_yellow.gbc");
   //auto rombuffer = filesys.read_file("/pokemon_gold.gbc");
   //auto rombuffer = filesys.read_file("/pokemon_crystal.gbc");
   //auto rombuffer = filesys.read_file("/tetris.gb");
   assert(rombuffer.is_valid());
-  auto romdata = std::move(*rombuffer.get());
+  // let's keep this loaded, as the machine only takes a reference
+  static auto romdata = std::move(*rombuffer.get());
+
+  // AI keyboard buffer
+  if constexpr (USE_GIS) {
+    keyboard_buffer = filesys.read_file("/output.gis").get();
+  }
 
   // the gbz80 machine
   static gbc::Machine* machine = nullptr;
   machine = new gbc::Machine(romdata);
 
+  if constexpr (USE_GIS)
+  {
+    // trap on keyboard reads
+    machine->io.on_joypad_read(
+  		[] (gbc::Machine& machine, const int mode) {
+        if (mode == 1) {
+          if (gis_counter < keyboard_buffer->size()) {
+            machine.set_inputs(keyboard_buffer->at(gis_counter));
+            gis_counter++;
+          }
+          else {
+            machine.stop();
+          }
+        }
+      });
+  }
+
   // trap on V-blank
   machine->set_handler(gbc::Machine::VBLANK,
     [] (gbc::Machine& machine, gbc::interrupt_t&)
     {
-      //const auto vec = machine.serialize_state();
+      //std::vector<uint8_t> vec;
+      //machine.serialize_state(vec);
       const int W = machine.gpu.SCREEN_W;
       const int H = machine.gpu.SCREEN_H;
 
