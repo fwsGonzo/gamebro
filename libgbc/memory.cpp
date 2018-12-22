@@ -8,6 +8,7 @@ namespace gbc
   {
     assert(this->rom_valid());
     this->disable_bootrom();
+    m_mbc.init();
   }
   void Memory::reset()
   {

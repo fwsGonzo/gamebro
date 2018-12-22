@@ -10,7 +10,9 @@
 namespace gbc
 {
   MBC::MBC(Memory& m, const std::vector<uint8_t>& rom)
-      : m_memory(m), m_rom(rom)
+      : m_memory(m), m_rom(rom) {}
+
+  void MBC::init()
   {
     this->m_ram.at(0x100) = 0x1;
     this->m_ram.at(0x101) = 0x3;
@@ -20,7 +22,7 @@ namespace gbc
     // test ROMs are just instruction arrays
     if (m_rom.size() < 0x150) return;
     // parse ROM header
-    switch (m.read8(0x147)) {
+    switch (m_memory.read8(0x147)) {
       case 0x0:
       case 0x1: // MBC 1
       case 0x2:
@@ -54,7 +56,7 @@ namespace gbc
           assert(0 && "Unknown cartridge type");
     }
     //printf("MBC version %u  Rumble: %d\n", this->m_state.version, this->m_state.rumble);
-    switch (m.read8(0x149)) {
+    switch (m_memory.read8(0x149)) {
       case 0x0:
           m_state.ram_banks = 0;
           m_state.ram_bank_size = 0;

@@ -66,5 +66,8 @@ namespace gbc
     } m_state;
     // RAM is so big we want to deal with it dynamically
     std::array<uint8_t, 131072> m_ram;
+
+    friend class Memory;
+    void init();
   };
 }
