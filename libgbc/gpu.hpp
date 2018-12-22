@@ -76,6 +76,9 @@ namespace gbc
     std::vector<uint16_t> dump_background();
     std::vector<uint16_t> dump_window();
     std::vector<uint16_t> dump_tiles(int bank);
+    // OAM sprite inspection
+    const Sprite* sprites_begin() const noexcept;
+    const Sprite* sprites_end() const noexcept;
 
   private:
     uint64_t scanline_cycles() const noexcept;
@@ -87,7 +90,7 @@ namespace gbc
     TileData create_tiledata(uint16_t tiles, uint16_t patt);
     tileconf_t      tile_config();
     sprite_config_t sprite_config();
-    std::vector<const Sprite*> find_sprites(const sprite_config_t&);
+    std::vector<const Sprite*> find_sprites(const sprite_config_t&) const;
     uint16_t colorize_tile(const tileconf_t&, uint8_t attr, uint8_t idx);
     uint16_t colorize_sprite(const Sprite*, sprite_config_t&, uint8_t);
     // addresses

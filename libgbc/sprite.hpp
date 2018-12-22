@@ -28,6 +28,9 @@ namespace gbc
     bool hidden() const noexcept {
       return ypos == 0 || ypos >= 160 || xpos == 0 || xpos >= 168;
     }
+    uint8_t pattern_idx() const noexcept {
+      return pattern;
+    }
     bool behind() const noexcept {
       return attr & 0x80;
     }

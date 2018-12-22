@@ -24,7 +24,7 @@ namespace gbc
     static constexpr range_t ZRAM        {0xFF80, 0xFFFE};
     static constexpr uint16_t InterruptEn = 0xFFFF;
 
-    Memory(Machine&, std::vector<uint8_t> rom);
+    Memory(Machine&, const std::vector<uint8_t>& rom);
     void    reset();
     void    set_wram_bank(uint8_t bank);
 
@@ -34,8 +34,10 @@ namespace gbc
     uint16_t read16(uint16_t address);
     void     write16(uint16_t address, uint16_t value);
 
-    uint8_t* oam_ram_ptr() noexcept { return m_state.oam_ram.data(); }
-    uint8_t* video_ram_ptr() noexcept { return m_state.video_ram.data(); }
+    uint8_t*       oam_ram_ptr() noexcept { return m_state.oam_ram.data(); }
+    const uint8_t* oam_ram_ptr() const noexcept { return m_state.oam_ram.data(); }
+    uint8_t*       video_ram_ptr() noexcept { return m_state.video_ram.data(); }
+    const uint8_t* video_ram_ptr() const noexcept { return m_state.video_ram.data(); }
 
     static constexpr uint16_t range_size(range_t range) { return range.second - range.first; }
 
@@ -65,8 +67,8 @@ namespace gbc
     }
   private:
     Machine& m_machine;
-    std::vector<uint8_t>       m_rom;
-    MBC                        m_mbc;
+    const std::vector<uint8_t>& m_rom;
+    MBC      m_mbc;
     struct state_t
     {
       std::array<uint8_t, 16384> video_ram = {};

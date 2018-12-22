@@ -3,8 +3,8 @@
 
 namespace gbc
 {
-  Memory::Memory(Machine& mach, std::vector<uint8_t> rom)
-    : m_machine(mach), m_rom(std::move(rom)), m_mbc{*this, m_rom}
+  Memory::Memory(Machine& mach, const std::vector<uint8_t>& rom)
+    : m_machine(mach), m_rom(rom), m_mbc{*this, rom}
   {
     assert(this->rom_valid());
     this->disable_bootrom();
@@ -40,10 +40,10 @@ namespace gbc
     switch (address & 0xF000)
     {
     case 0x0000: case 0x1000: case 0x2000: case 0x3000:
-        return m_mbc.rom()[address];
+        return m_rom[address];
     case 0x4000: case 0x5000: case 0x6000: case 0x7000:
         address -= 0x4000;
-        return m_mbc.rom()[m_mbc.rombank_offset() | address];
+        return m_rom[m_mbc.rombank_offset() | address];
     case 0x8000: case 0x9000:
         // cant read from Video RAM when working on scanline
         if (UNLIKELY(machine().gpu.get_mode() != 3)) {

@@ -53,7 +53,7 @@ namespace gbc
       default:
           assert(0 && "Unknown cartridge type");
     }
-    printf("MBC version %u  Rumble: %d\n", this->m_state.version, this->m_state.rumble);
+    //printf("MBC version %u  Rumble: %d\n", this->m_state.version, this->m_state.rumble);
     switch (m.read8(0x149)) {
       case 0x0:
           m_state.ram_banks = 0;
@@ -80,9 +80,9 @@ namespace gbc
           m_state.ram_bank_size = 0x10000;
           break;
     }
-    printf("RAM bank size: 0x%05x\n", m_state.ram_bank_size);
+    //printf("RAM bank size: 0x%05x\n", m_state.ram_bank_size);
     this->m_state.wram_size = 0x8000;
-    printf("Work RAM bank size: 0x%04x\n", m_state.wram_size);
+    //printf("Work RAM bank size: 0x%04x\n", m_state.wram_size);
   }
 
   uint8_t MBC::read(uint16_t addr)

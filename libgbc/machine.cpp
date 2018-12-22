@@ -2,8 +2,8 @@
 
 namespace gbc
 {
-  Machine::Machine(std::vector<uint8_t> rom, bool init)
-      : cpu(*this), memory(*this, std::move(rom)),
+  Machine::Machine(const std::vector<uint8_t>& rom, bool init)
+      : cpu(*this), memory(*this, rom),
         io(*this), gpu(*this), apu(*this)
   {
     // set CGB mode when ROM supports it

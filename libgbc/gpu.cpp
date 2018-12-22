@@ -326,11 +326,10 @@ namespace gbc
     return config;
   }
 
-  std::vector<const Sprite*> GPU::find_sprites(const sprite_config_t& config)
+  std::vector<const Sprite*> GPU::find_sprites(const sprite_config_t& config) const
   {
-    const auto* oam = memory().oam_ram_ptr();
-    const Sprite* sprite_begin = (Sprite*) oam;
-    const Sprite* sprite_back = &sprite_begin[39];
+    const Sprite* sprite_begin = this->sprites_begin();
+    const Sprite* sprite_back  = this->sprites_end()-1;
     std::vector<const Sprite*> results;
     // draw sprites from right to left
     for (const Sprite* sprite = sprite_back; sprite >= sprite_begin; sprite--)
@@ -343,6 +342,14 @@ namespace gbc
       }
     }
     return results;
+  }
+  const Sprite* GPU::sprites_begin() const noexcept
+  {
+    return &((Sprite*) memory().oam_ram_ptr())[0];
+  }
+  const Sprite* GPU::sprites_end() const noexcept
+  {
+    return &((Sprite*) memory().oam_ram_ptr())[40];
   }
 
   std::vector<uint16_t> GPU::dump_background()

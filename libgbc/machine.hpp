@@ -23,7 +23,8 @@ namespace gbc
   class Machine
   {
   public:
-    Machine(std::vector<uint8_t> rom, bool init = true);
+    // NOTE: machine uses ROM as a const reference
+    Machine(const std::vector<uint8_t>& rom, bool init = true);
 
     CPU    cpu;
     Memory memory;
