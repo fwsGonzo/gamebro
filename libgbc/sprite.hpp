@@ -9,11 +9,11 @@ namespace gbc
     uint8_t palette[2];
     int  scan_x;
     int  scan_y;
-    bool mode8x16;
+    int  height;
     bool is_cgb;
 
-    int height() const noexcept {
-      return mode8x16 ? 16 : 8;
+    void set_height(bool mode8x16) {
+      height = mode8x16 ? 16 : 8;
     }
   };
 
@@ -21,7 +21,6 @@ namespace gbc
   {
   public:
     static const int SPRITE_W = 8;
-    static const int SPRITE_H = 8;
 
     Sprite() = delete;
 
@@ -57,7 +56,7 @@ namespace gbc
 
     bool is_within_scanline(const sprite_config_t& config) const noexcept {
       return config.scan_y >= start_y()
-          && config.scan_y <  start_y() + config.height();
+          && config.scan_y <  start_y() + config.height;
     }
 
   private:
@@ -73,7 +72,7 @@ namespace gbc
     int ty = config.scan_y - start_y();
     if (tx < 0 || tx >= SPRITE_W) return 0;
     if (this->flipx()) tx = SPRITE_W-1 - tx;
-    if (this->flipy()) ty = config.height()-1 - ty;
+    if (this->flipy()) ty = config.height-1 - ty;
 
     int offset = this->pattern*16 + ty*2;
     if (config.is_cgb) offset += cgb_bank() * 0x2000;

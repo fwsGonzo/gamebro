@@ -8,6 +8,7 @@
 
 namespace gbc
 {
+  const int GPU::WHITE_IDX;
   GPU::GPU(Machine& mach) noexcept
     : m_memory(mach.memory), m_io(mach.io),
       m_reg_lcdc {io().reg(IO::REG_LCDC)},
@@ -321,7 +322,7 @@ namespace gbc
     config.palette[1] = memory().read8(IO::REG_OBP1);
     config.scan_x = 0;
     config.scan_y = 0;
-    config.mode8x16 = m_reg_lcdc & 0x4;
+    config.set_height(m_reg_lcdc & 0x4);
     config.is_cgb   = machine().is_cgb();
     return config;
   }
