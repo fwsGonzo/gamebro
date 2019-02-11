@@ -61,11 +61,11 @@ If you don't trap on palette writes in CGB mode, you can still expand CGB color 
 
 ### 16-bit pixel buffer
 
-The pixel buffer is 16-bits so that it can fit 15-bit colors if anyone wants to re-add the support. It is somewhat costly to do it this way without using macros. The emulator used to support a wide variety of color modes, but it's too costly to maintain and the vast majority of GBC games don't change palettes mid-frame, even though they can. You can replace some code in the GPU, specifically the return values of colorize_tile() and colorize_sprite(), to just write the color directly to the pixel buffer. The method to computing a CGB color is simply:
+The pixel buffer contains indices for colors in the current frame. You must assume that the palette changes between frames, and in some games even changes during frame rendering. An index is 8-bits and the machine needs 64 (0-63), where index 32 is white. The pixel buffer element size is 16-bits so that it can fit 15-bit colors if anyone wants to re-add the support. It is somewhat costly to do it this way without using macros. The emulator used to support a wide variety of color modes, but it's too costly to maintain and the vast majority of GBC games don't change palettes mid-frame, even though they can. You can replace some code in the GPU, specifically the return values of colorize_tile() and colorize_sprite(), to just write the color directly to the pixel buffer. The method to computing a CGB color is simply:
 ```C++
   uint16_t rgb15 = this->getpal(index*2) | (this->getpal(index*2+1) << 8);
 ```
-You can also use bit 15 for something extra.
+You should apply a curve to the 15-bit color to make it more appealing, or dull if you want to emulate the real GBC LCD screen. You can use the last bit (bit 15) for something extra.
 
 ### Debugging
 Run the command-line variant in your favorite OS, and press Ctrl+C to break into a debugger. Only caveat is that the break is always at the next instruction.
@@ -129,6 +129,8 @@ machine->io.on_joypad_read(
         }
     });
 ```
+
+Replay example: https://cloud.fwsnet.net/index.php/s/2iGRYDj7FJLpK7j
 
 ### Training
 We can use reinforcement learning with full machine-inspection to train a neural network to play games well. Use cheat searching in other GUI-based emulators to get memory addresses that can be used as rewards.
