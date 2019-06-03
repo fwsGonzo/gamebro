@@ -1,14 +1,14 @@
 #pragma once
+#include "common.hpp"
+#include "util/delegate.hpp"
 #include <array>
 #include <cstdint>
-#include "util/delegate.hpp"
-#include "common.hpp"
 
 namespace gbc
 {
-  class APU
-  {
-  public:
+class APU
+{
+public:
     APU(Machine& mach);
     using audio_stream_t = delegate<void(uint16_t, uint16_t)>;
 
@@ -16,29 +16,31 @@ namespace gbc
     void simulate();
 
     uint8_t read(uint16_t, uint8_t& reg);
-    void    write(uint16_t, uint8_t, uint8_t& reg);
+    void write(uint16_t, uint8_t, uint8_t& reg);
 
     // serialization
-    int  restore_state(const std::vector<uint8_t>&, int);
+    int restore_state(const std::vector<uint8_t>&, int);
     void serialize_state(std::vector<uint8_t>&) const;
 
     Machine& machine() noexcept { return m_machine; }
-  private:
-    struct generator_t {
 
+private:
+    struct generator_t
+    {
     };
-    struct channel_t {
-      bool generators_enabled[4] = {false};
-      bool enabled = true;
+    struct channel_t
+    {
+        bool generators_enabled[4] = {false};
+        bool enabled = true;
     };
 
     struct state_t
     {
-      bool nothing = false;
+        bool nothing = false;
 
     } m_state;
 
     Machine& m_machine;
     audio_stream_t m_audio_out;
-  };
-}
+};
+} // namespace gbc

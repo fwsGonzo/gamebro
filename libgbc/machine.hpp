@@ -1,50 +1,52 @@
 #pragma once
 
+#include "apu.hpp"
 #include "cpu.hpp"
 #include "gpu.hpp"
-#include "memory.hpp"
-#include "io.hpp"
-#include "apu.hpp"
 #include "interrupt.hpp"
+#include "io.hpp"
+#include "memory.hpp"
 
 namespace gbc
 {
-  enum keys_t {
+enum keys_t
+{
     DPAD_RIGHT = 0x1,
-    DPAD_LEFT  = 0x2,
-    DPAD_UP    = 0x4,
-    DPAD_DOWN  = 0x8,
-    BUTTON_A   = 0x10,
-    BUTTON_B   = 0x20,
+    DPAD_LEFT = 0x2,
+    DPAD_UP = 0x4,
+    DPAD_DOWN = 0x8,
+    BUTTON_A = 0x10,
+    BUTTON_B = 0x20,
     BUTTON_SELECT = 0x40,
-    BUTTON_START  = 0x80
-  };
+    BUTTON_START = 0x80
+};
 
-  class Machine
-  {
-  public:
+class Machine
+{
+public:
     // NOTE: machine uses ROM as a const reference
     Machine(const std::vector<uint8_t>& rom, bool init = true);
 
-    CPU    cpu;
+    CPU cpu;
     Memory memory;
-    IO     io;
-    GPU    gpu;
-    APU    apu;
+    IO io;
+    GPU gpu;
+    APU apu;
 
-    void     simulate();
-    void     simulate_one_frame();
-    void     reset();
+    void simulate();
+    void simulate_one_frame();
+    void reset();
     uint64_t now() noexcept;
-    bool     is_running() const noexcept { return this->m_running; }
-    bool     is_cgb() const noexcept { return this->m_cgb_mode; }
+    bool is_running() const noexcept { return this->m_running; }
+    bool is_cgb() const noexcept { return this->m_cgb_mode; }
 
     // set delegates to be notified on interrupts
-    enum interrupt {
-      VBLANK,
-      TIMER,
-      JOYPAD,
-      DEBUG,
+    enum interrupt
+    {
+        VBLANK,
+        TIMER,
+        JOYPAD,
+        DEBUG,
     };
     void set_handler(interrupt, interrupt_handler);
 
@@ -57,8 +59,8 @@ namespace gbc
 
     /// debugging aids ///
     bool verbose_instructions = false;
-    bool verbose_interrupts   = false;
-    bool verbose_banking      = false;
+    bool verbose_interrupts = false;
+    bool verbose_banking = false;
     // make the machine stop when an undefined OP happens
     bool stop_when_undefined = false;
     bool break_on_interrupts = false;
@@ -67,12 +69,11 @@ namespace gbc
     bool is_breaking() const noexcept;
     void undefined();
     void stop() noexcept;
-  private:
+
+private:
     bool m_running = true;
     bool m_cgb_mode = false;
-  };
+};
 
-  inline void Machine::simulate() {
-    cpu.simulate();
-  }
-}
+inline void Machine::simulate() { cpu.simulate(); }
+} // namespace gbc

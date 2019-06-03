@@ -1,13 +1,14 @@
 #pragma once
-#include <cstdint>
 #include "util/delegate.hpp"
+#include <cstdint>
 
 namespace gbc
 {
-  class CPU;
+class CPU;
 
-  struct breakpoint_t {
+struct breakpoint_t
+{
     delegate<void(CPU&, uint8_t)> callback;
-  };
+};
 
-}
+} // namespace gbc
