@@ -1,5 +1,7 @@
 #include "cpu.hpp"
 #include "machine.hpp"
+#include <cstdio>
+#include <cstdlib>
 
 namespace gbc
 {
@@ -305,5 +307,13 @@ void CPU::break_checks()
             bp.callback(*this, this->peekop8(0));
         }
     }
+}
+
+void assert_failed(const int expr, const char* strexpr,
+					const char* filename, const int line)
+{
+	fprintf(stderr, "Assertion failed in %s:%d: %s\n",
+					filename, line, strexpr);
+	abort();
 }
 } // namespace gbc

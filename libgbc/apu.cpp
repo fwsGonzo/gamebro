@@ -23,7 +23,7 @@ uint8_t APU::read(const uint16_t addr, uint8_t& reg)
         return reg;
     }
     printf("ERROR: Unhandled APU read at %04X (reg %02X)\n", addr, reg);
-    assert(0 && "Unhandled APU read");
+    GBC_ASSERT(0 && "Unhandled APU read");
 }
 void APU::write(const uint16_t addr, const uint8_t value, uint8_t& reg)
 {
@@ -34,11 +34,11 @@ void APU::write(const uint16_t addr, const uint8_t value, uint8_t& reg)
         // printf("NR52 Sound ON/OFF 0x%04x write 0x%02x\n", addr, value);
         reg &= 0xF;
         reg |= value & 0x80;
-        // assert(0 && "NR52 Sound ON/OFF register write");
+        // GBC_ASSERT(0 && "NR52 Sound ON/OFF register write");
         return;
     }
     printf("ERROR: Unhandled APU write at %04X val=%02X (reg %02X)\n", addr, value, reg);
-    assert(0 && "Unhandled APU write");
+    GBC_ASSERT(0 && "Unhandled APU write");
 }
 
 // serialization

@@ -1,29 +1,15 @@
 cmake_minimum_required(VERSION 3.0)
-# IncludeOS install location
-if (NOT DEFINED INCLUDEOS_PREFIX)
-  if (NOT DEFINED ENV{INCLUDEOS_PREFIX})
-    set(INCLUDEOS_PREFIX /usr/local/includeos)
-  else()
-    set(INCLUDEOS_PREFIX $ENV{INCLUDEOS_PREFIX})
-  endif()
-endif()
-
-if (NOT EXISTS "${INCLUDEOS_PREFIX}/cmake/os.cmake")
-  MESSAGE(FATAL_ERROR "IncludeOS does not appear to be installed at ${INCLUDEOS_PREFIX}")
-endif()
-list(APPEND CMAKE_MODULE_PATH ${INCLUDEOS_PREFIX}/cmake)
-
 project (gamebro)
+include(${CMAKE_CURRENT_BINARY_DIR}/conanbuildinfo.cmake OPTIONAL RESULT_VARIABLE HAS_CONAN)
+conan_basic_setup()
 include(os)
 
-set(SOURCES
-    service.cpp # ...add more here
-)
+os_add_executable(emulador "Gamebro Emulator"
+		service.cpp
+	)
 
-os_add_executable(emulador "Gamebro Emulator" ${SOURCES})
-
-os_include_directories(emulador PRIVATE ${CMAKE_SOURCE_DIR}/libgbc)
-add_subdirectory(${CMAKE_SOURCE_DIR}/libgbc)
+os_include_directories(emulador PRIVATE ${CMAKE_SOURCE_DIR}/../libgbc)
+add_subdirectory(${CMAKE_SOURCE_DIR}/../libgbc libgbc)
 os_link_libraries(emulador gbc)
 
 os_diskbuilder(emulador roms)

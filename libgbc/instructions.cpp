@@ -1,6 +1,5 @@
 // only include this file once!
-#include "common.hpp"
-#include "cpu.hpp"
+#include "machine.hpp"
 #include "printers.hpp"
 #define DEF_INSTR(x)                                                                               \
     static instruction_t instr_##x { handler_##x, printer_##x }
@@ -178,7 +177,7 @@ INSTRUCTION(RLC_RRC)(CPU& cpu, const uint8_t opcode)
     }
     break;
     default:
-        assert(0 && "Unknown opcode in RLC/RRC handler");
+        GBC_ASSERT(0 && "Unknown opcode in RLC/RRC handler");
     }
 }
 PRINTER(RLC_RRC)(char* buffer, size_t len, CPU& cpu, uint8_t opcode)
@@ -531,7 +530,7 @@ INSTRUCTION(LD_FF00_A)(CPU& cpu, const uint8_t opcode)
         cpu.registers().accum = cpu.mtread8(0xFF00 + cpu.readop8());
         return;
     }
-    assert(0);
+    GBC_ASSERT(0);
 }
 PRINTER(LD_FF00_A)(char* buffer, size_t len, CPU& cpu, uint8_t opcode)
 {
@@ -546,7 +545,7 @@ PRINTER(LD_FF00_A)(char* buffer, size_t len, CPU& cpu, uint8_t opcode)
     case 0xF0:
         return snprintf(buffer, len, "LD A, (FF00+%02X)", cpu.peekop8(1));
     }
-    assert(0);
+    GBC_ASSERT(0);
 }
 
 INSTRUCTION(LD_HL_SP)(CPU& cpu, const uint8_t opcode)
@@ -708,7 +707,7 @@ INSTRUCTION(CB_EXT)(CPU& cpu, const uint8_t)
     else
     {
         fprintf(stderr, "Missing instruction: %#x\n", opcode);
-        assert(0 && "Unimplemented extended instruction");
+        GBC_ASSERT(0 && "Unimplemented extended instruction");
     }
     // all instructions on this opcode go into the same dest
     if (!HL)

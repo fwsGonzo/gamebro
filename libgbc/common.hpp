@@ -23,4 +23,13 @@ inline void setflag(bool expr, uint8_t& flg, uint8_t mask)
     else
         flg &= ~mask;
 }
+extern void assert_failed(const int expr, const char* strexpr,
+						  const char* filename, const int line);
 } // namespace gbc
+
+
+#define GBC_ASSERT(expr) \
+	{ if (!(expr)) { \
+		gbc::assert_failed(expr, #expr, __FILE__, __LINE__); \
+		__builtin_unreachable(); \
+	} }

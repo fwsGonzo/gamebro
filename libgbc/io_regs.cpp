@@ -1,3 +1,4 @@
+#include "machine.hpp"
 // should only be included once
 #define IOHANDLER(off, x) new (&iologic.at(off - 0xff00)) iowrite_t{iowrite_##x, ioread_##x};
 
@@ -29,7 +30,7 @@ uint8_t ioread_JOYP(IO& io, uint16_t)
     case 1:
         return 0xE0 | io.joypad().keypad;
     }
-    assert(0 && "Invalid joypad GPIO value");
+    GBC_ASSERT(0 && "Invalid joypad GPIO value");
 }
 
 void iowrite_DIV(IO& io, uint16_t, uint8_t)
