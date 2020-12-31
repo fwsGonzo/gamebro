@@ -3,7 +3,7 @@
 ### Load a ROM
 ```C++
     std::vector<uint8_t> romdata = load_file(...);
-    auto* machine = new gbc::Machine(romdata);
+    gbc::Machine machine(romdata);
 ```
 
 ### Pixel output
@@ -130,7 +130,7 @@ machine->io.on_joypad_read(
     });
 ```
 
-Replay example: https://cloud.fwsnet.net/index.php/s/2iGRYDj7FJLpK7j
+Replay example: https://cloud.nwcs.no/index.php/s/2iGRYDj7FJLpK7j
 
 ### Training
 We can use reinforcement learning with full machine-inspection to train a neural network to play games well. Use cheat searching in other GUI-based emulators to get memory addresses that can be used as rewards.
