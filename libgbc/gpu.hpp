@@ -28,7 +28,7 @@ public:
     // the vector is resized to exactly fit the screen
     const auto& pixels() const noexcept { return m_pixels; }
     // trap on palette changes
-    using palchange_func_t = delegate<void(uint8_t idx, uint16_t clr)>;
+    using palchange_func_t = std::function<void(uint8_t idx, uint16_t clr)>;
     void on_palchange(palchange_func_t func) { m_on_palchange = func; }
     // get default GB palette
     static std::array<uint32_t, 4> dmg_colors(dmg_variant_t = GRAYSCALE);

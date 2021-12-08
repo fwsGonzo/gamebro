@@ -1,8 +1,8 @@
 #pragma once
 #include "common.hpp"
-#include "util/delegate.hpp"
 #include <array>
 #include <cstdint>
+#include <functional>
 
 namespace gbc
 {
@@ -10,7 +10,7 @@ class APU
 {
 public:
     APU(Machine& mach);
-    using audio_stream_t = delegate<void(uint16_t, uint16_t)>;
+    using audio_stream_t = std::function<void(uint16_t, uint16_t)>;
 
     void on_audio_out(audio_stream_t);
     void simulate();

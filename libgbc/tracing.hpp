@@ -1,6 +1,6 @@
 #pragma once
-#include "util/delegate.hpp"
 #include <cstdint>
+#include <functional>
 
 namespace gbc
 {
@@ -8,7 +8,7 @@ class CPU;
 
 struct breakpoint_t
 {
-    delegate<void(CPU&, uint8_t)> callback;
+    std::function<void(CPU&, uint8_t)> callback;
 };
 
 } // namespace gbc

@@ -1,12 +1,12 @@
 #pragma once
-#include "util/delegate.hpp"
 #include <cstdint>
+#include <functional>
 
 namespace gbc
 {
 class Machine;
 struct interrupt_t;
-using interrupt_handler = delegate<void(Machine&, interrupt_t&)>;
+using interrupt_handler = std::function<void(Machine&, interrupt_t&)>;
 
 struct interrupt_t
 {

@@ -115,7 +115,7 @@ public:
     };
     inline joypad_t& joypad() { return m_state.joypad; }
 
-    using joypad_read_handler_t = delegate<void(Machine&, int)>;
+    using joypad_read_handler_t = std::function<void(Machine&, int)>;
     void on_joypad_read(joypad_read_handler_t h) { m_jp_handler = h; }
     void trigger_joypad_read()
     {

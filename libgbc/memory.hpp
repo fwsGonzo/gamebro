@@ -1,9 +1,10 @@
 #pragma once
 #include "common.hpp"
 #include "mbc.hpp"
-#include "util/delegate.hpp"
 #include <array>
 #include <cstdint>
+#include <functional>
+#include <string>
 #include <vector>
 
 namespace gbc
@@ -62,7 +63,7 @@ public:
         READ,
         WRITE
     };
-    using access_t = delegate<void(Memory&, uint16_t, uint8_t)>;
+    using access_t = std::function<void(Memory&, uint16_t, uint8_t)>;
     void breakpoint(amode_t, access_t);
 
     inline static bool is_within(uint16_t addr, const range_t& range)
