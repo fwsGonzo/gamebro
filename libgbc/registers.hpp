@@ -1,6 +1,7 @@
 #pragma once
 #include "common.hpp"
 #include <string>
+#include <stdexcept>
 
 namespace gbc
 {
@@ -89,7 +90,7 @@ struct regs_t
         case 5:
             return l;
         case 6:
-            throw std::runtime_error("getdest: (HL) not accessible here");
+            throw MachineException("getdest: (HL) not accessible here");
         case 7:
             return accum;
         }

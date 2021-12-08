@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include <exception>
 
 #ifndef LIKELY
 #define LIKELY(x) __builtin_expect((x), 1)
@@ -25,6 +26,21 @@ inline void setflag(bool expr, uint8_t& flg, uint8_t mask)
 }
 extern void assert_failed(const int expr, const char* strexpr,
 						  const char* filename, const int line);
+
+class MachineException : public std::exception
+{
+public:
+	MachineException(const char* m)
+		: message{m} {}
+
+	const char* what() const noexcept override
+	{
+		return message;
+	}
+private:
+	const char* const message;
+};
+
 } // namespace gbc
 
 
