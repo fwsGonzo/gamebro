@@ -91,7 +91,7 @@ static void get_state(size_t n, struct virtbuffer vb[n], size_t res)
 	current_state.inputs.b |= inputs.b;
 	current_state.inputs.e |= inputs.e;
 	current_state.inputs.s |= inputs.s;
-	current_state.inputs.direction = inputs.direction;
+	current_state.inputs.direction |= inputs.direction;
 
 	auto t1 = time_now();
 
@@ -106,13 +106,10 @@ static void get_state(size_t n, struct virtbuffer vb[n], size_t res)
 			gbc::setflag(true, keys, gbc::BUTTON_A);
 		if (current_state.inputs.b)
 			gbc::setflag(true, keys, gbc::BUTTON_B);
-		switch (current_state.inputs.direction) {
-			case 0: break;
-			case 1: gbc::setflag(true, keys, gbc::DPAD_UP); break;
-			case 2: gbc::setflag(true, keys, gbc::DPAD_DOWN); break;
-			case 3: gbc::setflag(true, keys, gbc::DPAD_RIGHT); break;
-			case 4: gbc::setflag(true, keys, gbc::DPAD_LEFT); break;
-		}
+		gbc::setflag(current_state.inputs.direction & 1, keys, gbc::DPAD_UP);
+		gbc::setflag(current_state.inputs.direction & 2, keys, gbc::DPAD_DOWN);
+		gbc::setflag(current_state.inputs.direction & 4, keys, gbc::DPAD_RIGHT);
+		gbc::setflag(current_state.inputs.direction & 8, keys, gbc::DPAD_LEFT);
 		machine->set_inputs(keys);
 
 		machine->simulate_one_frame();
@@ -141,13 +138,13 @@ static void on_get(const char* c_url, int, int)
 	inputs.e = (url.find('e') != std::string::npos);
 	inputs.s = (url.find('s') != std::string::npos);
 	if (url.find('u') != std::string::npos)
-		inputs.direction = 1;
+		inputs.direction |= 1;
 	else if (url.find('d') != std::string::npos)
-		inputs.direction = 2;
+		inputs.direction |= 2;
 	else if (url.find('r') != std::string::npos)
-		inputs.direction = 3;
+		inputs.direction |= 4;
 	else if (url.find('l') != std::string::npos)
-		inputs.direction = 4;
+		inputs.direction |= 8;
 
 	// Read the current state from the shared storage VM
 	// The storage VM also increments the frame number
