@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <title>Minimal template</title>
+  </head>
+  <style type="text/css">
+  .gameboy-color {
+    height: 504.5px;
+    width: 295px;
+    display: flex;
+    margin-left: auto;
+    margin-right: auto;
+    border-radius: 10px 10px 30px 30px;
+  }
+  .screen-outer {
+    background-color: #333;
+    border: 1px solid #111;
+    width: 100%;
+    height: 200px;
+    margin: 10px;
+    border-radius: 5px 5px 10px 10px;
+  }
+  .screen-lcd {
+    width: 160px;
+    height: 144px;
+    background-color: #bfc4ae;
+    box-shadow: inset 0 0 5px #000;
+  }
+  .screen-inner {
+    padding: 5px;
+    display: inline-flex;
+    background-color: #111;
+    margin: 20px 50px;
+    border-radius: 2px;
+  }
+  .red {
+    background-color: red;
+  }
+  </style>
+  <body>
+    <main>
+      <div class="gameboy-color red">
+        <div class="screen-outer">
+          <div class="screen-inner">
+            <img class="screen-lcd" id="lcd" />
+          </div>
+        </div>
+      </div>
+    </main>
+    Keyboard:
+    <ul>
+      <li>Arrow keys = PAD</li>
+      <li>Z = A button</li>
+      <li>X = B button</li>
+	  <li>Enter = START</li>
+      <li>Backspace = SELECT</li>
+    </ul>
+  </body>
+  <script type="module">
+  "use strict";
+  var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+      function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+      return new (P || (P = Promise))(function (resolve, reject) {
+          function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+          function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+          function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+          step((generator = generator.apply(thisArg, _arguments || [])).next());
+      });
+  };
+  let request;
+  let lcd;
+  const padEvents = [];
+  const buttonEvents = [];
+  function getFrame(url) {
+      return new Promise((resolve, reject) => {
+          request = new XMLHttpRequest();
+          request.responseType = "blob";
+          request.onload = (e) => {
+              resolve(request.response);
+          };
+          request.onerror = reject;
+          request.open("GET", url);
+          request.send();
+      });
+  }
+  ;
+  /**
+   * tick - Every call "tick" will fetch a frame from the server.
+   */
+  function tick(ts) {
+      return __awaiter(this, void 0, void 0, function* () {
+          try {
+              let url = '/x/png';
+              const query = [];
+              if (padEvents.length > 0) {
+                  query.push(`${padEvents.shift()}`);
+              }
+              if (buttonEvents.length > 0) {
+                  query.push(`${buttonEvents.shift()}`);
+              }
+			  query.push(Math.floor(Math.random() * 1000));
+              if (query.length > 0) {
+                  url += `?${query.join('&')}`;
+              }
+              const frame = yield getFrame(url);
+              lcd.src = URL.createObjectURL(frame);
+          }
+          catch (error) {
+              console.error(error);
+              alert("Encountered an error");
+              return;
+          }
+          ;
+          window.requestAnimationFrame(tick);
+      });
+  }
+  ;
+  document.addEventListener('DOMContentLoaded', (_event) => {
+      lcd = document.getElementById('lcd');
+      window.requestAnimationFrame(tick);
+  });
+  document.addEventListener('keydown', (_event) => {
+      switch (_event.key) {
+          case 'ArrowUp':
+			  padEvents.push('u');
+			  break;
+          case 'ArrowDown':
+			  padEvents.push('d');
+			  break;
+		  case 'ArrowRight':
+              padEvents.push('r');
+              break;
+          case 'ArrowLeft':
+			  padEvents.push('l');
+			  break;
+          case 'z':
+              buttonEvents.push('a');
+              break;
+          case 'x':
+              buttonEvents.push('b');
+              break;
+      }
+	  switch (_event.which) {
+		  case 8:
+              buttonEvents.push('s');
+              break;
+		  case 13:
+              buttonEvents.push('e');
+              break;
+      }
+  });
+  </script>
+</html>

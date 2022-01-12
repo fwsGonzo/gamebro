@@ -217,8 +217,9 @@ void GPU::render_scanline(int scan_y)
                 const uint8_t idx = sprite->pixel(sprconf);
                 if (idx != 0)
                 {
-                    if (!sprite->behind() || tile_color == 0)
-                    { color = this->colorize_sprite(sprite, sprconf, idx); }
+                    if (!sprite->behind() || tile_color == 0) {
+						color = this->colorize_sprite(sprite, sprconf, idx);
+					}
                 }
             }
         } // BG priority
@@ -245,9 +246,10 @@ uint16_t GPU::colorize_tile(const tileconf_t& conf, const uint8_t attr, const ui
 uint16_t GPU::colorize_sprite(const Sprite* sprite, sprite_config_t& sprconf, const uint8_t idx)
 {
     size_t index = 0;
-    if (machine().is_cgb()) { index = 32 + 4 * sprite->cgb_pal() + idx; }
-    else
-    {
+    if (machine().is_cgb()) {
+		index = 32 + 4 * sprite->cgb_pal() + idx;
+	}
+    else {
         const uint8_t pal = sprconf.palette[sprite->pal()];
         index = (pal >> (idx * 2)) & 0x3;
     }

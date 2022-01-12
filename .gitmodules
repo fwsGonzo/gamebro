@@ -1,3 +1,9 @@
 [submodule "ext/bmp"]
 	path = ext/bmp
 	url = git@github.com:skeeto/bmp.git
+[submodule "ext/lodepng"]
+	path = ext/lodepng
+	url = https://github.com/lvandeve/lodepng.git
+[submodule "ext/libspng"]
+	path = ext/libspng
+	url = https://github.com/randy408/libspng.git

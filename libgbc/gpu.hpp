@@ -37,6 +37,7 @@ public:
     // get the 32-bit RGB colors (with alpha=0)
     uint32_t expand_cgb_color(uint8_t idx) const noexcept;
     uint32_t expand_dmg_color(uint8_t idx) const noexcept;
+	static uint32_t color15_to_rgba32(uint16_t color15);
     // enable / disable scanline rendering
     void scanline_rendering(bool en) noexcept { this->m_render = en; }
     // render whole frame now (NOTE: changes are often made mid-frame!)
@@ -165,5 +166,12 @@ inline uint32_t GPU::expand_cgb_color(const uint8_t index) const noexcept
     const uint16_t g = ((color15 >> 5) & 0x1f) << 3;
     const uint16_t b = ((color15 >> 10) & 0x1f) << 3;
     return r | (g << 8) | (b << 16);
+}
+inline uint32_t GPU::color15_to_rgba32(const uint16_t color15)
+{
+	const uint16_t r = ((color15 >> 0) & 0x1f) << 3;
+    const uint16_t g = ((color15 >> 5) & 0x1f) << 3;
+    const uint16_t b = ((color15 >> 10) & 0x1f) << 3;
+    return (r << 0u) | (g << 8u) | (b << 16u) | (255ul << 24u);
 }
 } // namespace gbc
