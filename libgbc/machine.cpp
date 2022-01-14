@@ -51,7 +51,7 @@ void Machine::set_handler(interrupt i, interrupt_handler handler)
 
 void Machine::set_inputs(uint8_t mask) { io.trigger_keys(mask); }
 
-void Machine::restore_state(const std::vector<uint8_t>& data)
+size_t Machine::restore_state(const std::vector<uint8_t>& data)
 {
     int offset = 0;
     offset += cpu.restore_state(data, offset);
@@ -59,6 +59,7 @@ void Machine::restore_state(const std::vector<uint8_t>& data)
     offset += io.restore_state(data, offset);
     offset += gpu.restore_state(data, offset);
     offset += apu.restore_state(data, offset);
+    return offset;
 }
 void Machine::serialize_state(std::vector<uint8_t>& result) const
 {

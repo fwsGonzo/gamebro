@@ -54,8 +54,8 @@ public:
     void set_inputs(uint8_t mask);
 
     // serialization (state-keeping)
-    void restore_state(const std::vector<uint8_t>&);
-    void serialize_state(std::vector<uint8_t>&) const;
+    size_t restore_state(const std::vector<uint8_t>&);
+    void   serialize_state(std::vector<uint8_t>&) const;
 
     /// debugging aids ///
     bool verbose_instructions = false;
