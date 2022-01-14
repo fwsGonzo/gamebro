@@ -32,6 +32,9 @@ static inline void set_backend_get(void(*f)(const char*, int, int)) { register_f
 static inline void set_backend_post(void(*f)(const char*, const uint8_t*, size_t)) { register_func(2, f); }
 static inline void set_backend_stream_post(void(*f)(const uint8_t*, size_t)) { register_func(3, f); }
 
+static inline void set_on_live_update(void(*f)()) { register_func(4, f); }
+static inline void set_on_live_restore(void(*f)(size_t)) { register_func(5, f); }
+
 /* Wait for requests without terminating machine. Call this just before
    the end of int main(). */
 extern void wait_for_requests();
@@ -216,7 +219,8 @@ asm(".global register_func\n" \
 ".type register_func, function\n" \
 "register_func:\n" \
 "	mov $0x10000, %eax\n" \
-"	out %eax, $0\n");
+"	out %eax, $0\n" \
+"	ret");
 
 asm(".global wait_for_requests\n" \
 ".type wait_for_requests, function\n" \

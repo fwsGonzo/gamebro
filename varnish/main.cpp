@@ -60,15 +60,10 @@ generate_png(const PixelArray& pixels, const PaletteArray& palette)
 	return {png_buf, png_size};
 }
 
-struct FrameData {
-	int  direction;
-	bool buttons[4];
-};
 struct FrameState {
 	size_t   frame_number;
 	timespec ts;
 	InputState inputs;
-	std::array<FrameData, 10> data;
 };
 static FrameState current_state;
 
@@ -157,6 +152,34 @@ static void on_get(const char* c_url, int, int)
 		png.first, png.second);
 }
 
+static void do_serialize_state() {
+	std::vector<uint8_t> state;
+	machine->serialize_state(state);
+	state.insert(state.end(), (uint8_t*) &storage_state, (uint8_t*) &storage_state + sizeof(storage_state));
+	state.insert(state.end(), (uint8_t*) &current_state, (uint8_t*) &current_state + sizeof(FrameState));
+	storage_return(state.data(), state.size());
+}
+static void do_restore_state(size_t len) {
+	printf("State: %zu bytes\n", len);
+	fflush(stdout);
+	// Restoration happens in two stages.
+	// 1st stage: No data, but the length is provided.
+	std::vector<uint8_t> state;
+	state.resize(len);
+	storage_return(state.data(), state.size());
+	// 2nd stage: Do the actual restoration:
+	size_t off = machine->restore_state(state);
+	if (state.size() >= off + sizeof(PixelState)) {
+		storage_state = *(PixelState*) &state.at(off);
+		off += sizeof(PixelState);
+	}
+	if (state.size() >= off + sizeof(FrameState)) {
+		current_state = *(FrameState*) &state.at(off);
+	}
+	printf("State restored!\n");
+	fflush(stdout);
+}
+
 int main(int argc, char** argv)
 {
 	// Storage has a gbc emulator
@@ -175,5 +198,7 @@ int main(int argc, char** argv)
 	}
 
 	set_backend_get(on_get);
+	set_on_live_update(do_serialize_state);
+	set_on_live_restore(do_restore_state);
 	wait_for_requests();
 }
