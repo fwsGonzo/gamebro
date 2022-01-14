@@ -2,24 +2,45 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8">
-    <title>Minimal template</title>
+    <title>Varnish Color</title>
+    <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0, minimum-scale=1.0">
   </head>
   <style type="text/css">
-  .gameboy-color {
-    height: 504.5px;
-    width: 295px;
+  .embed {
+    box-shadow: 0 1px 0px rgba(255,255,255,.25), inset 0 1px 0px rgba(0,0,0,.25);
+  }
+  .d-flex {
     display: flex;
+  }
+  .flex-column {
+    flex-direction: column
+  }
+  .flex-row {
+    flex-direction: row
+  }
+  .m-auto {
     margin-left: auto;
     margin-right: auto;
-    border-radius: 10px 10px 30px 30px;
+  }
+  .ml-auto {
+    margin-left: auto;
+  }
+  .flex-items-center {
+    align-items: center
+  }
+  .gameboy-color {
+    height: 504.5px;
+    width: 295px; 
+    border-radius: 10px 10px 30px 60px;
+    background-color: #1c6bab;
   }
   .screen-outer {
     background-color: #333;
     border: 1px solid #111;
-    width: 100%;
     height: 200px;
-    margin: 10px;
-    border-radius: 5px 5px 10px 10px;
+    margin: 20px;
+    border-radius: 10px 10px 10px 30px;
+    padding: 10px;
   }
   .screen-lcd {
     width: 160px;
@@ -29,35 +50,135 @@
   }
   .screen-inner {
     padding: 5px;
-    display: inline-flex;
     background-color: #111;
-    margin: 20px 50px;
     border-radius: 2px;
   }
-  .red {
-    background-color: red;
+  .pad,.button,.toggle {
+    border: none;
+    background-color: #444;
+    padding: 0px;
+    font-size: 1.5em;
+    color: rgba(0,0,0,.4);
+  }
+  .pad {
+    width: 30px;
+    height: 30px;
+    margin: 0px;
+    padding: 0px;
+    
+  }
+  .button {
+    width: 40px;
+    height: 40px;
+    border-radius: 100%;
+    font-weight: bold;
+  }
+  .toggle {
+    width: 40px;
+    height: 10px;
+    border-radius: 100%;
+    font-size: .75em;
+    line-height: 40px;
+    margin: 5px;
+  }
+  .pad:hover,.button:hover,.toggle:hover {
+    color: rgba(0,0,0,.75);
+  }
+  .pad:active,.pad.active,.button:active,.button.active,toggle:active,.toggle.active {
+    box-shadow: none!important;
+  }
+  .up:active,.up.active {
+      background: linear-gradient(#333, #444);
+  }
+  .left:active,.left.active {
+      background: linear-gradient(to right, #333, #444);
+  }
+  .right:active,.right.active {
+      background: linear-gradient(to left, #333, #444);
+  }
+  .down:active,.down.active {
+      background: linear-gradient(#444, #333);
+  }
+  .up {
+    box-shadow: inset 1px 0 0 rgba(255,255,255,.25),inset 0 1px 0 rgba(255,255,255,.20), inset -1px 1px 0 rgba(0,0,0,.25);
+  }
+  .down {
+    box-shadow: inset -1px -1px 0 rgba(0,0,0,.25), inset 1px 0 0 rgba(255,255,255,.25);
+  }
+  .left {
+    box-shadow: inset 1px 0px 0 rgba(255,255,255,.10),inset 0 1px 0 rgba(255,255,255,.25), inset 0 -1px 0 rgba(0,0,0,.25);
+  }
+  .right {
+    box-shadow: inset -1px 0px 0 rgba(0,0,0,.25),inset 0 1px 0 rgba(255,255,255,.10), inset 0 -1px 0 rgba(0,0,0,.25);
+  }
+  .button-a {
+    margin-bottom: 30px;
+    margin-left: 10px;
+  }
+  .button-b {
+    margin-top: 30px;
+  }
+  .status-indicator {
+    font-size: .4em;
+    color: rgba(255,255,255,.75);
+    font-family: sans-serif;
+    margin-right: 10px;
+  }
+  .power {
+    width: 10px;
+    height: 10px;
+    border-radius: 100%;
+    background-color: #8E1600;
+    display: block;
+    margin-bottom: 5px;
+  }
+  .power.active {
+    background: linear-gradient(#ff340f, #db2200);
+    box-shadow: 0 0 10px #ff340f;
+  }
+  .controls {
+    padding: 30px;
   }
   </style>
   <body>
     <main>
-      <div class="gameboy-color red">
-        <div class="screen-outer">
-          <div class="screen-inner">
-            <img class="screen-lcd" id="lcd" />
+      <div class="gameboy-color d-flex flex-column m-auto">
+        <div class="screen-outer embed d-flex flex-row flex-items-center">
+          <div class="status-indicator">
+            <span class="power embed" id="power"></span>
+            POWER
           </div>
+          <div class="screen-inner embed">
+            <canvas class="screen-lcd" id="lcd"></canvas>
+          </div>
+        </div>
+        <div class="d-flex controls">
+          <div class="d-flex flex-column flex-items-center">
+            <div class="d-flex">
+              <button class="pad up" id="up">&#9650;</button>
+            </div>
+            <div class="d-flex">
+              <button class="pad left" id="left">&#9668;</button>
+              <button class="pad center"></button>
+              <button class="pad right" id="right">&#9658;</button>
+            </div>
+            <div class="d-flex">
+              <button class="pad down" id="down">&#9660;</button>
+            </div>
+          </div>
+          <div class="d-flex flex-items-center ml-auto">
+            <button class="button button-b left" id="b">X</button>
+            <button class="button button-a left" id="a">Z</button>
+          </div>
+        </div>
+        <div class="d-flex m-auto">
+          <button class="toggle up down" id="select">BACK</button>
+          <button class="toggle up down" id="start">ENTER</button>
         </div>
       </div>
     </main>
-    Keyboard:
-    <ul>
-      <li>Arrow keys = PAD</li>
-      <li>Z = A button</li>
-      <li>X = B button</li>
-	  <li>Enter = START</li>
-      <li>Backspace = SELECT</li>
-    </ul>
   </body>
-  <script type="module">
+  <script type="text/javascript">
   "use strict";
   var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
       function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
@@ -68,14 +189,31 @@
           step((generator = generator.apply(thisArg, _arguments || [])).next());
       });
   };
-  let request;
+  let eventStart;
+  let powerOn = false;
   let lcd;
+  let up;
+  let down;
+  let left;
+  let right;
+  let a;
+  let b;
+  let start;
+  let select;
+  let power;
+  let padEvent;
+  let padElement;
+  let buttonEvent;
+  let buttonElement;
+  const width = 160;
+  const height = 144;
   const padEvents = [];
   const buttonEvents = [];
+  const img = new Image(width, height);
+  const request = new XMLHttpRequest();
+  request.responseType = "blob";
   function getFrame(url) {
       return new Promise((resolve, reject) => {
-          request = new XMLHttpRequest();
-          request.responseType = "blob";
           request.onload = (e) => {
               resolve(request.response);
           };
@@ -86,29 +224,53 @@
   }
   ;
   /**
-   * tick - Every call "tick" will fetch a frame from the server.
+   * tick - Every call will fetch a frame from the server.
+   * Includes any key pad or button events.
    */
   function tick(ts) {
       return __awaiter(this, void 0, void 0, function* () {
+          const ctx = lcd.getContext('2d');
           try {
-              let url = '/x/png';
+              let url = `/x/png`;
               const query = [];
-              if (padEvents.length > 0) {
-                  query.push(`${padEvents.shift()}`);
+              query.push(String(Math.floor(Math.random() * 1000)));
+              if (padEvent) {
+                  query.push(padEvent);
+                  padEvent = null;
               }
-              if (buttonEvents.length > 0) {
-                  query.push(`${buttonEvents.shift()}`);
+              if (buttonEvent) {
+                  query.push(buttonEvent);
+                  buttonEvent = null;
               }
-			  query.push(Math.floor(Math.random() * 1000));
               if (query.length > 0) {
                   url += `?${query.join('&')}`;
               }
               const frame = yield getFrame(url);
-              lcd.src = URL.createObjectURL(frame);
+              img.src = URL.createObjectURL(frame);
+              img.onload = (event) => {
+                  const target = event.target;
+                  URL.revokeObjectURL(target.src);
+                  if (ctx) {
+                      ctx.drawImage(target, 0, 0, width, height);
+                  }
+                  resetState();
+              };
+              if (!powerOn) {
+                  power.classList.add("active");
+                  powerOn = true;
+              }
           }
           catch (error) {
               console.error(error);
-              alert("Encountered an error");
+              if (powerOn) {
+                  power.classList.remove("active");
+                  powerOn = false;
+                  if (ctx) {
+                      ctx.clearRect(0, 0, width, height);
+                      ctx.font = '10px sans-serif';
+                      ctx.fillText('error! try reloading the page', 10, height / 2, width);
+                  }
+              }
               return;
           }
           ;
@@ -116,39 +278,80 @@
       });
   }
   ;
+  function resetState() {
+      if (eventStart) {
+          const now = performance.now();
+          console.log(`event latency: ${now - eventStart}`);
+          eventStart = null;
+      }
+      if (padElement) {
+          padElement.classList.remove('active');
+          padElement = null;
+      }
+      if (buttonElement) {
+          buttonElement.classList.remove('active');
+          buttonElement = null;
+      }
+  }
   document.addEventListener('DOMContentLoaded', (_event) => {
       lcd = document.getElementById('lcd');
+      lcd.width = width;
+      lcd.height = height;
+      up = document.getElementById('up');
+      down = document.getElementById('down');
+      left = document.getElementById('left');
+      right = document.getElementById('right');
+      a = document.getElementById('a');
+      b = document.getElementById('b');
+      select = document.getElementById('select');
+      start = document.getElementById('start');
+      power = document.getElementById('power');
+      document.addEventListener('keydown', (_event) => {
+          eventStart = performance.now();
+          switch (_event.key) {
+              case 'ArrowUp':
+                  padElement = up;
+                  padEvent = 'u';
+                  break;
+              case 'ArrowDown':
+                  padElement = down;
+                  padEvent = 'd';
+                  break;
+              case 'ArrowLeft':
+                  padElement = left;
+                  padEvent = 'l';
+                  break;
+              case 'ArrowRight':
+                  padElement = right;
+                  padEvent = 'r';
+                  break;
+              case 'x':
+                  buttonElement = b;
+                  buttonEvent = 'b';
+                  break;
+              case 'z':
+                  buttonElement = a;
+                  buttonEvent = 'a';
+                  break;
+              case 'Enter':
+                  buttonElement = start;
+                  buttonEvent = 'e';
+                  break;
+              case 'Backspace':
+                  buttonElement = select;
+                  buttonEvent = 's';
+                  break;
+              default:
+                  break;
+          }
+          if (padElement) {
+              padElement.classList.add('active');
+          }
+          if (buttonElement) {
+              buttonElement.classList.add('active');
+          }
+      });
       window.requestAnimationFrame(tick);
-  });
-  document.addEventListener('keydown', (_event) => {
-      switch (_event.key) {
-          case 'ArrowUp':
-			  padEvents.push('u');
-			  break;
-          case 'ArrowDown':
-			  padEvents.push('d');
-			  break;
-		  case 'ArrowRight':
-              padEvents.push('r');
-              break;
-          case 'ArrowLeft':
-			  padEvents.push('l');
-			  break;
-          case 'z':
-              buttonEvents.push('a');
-              break;
-          case 'x':
-              buttonEvents.push('b');
-              break;
-      }
-	  switch (_event.which) {
-		  case 8:
-              buttonEvents.push('s');
-              break;
-		  case 13:
-              buttonEvents.push('e');
-              break;
-      }
   });
   </script>
 </html>
