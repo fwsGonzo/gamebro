@@ -30,7 +30,7 @@
   }
   .gameboy-color {
     height: 504.5px;
-    width: 295px; 
+    width: 295px;
     border-radius: 10px 10px 30px 60px;
     background-color: #1c6bab;
   }
@@ -65,7 +65,7 @@
     height: 30px;
     margin: 0px;
     padding: 0px;
-    
+
   }
   .button {
     width: 40px;
@@ -189,7 +189,6 @@
           step((generator = generator.apply(thisArg, _arguments || [])).next());
       });
   };
-  let eventStart;
   let powerOn = false;
   let lcd;
   let up;
@@ -201,14 +200,11 @@
   let start;
   let select;
   let power;
-  let padEvent;
   let padElement;
-  let buttonEvent;
+  let buttonEvent = '';
   let buttonElement;
   const width = 160;
   const height = 144;
-  const padEvents = [];
-  const buttonEvents = [];
   const img = new Image(width, height);
   const request = new XMLHttpRequest();
   request.responseType = "blob";
@@ -233,15 +229,8 @@
           try {
               let url = `/x/png`;
               const query = [];
-              query.push(String(Math.floor(Math.random() * 1000)));
-              if (padEvent) {
-                  query.push(padEvent);
-                  padEvent = null;
-              }
-              if (buttonEvent) {
-                  query.push(buttonEvent);
-                  buttonEvent = null;
-              }
+              query.push(String(Math.floor(Math.random() * 8000)));
+              query.push(buttonEvent);
               if (query.length > 0) {
                   url += `?${query.join('&')}`;
               }
@@ -253,7 +242,6 @@
                   if (ctx) {
                       ctx.drawImage(target, 0, 0, width, height);
                   }
-                  resetState();
               };
               if (!powerOn) {
                   power.classList.add("active");
@@ -278,20 +266,11 @@
       });
   }
   ;
-  function resetState() {
-      if (eventStart) {
-          const now = performance.now();
-          console.log(`event latency: ${now - eventStart}`);
-          eventStart = null;
-      }
-      if (padElement) {
-          padElement.classList.remove('active');
-          padElement = null;
-      }
-      if (buttonElement) {
-          buttonElement.classList.remove('active');
-          buttonElement = null;
-      }
+  function setInput(inp) {
+	  if (buttonEvent.indexOf(inp) == -1) buttonEvent += inp;
+  }
+  function unsetInput(inp) {
+	  buttonEvent = buttonEvent.replace(inp, '');
   }
   document.addEventListener('DOMContentLoaded', (_event) => {
       lcd = document.getElementById('lcd');
@@ -307,39 +286,38 @@
       start = document.getElementById('start');
       power = document.getElementById('power');
       document.addEventListener('keydown', (_event) => {
-          eventStart = performance.now();
           switch (_event.key) {
               case 'ArrowUp':
                   padElement = up;
-                  padEvent = 'u';
+				  setInput('u');
                   break;
               case 'ArrowDown':
                   padElement = down;
-                  padEvent = 'd';
+				  setInput('d');
                   break;
               case 'ArrowLeft':
                   padElement = left;
-                  padEvent = 'l';
+				  setInput('l');
                   break;
               case 'ArrowRight':
                   padElement = right;
-                  padEvent = 'r';
+				  setInput('r');
                   break;
               case 'x':
                   buttonElement = b;
-                  buttonEvent = 'b';
+				  setInput('b');
                   break;
               case 'z':
                   buttonElement = a;
-                  buttonEvent = 'a';
+				  setInput('a');
                   break;
               case 'Enter':
                   buttonElement = start;
-                  buttonEvent = 'e';
+				  setInput('e');
                   break;
               case 'Backspace':
                   buttonElement = select;
-                  buttonEvent = 's';
+				  setInput('s');
                   break;
               default:
                   break;
@@ -349,6 +327,50 @@
           }
           if (buttonElement) {
               buttonElement.classList.add('active');
+          }
+      });
+	  document.addEventListener('keyup', (_event) => {
+          switch (_event.key) {
+              case 'ArrowUp':
+                  padElement = up;
+				  unsetInput('u');
+                  break;
+              case 'ArrowDown':
+                  padElement = down;
+				  unsetInput('d');
+                  break;
+              case 'ArrowLeft':
+                  padElement = left;
+				  unsetInput('l');
+                  break;
+              case 'ArrowRight':
+                  padElement = right;
+				  unsetInput('r');
+                  break;
+              case 'x':
+                  buttonElement = b;
+				  unsetInput('b');
+                  break;
+              case 'z':
+                  buttonElement = a;
+				  unsetInput('a');
+                  break;
+              case 'Enter':
+                  buttonElement = start;
+				  unsetInput('e');
+                  break;
+              case 'Backspace':
+                  buttonElement = select;
+				  unsetInput('s');
+                  break;
+              default:
+                  break;
+          }
+          if (padElement) {
+              padElement.classList.remove('active');
+          }
+          if (buttonElement) {
+              buttonElement.classList.remove('active');
           }
       });
       window.requestAnimationFrame(tick);

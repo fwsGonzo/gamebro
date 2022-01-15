@@ -13,13 +13,7 @@ struct PixelState {
 	PixelArray pixels;
 	PaletteArray palette;
 };
-struct InputState {
-	bool a = false;
-	bool b = false;
-	bool e = false;
-	bool s = false;
-	int  direction = 0;
-};
+using InputState = uint8_t;
 static gbc::Machine* machine = nullptr;
 static PixelState storage_state;
 
@@ -82,30 +76,13 @@ static void get_state(size_t n, struct virtbuffer vb[n], size_t res)
 	assert(machine);
 
 	auto& inputs = *(InputState*)vb[0].data;
-	current_state.inputs.a |= inputs.a;
-	current_state.inputs.b |= inputs.b;
-	current_state.inputs.e |= inputs.e;
-	current_state.inputs.s |= inputs.s;
-	current_state.inputs.direction |= inputs.direction;
+	current_state.inputs |= inputs;
 
 	auto t1 = time_now();
 
 	if (time_diff(current_state.ts, t1) > 0.016)
 	{
-		uint8_t keys = 0;
-		if (current_state.inputs.e)
-			gbc::setflag(true, keys, gbc::BUTTON_START);
-		if (current_state.inputs.s)
-			gbc::setflag(true, keys, gbc::BUTTON_SELECT);
-		if (current_state.inputs.a)
-			gbc::setflag(true, keys, gbc::BUTTON_A);
-		if (current_state.inputs.b)
-			gbc::setflag(true, keys, gbc::BUTTON_B);
-		gbc::setflag(current_state.inputs.direction & 1, keys, gbc::DPAD_UP);
-		gbc::setflag(current_state.inputs.direction & 2, keys, gbc::DPAD_DOWN);
-		gbc::setflag(current_state.inputs.direction & 4, keys, gbc::DPAD_RIGHT);
-		gbc::setflag(current_state.inputs.direction & 8, keys, gbc::DPAD_LEFT);
-		machine->set_inputs(keys);
+		machine->set_inputs(current_state.inputs);
 
 		machine->simulate_one_frame();
 		current_state.frame_number = machine->gpu.frame_count();
@@ -128,21 +105,18 @@ static void on_get(const char* c_url, int, int)
 	}
 
 	InputState inputs {};
-	inputs.a = (url.find('a') != std::string::npos);
-	inputs.b = (url.find('b') != std::string::npos);
-	inputs.e = (url.find('e') != std::string::npos);
-	inputs.s = (url.find('s') != std::string::npos);
-	if (url.find('u') != std::string::npos)
-		inputs.direction |= 1;
-	else if (url.find('d') != std::string::npos)
-		inputs.direction |= 2;
-	else if (url.find('r') != std::string::npos)
-		inputs.direction |= 4;
-	else if (url.find('l') != std::string::npos)
-		inputs.direction |= 8;
+	if (url.find('a') != std::string::npos) inputs |= gbc::BUTTON_A;
+	if (url.find('b') != std::string::npos) inputs |= gbc::BUTTON_B;
+	if (url.find('e') != std::string::npos) inputs |= gbc::BUTTON_START;
+	if (url.find('s') != std::string::npos) inputs |= gbc::BUTTON_SELECT;
+	if (url.find('u') != std::string::npos) inputs |= gbc::DPAD_UP;
+	if (url.find('d') != std::string::npos) inputs |= gbc::DPAD_DOWN;
+	if (url.find('r') != std::string::npos) inputs |= gbc::DPAD_RIGHT;
+	if (url.find('l') != std::string::npos) inputs |= gbc::DPAD_LEFT;
 
 	// Read the current state from the shared storage VM
-	// The storage VM also increments the frame number
+	// Input: Input state from this request
+	// Output: Image and palette data
 	PixelState state;
 	storage_call(get_state, &inputs, sizeof(inputs), &state, sizeof(state));
 
