@@ -7,7 +7,7 @@ EMBED_BINARY(index_html, "../index.html");
 EMBED_BINARY(rom, "../rom.gbc");
 static std::vector<uint8_t> romdata { rom, rom + rom_size };
 
-using PaletteArray = std::array<uint32_t, 64>;
+using PaletteArray = struct spng_plte;
 using PixelArray = std::array<uint16_t, 160 * 144>;
 struct PixelState {
 	PixelArray pixels;
@@ -18,17 +18,18 @@ static gbc::Machine* machine = nullptr;
 static PixelState storage_state;
 
 static std::pair<void*, size_t>
-generate_png(const PixelArray& pixels, const PaletteArray& palette)
+generate_png(const PixelArray& pixels, PaletteArray& palette)
 {
     const int size_x = 160;
     const int size_y = 144;
 
-	//  Convert to RGBA pixel array
-	alignas(32) std::array<uint32_t, 160 * 144> rgba_pixels;
+	//  Convert to indexed pixel array
+	alignas(32) std::array<uint8_t, 160 * 144> indexed_pixels;
 	size_t pidx = 0;
 	for (const auto idx : pixels) {
-		rgba_pixels[pidx++] = palette.at(idx);
+		indexed_pixels[pidx++] = idx;
 	}
+	palette.n_entries = 64;
 
 	// Render to PNG
 	spng_ctx *enc = spng_ctx_new(SPNG_CTX_ENCODER);
@@ -38,14 +39,15 @@ generate_png(const PixelArray& pixels, const PaletteArray& palette)
 	spng_get_ihdr(enc, &ihdr);
 	ihdr.width = size_x;
 	ihdr.height = size_y;
-	ihdr.color_type = SPNG_COLOR_TYPE_TRUECOLOR_ALPHA;
+	ihdr.color_type = SPNG_COLOR_TYPE_INDEXED;
 	ihdr.bit_depth = 8;
 
 	spng_set_ihdr(enc, &ihdr);
+	spng_set_plte(enc, &palette);
 
 	int ret =
 		spng_encode_image(enc,
-			rgba_pixels.data(), rgba_pixels.size() * 4,
+			indexed_pixels.data(), indexed_pixels.size(),
 			SPNG_FMT_PNG, SPNG_ENCODE_FINALIZE);
 
 	size_t png_size = 0;
@@ -161,7 +163,10 @@ int main(int argc, char** argv)
 	{
 		machine = new gbc::Machine(romdata);
 		machine->gpu.on_palchange([](const uint8_t idx, const uint16_t color) {
-	        storage_state.palette.at(idx) = gbc::GPU::color15_to_rgba32(color);
+			// The compiler will probably optimize this just fine if
+			// we do it the proper hard way, anyway.
+			auto& entry = storage_state.palette.entries[idx];
+	        *(uint32_t *)&entry = gbc::GPU::color15_to_rgba32(color);
 	    });
 
 		current_state.frame_number = 0;
