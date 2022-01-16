@@ -20,7 +20,12 @@ public:
     static const int SCREEN_H = 144;
     static const int NUM_PALETTES = 64;
     // this palette idx is used when the screen is off
-    static const int WHITE_IDX = 32;
+	static const int WHITE_IDX = 32;
+#ifdef GAMEBRO_INDEXED_FRAME
+	using PixelType = uint8_t;
+#else
+	using PixelType = uint16_t;
+#endif
 
     GPU(Machine&) noexcept;
     void reset() noexcept;
@@ -105,7 +110,7 @@ private:
     uint8_t& m_reg_lcdc;
     uint8_t& m_reg_stat;
     uint8_t& m_reg_ly;
-    std::vector<uint16_t> m_pixels;
+	std::vector<PixelType> m_pixels;
     palchange_func_t m_on_palchange = nullptr;
     dmg_variant_t m_variant = LIGHTER_GREEN;
     bool m_render = true;

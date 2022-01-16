@@ -1,4 +1,6 @@
 
+option(GAMEBRO_INDEXED_FRAME "Use indexed pixels for LCD frame" OFF)
+
 set(SOURCES
     apu.cpp
     cpu.cpp
@@ -11,4 +13,7 @@ set(SOURCES
   )
 
 add_library(gbc STATIC ${SOURCES})
-target_include_directories(gbc PRIVATE ${CMAKE_SOURCE_DIR})
+
+if (GAMEBRO_INDEXED_FRAME)
+	target_compile_definitions(gbc PUBLIC GAMEBRO_INDEXED_FRAME=1)
+endif()

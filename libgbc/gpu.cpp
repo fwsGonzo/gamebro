@@ -194,7 +194,7 @@ void GPU::render_scanline(int scan_y)
         const int tattr = td.tile_attr(sx / 8, sy / 8);
         // copy the 16-byte tile into buffer
         const int tile_color = td.pattern(tid, tattr, sx & 7, sy & 7);
-        uint16_t color = this->colorize_tile(tileconf, tattr, tile_color);
+        uint16_t color15 = this->colorize_tile(tileconf, tattr, tile_color);
 
         if ((tattr & 0x80) == 0 || !machine().is_cgb())
         {
@@ -207,7 +207,7 @@ void GPU::render_scanline(int scan_y)
                 const int wtile = wtd.tile_id(wpx / 8, wpy / 8);
                 const int wattr = wtd.tile_attr(wpx / 8, wpy / 8);
                 const int widx = wtd.pattern(wtile, wattr, wpx & 7, wpy & 7);
-                color = this->colorize_tile(tileconf, wattr, widx);
+                color15 = this->colorize_tile(tileconf, wattr, widx);
             }
 
             // render sprites within this x
@@ -218,18 +218,22 @@ void GPU::render_scanline(int scan_y)
                 if (idx != 0)
                 {
                     if (!sprite->behind() || tile_color == 0) {
-						color = this->colorize_sprite(sprite, sprconf, idx);
+						color15 = this->colorize_sprite(sprite, sprconf, idx);
 					}
                 }
             }
         } // BG priority
-        m_pixels.at(scan_y * SCREEN_W + scan_x) = color;
+#ifndef GAMEBRO_INDEXED_FRAME
+		// Convert to 15-bit RGB
+		color15 = getpal(color15 * 2) | (getpal(color15 * 2 + 1) << 8);
+#endif
+        m_pixels.at(scan_y * SCREEN_W + scan_x) = color15;
     } // x
 } // render_to(...)
 
 uint16_t GPU::colorize_tile(const tileconf_t& conf, const uint8_t attr, const uint8_t idx)
 {
-    size_t index = 0;
+    uint16_t index = 0;
     if (conf.is_cgb)
     {
         const uint8_t pal = attr & 0x7;
@@ -245,7 +249,7 @@ uint16_t GPU::colorize_tile(const tileconf_t& conf, const uint8_t attr, const ui
 }
 uint16_t GPU::colorize_sprite(const Sprite* sprite, sprite_config_t& sprconf, const uint8_t idx)
 {
-    size_t index = 0;
+    uint16_t index = 0;
     if (machine().is_cgb()) {
 		index = 32 + 4 * sprite->cgb_pal() + idx;
 	}
