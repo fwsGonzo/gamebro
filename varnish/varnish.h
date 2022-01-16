@@ -65,6 +65,13 @@ backend_response_str(int16_t status, const char *ctype, const char *content)
 }
 
 /**
+ * HTTP header field manipulation
+ *
+**/
+extern void
+http_append(int where, const char*, size_t);
+
+/**
  * Storage program
  *
  * Every tenant has a storage program that is initialized separately (and in
@@ -227,6 +234,13 @@ asm(".global wait_for_requests\n" \
 "wait_for_requests:\n" \
 "	mov $0x10001, %eax\n" \
 "	out %eax, $0\n");
+
+asm(".global http_append\n" \
+".type http_append, function\n" \
+"http_append:\n" \
+"	mov $0x10020, %eax\n" \
+"	out %eax, $0\n" \
+"	ret");
 
 asm(".global backend_response\n" \
 ".type backend_response, function\n" \

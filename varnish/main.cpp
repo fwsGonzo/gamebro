@@ -23,11 +23,7 @@ generate_png(const std::vector<uint8_t>& pixels, PaletteArray& palette)
     const int size_y = 144;
 
 	// Render to PNG
-	static spng_ctx* enc = nullptr;
-	if (enc) {
-		spng_ctx_free(enc);
-	}
-	enc = spng_ctx_new(SPNG_CTX_ENCODER);
+	spng_ctx* enc = spng_ctx_new(SPNG_CTX_ENCODER);
 	spng_set_option(enc, SPNG_ENCODE_TO_BUFFER, 1);
 	spng_set_crc_action(enc, SPNG_CRC_USE, SPNG_CRC_USE);
 
@@ -50,6 +46,8 @@ generate_png(const std::vector<uint8_t>& pixels, PaletteArray& palette)
 
 	size_t png_size = 0;
     void  *png_buf = spng_get_png_buffer(enc, &png_size, &ret);
+
+	spng_ctx_free(enc);
 
 	return {png_buf, png_size};
 }
@@ -88,13 +86,16 @@ static void get_state(size_t n, struct virtbuffer vb[n], size_t res)
 		current_state.frame_number = machine->gpu.frame_count();
 		current_state.ts = t1;
 		current_state.inputs = {};
+
+		// Encode new PNG
+		std::free(png.first);
 		png = generate_png(machine->gpu.pixels(), storage_state.palette);
 	}
 
 	storage_return(png.first, png.second);
 }
 
-static void on_get(const char* c_url, int, int)
+static void on_get(const char* c_url, int, int resp)
 {
 	std::string url = c_url;
 
@@ -114,10 +115,14 @@ static void on_get(const char* c_url, int, int)
 	if (url.find('r') != std::string::npos) inputs |= gbc::DPAD_RIGHT;
 	if (url.find('l') != std::string::npos) inputs |= gbc::DPAD_LEFT;
 
-	// Read the current state from the shared storage VM
+	// Disable client-side caching
+	const char* nostore = "cache-control: no-store";
+	http_append(resp, nostore, strlen(nostore));
+
+	// Read the current frame from the shared storage VM
 	// Input: Input state from this request
-	// Output: Encoded indexed PNG
-	char output[8192];
+	// Output: Encoded indexed 32-bit PNG
+	char output[6000];
 	ssize_t output_len =
 		storage_call(get_state, &inputs, sizeof(inputs), output, sizeof(output));
 
