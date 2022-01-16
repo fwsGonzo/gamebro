@@ -8,23 +8,26 @@ EMBED_BINARY(rom, "../rom.gbc");
 static std::vector<uint8_t> romdata { rom, rom + rom_size };
 
 using PaletteArray = struct spng_plte;
-using PixelArray = std::array<uint8_t, 160 * 144>;
 struct PixelState {
-	PixelArray pixels;
 	PaletteArray palette;
 };
 using InputState = uint8_t;
 static gbc::Machine* machine = nullptr;
 static PixelState storage_state;
+static std::pair<void*, size_t> png {nullptr, 0};
 
 static std::pair<void*, size_t>
-generate_png(const PixelArray& pixels, PaletteArray& palette)
+generate_png(const std::vector<uint8_t>& pixels, PaletteArray& palette)
 {
     const int size_x = 160;
     const int size_y = 144;
 
 	// Render to PNG
-	spng_ctx *enc = spng_ctx_new(SPNG_CTX_ENCODER);
+	static spng_ctx* enc = nullptr;
+	if (enc) {
+		spng_ctx_free(enc);
+	}
+	enc = spng_ctx_new(SPNG_CTX_ENCODER);
 	spng_set_option(enc, SPNG_ENCODE_TO_BUFFER, 1);
 
 	spng_ihdr ihdr;
@@ -42,6 +45,7 @@ generate_png(const PixelArray& pixels, PaletteArray& palette)
 		spng_encode_image(enc,
 			pixels.data(), pixels.size(),
 			SPNG_FMT_PNG, SPNG_ENCODE_FINALIZE);
+	assert(ret == 0);
 
 	size_t png_size = 0;
     void  *png_buf = spng_get_png_buffer(enc, &png_size, &ret);
@@ -82,11 +86,11 @@ static void get_state(size_t n, struct virtbuffer vb[n], size_t res)
 		machine->simulate_one_frame();
 		current_state.frame_number = machine->gpu.frame_count();
 		current_state.ts = t1;
-		std::copy(machine->gpu.pixels().begin(), machine->gpu.pixels().end(), storage_state.pixels.begin());
 		current_state.inputs = {};
+		png = generate_png(machine->gpu.pixels(), storage_state.palette);
 	}
 
-	storage_return(&storage_state, sizeof(storage_state));
+	storage_return(png.first, png.second);
 }
 
 static void on_get(const char* c_url, int, int)
@@ -111,14 +115,13 @@ static void on_get(const char* c_url, int, int)
 
 	// Read the current state from the shared storage VM
 	// Input: Input state from this request
-	// Output: Image and palette data
-	PixelState state;
-	storage_call(get_state, &inputs, sizeof(inputs), &state, sizeof(state));
+	// Output: Encoded indexed PNG
+	char output[8192];
+	ssize_t output_len =
+		storage_call(get_state, &inputs, sizeof(inputs), output, sizeof(output));
 
-	auto png = generate_png(state.pixels, state.palette);
 	const char* ctype = "image/png";
-	backend_response(200, ctype, strlen(ctype),
-		png.first, png.second);
+	backend_response(200, ctype, strlen(ctype), output, output_len);
 }
 
 static void do_serialize_state() {
