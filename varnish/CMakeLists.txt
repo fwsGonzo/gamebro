@@ -6,6 +6,7 @@ set(COMMON "-static -O2 -march=native -Wall -Wextra")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${COMMON}")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${COMMON}")
 
+option(GAMEBRO_INDEXED_FRAME "" ON)
 add_subdirectory("${CMAKE_SOURCE_DIR}/../libgbc" libgbc)
 option(SPNG_SHARED "" OFF)
 option(SPNG_STATIC "" ON)

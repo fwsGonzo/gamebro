@@ -8,7 +8,7 @@ EMBED_BINARY(rom, "../rom.gbc");
 static std::vector<uint8_t> romdata { rom, rom + rom_size };
 
 using PaletteArray = struct spng_plte;
-using PixelArray = std::array<uint16_t, 160 * 144>;
+using PixelArray = std::array<uint8_t, 160 * 144>;
 struct PixelState {
 	PixelArray pixels;
 	PaletteArray palette;
@@ -23,14 +23,6 @@ generate_png(const PixelArray& pixels, PaletteArray& palette)
     const int size_x = 160;
     const int size_y = 144;
 
-	//  Convert to indexed pixel array
-	alignas(32) std::array<uint8_t, 160 * 144> indexed_pixels;
-	size_t pidx = 0;
-	for (const auto idx : pixels) {
-		indexed_pixels[pidx++] = idx;
-	}
-	palette.n_entries = 64;
-
 	// Render to PNG
 	spng_ctx *enc = spng_ctx_new(SPNG_CTX_ENCODER);
 	spng_set_option(enc, SPNG_ENCODE_TO_BUFFER, 1);
@@ -43,11 +35,12 @@ generate_png(const PixelArray& pixels, PaletteArray& palette)
 	ihdr.bit_depth = 8;
 
 	spng_set_ihdr(enc, &ihdr);
+	palette.n_entries = 64;
 	spng_set_plte(enc, &palette);
 
 	int ret =
 		spng_encode_image(enc,
-			indexed_pixels.data(), indexed_pixels.size(),
+			pixels.data(), pixels.size(),
 			SPNG_FMT_PNG, SPNG_ENCODE_FINALIZE);
 
 	size_t png_size = 0;
