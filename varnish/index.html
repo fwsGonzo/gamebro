@@ -229,7 +229,6 @@
           try {
               let url = `/x/png`;
               const query = [];
-              query.push(String(Math.floor(Math.random() * 8000)));
               query.push(buttonEvent);
               if (query.length > 0) {
                   url += `?${query.join('&')}`;

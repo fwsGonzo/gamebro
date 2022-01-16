@@ -29,6 +29,7 @@ generate_png(const std::vector<uint8_t>& pixels, PaletteArray& palette)
 	}
 	enc = spng_ctx_new(SPNG_CTX_ENCODER);
 	spng_set_option(enc, SPNG_ENCODE_TO_BUFFER, 1);
+	spng_set_crc_action(enc, SPNG_CRC_USE, SPNG_CRC_USE);
 
 	spng_ihdr ihdr;
 	spng_get_ihdr(enc, &ihdr);
