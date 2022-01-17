@@ -55,6 +55,7 @@ generate_png(const std::vector<uint8_t>& pixels, PaletteArray& palette)
 struct FrameState {
 	size_t   frame_number;
 	timespec ts;
+	timespec input_ts;
 	InputState inputs;
 };
 static FrameState current_state;
@@ -85,11 +86,15 @@ static void get_state(size_t n, struct virtbuffer vb[n], size_t res)
 		machine->simulate_one_frame();
 		current_state.frame_number = machine->gpu.frame_count();
 		current_state.ts = t1;
-		current_state.inputs = {};
 
 		// Encode new PNG
 		std::free(png.first);
 		png = generate_png(machine->gpu.pixels(), storage_state.palette);
+	}
+	if (time_diff(current_state.input_ts, t1) > 0.150)
+	{
+		current_state.input_ts = t1;
+		current_state.inputs = {};
 	}
 
 	storage_return(png.first, png.second);

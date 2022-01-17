@@ -172,7 +172,7 @@
           </div>
         </div>
         <div class="d-flex m-auto">
-          <button class="toggle up down" id="select">BACK</button>
+          <button class="toggle up down" id="select">SPACE</button>
           <button class="toggle up down" id="start">ENTER</button>
         </div>
       </div>
@@ -285,7 +285,7 @@
       start = document.getElementById('start');
       power = document.getElementById('power');
       document.addEventListener('keydown', (_event) => {
-          switch (_event.key) {
+          switch (_event.code) {
               case 'ArrowUp':
                   padElement = up;
 				  setInput('u');
@@ -302,11 +302,11 @@
                   padElement = right;
 				  setInput('r');
                   break;
-              case 'x':
+              case 'KeyX':
                   buttonElement = b;
 				  setInput('b');
                   break;
-              case 'z':
+              case 'KeyZ':
                   buttonElement = a;
 				  setInput('a');
                   break;
@@ -314,7 +314,7 @@
                   buttonElement = start;
 				  setInput('e');
                   break;
-              case 'Backspace':
+              case 'Space':
                   buttonElement = select;
 				  setInput('s');
                   break;
@@ -329,7 +329,7 @@
           }
       });
 	  document.addEventListener('keyup', (_event) => {
-          switch (_event.key) {
+          switch (_event.code) {
               case 'ArrowUp':
                   padElement = up;
 				  unsetInput('u');
@@ -346,11 +346,11 @@
                   padElement = right;
 				  unsetInput('r');
                   break;
-              case 'x':
+              case 'KeyX':
                   buttonElement = b;
 				  unsetInput('b');
                   break;
-              case 'z':
+              case 'KeyZ':
                   buttonElement = a;
 				  unsetInput('a');
                   break;
@@ -358,7 +358,7 @@
                   buttonElement = start;
 				  unsetInput('e');
                   break;
-              case 'Backspace':
+              case 'Space':
                   buttonElement = select;
 				  unsetInput('s');
                   break;
