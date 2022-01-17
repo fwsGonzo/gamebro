@@ -11,7 +11,24 @@ using PaletteArray = struct spng_plte;
 struct PixelState {
 	PaletteArray palette;
 };
-using InputState = uint8_t;
+struct InputState {
+	void contribute(uint8_t keys) {
+		for (size_t i = 0; i < keystate.size(); i++) {
+			uint8_t idx = (current + i) % keystate.size();
+			keystate.at(idx) |= keys;
+		}
+	}
+	uint8_t get() const {
+		return keystate.at(current);
+	}
+	void next() {
+		keystate.at(current) = 0;
+		current = (current + 1) % keystate.size();
+	}
+
+	std::array<uint8_t, 4> keystate;
+	uint8_t current = 0;
+};
 static gbc::Machine* machine = nullptr;
 static PixelState storage_state;
 static std::pair<void*, size_t> png {nullptr, 0};
@@ -55,7 +72,6 @@ generate_png(const std::vector<uint8_t>& pixels, PaletteArray& palette)
 struct FrameState {
 	size_t   frame_number;
 	timespec ts;
-	timespec input_ts;
 	InputState inputs;
 };
 static FrameState current_state;
@@ -74,27 +90,23 @@ static void get_state(size_t n, struct virtbuffer vb[n], size_t res)
 {
 	assert(machine);
 
-	auto& inputs = *(InputState*)vb[0].data;
-	current_state.inputs |= inputs;
+	auto& inputs = *(uint8_t*)vb[0].data;
+	current_state.inputs.contribute(inputs);
 
 	auto t1 = time_now();
 
 	if (time_diff(current_state.ts, t1) > 0.016)
 	{
-		machine->set_inputs(current_state.inputs);
+		machine->set_inputs(current_state.inputs.get());
 
 		machine->simulate_one_frame();
 		current_state.frame_number = machine->gpu.frame_count();
 		current_state.ts = t1;
+		current_state.inputs.next();
 
 		// Encode new PNG
 		std::free(png.first);
 		png = generate_png(machine->gpu.pixels(), storage_state.palette);
-	}
-	if (time_diff(current_state.input_ts, t1) > 0.150)
-	{
-		current_state.input_ts = t1;
-		current_state.inputs = {};
 	}
 
 	storage_return(png.first, png.second);
@@ -110,7 +122,7 @@ static void on_get(const char* c_url, int, int resp)
 			index_html, index_html_size);
 	}
 
-	InputState inputs {};
+	uint8_t inputs = 0;
 	if (url.find('a') != std::string::npos) inputs |= gbc::BUTTON_A;
 	if (url.find('b') != std::string::npos) inputs |= gbc::BUTTON_B;
 	if (url.find('e') != std::string::npos) inputs |= gbc::BUTTON_START;
