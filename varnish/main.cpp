@@ -97,7 +97,11 @@ static void get_state(size_t n, struct virtbuffer vb[n], size_t res)
 
 	if (time_diff(current_state.ts, t1) > 0.016)
 	{
-		machine->set_inputs(current_state.inputs.get());
+		auto keys = current_state.inputs.get();
+		// Prevent buggy behavior from impossible dpad states
+		if (keys & gbc::DPAD_UP) keys &= ~gbc::DPAD_DOWN;
+		if (keys & gbc::DPAD_RIGHT) keys &= ~gbc::DPAD_LEFT;
+		machine->set_inputs(keys);
 
 		machine->simulate_one_frame();
 		current_state.frame_number = machine->gpu.frame_count();
