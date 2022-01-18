@@ -109,6 +109,9 @@ storage_call(storage_func, const void* src, size_t, void* dst, size_t);
 extern long
 storage_callv(storage_func, size_t n, const struct virtbuffer[n], void* dst, size_t);
 
+extern long
+async_storage_task(void (*task)(void* arg), void* arg);
+
 /* Used to return data from storage functions */
 extern void
 storage_return(const void* data, size_t len);
@@ -259,6 +262,13 @@ asm(".global storage_callv\n" \
 ".type storage_callv, function\n" \
 "storage_callv:\n" \
 "	mov $0x10708, %eax\n" \
+"	out %eax, $0\n" \
+"   ret\n");
+
+asm(".global async_storage_task\n" \
+".type async_storage_task, function\n" \
+"async_storage_task:\n" \
+"	mov $0x10709, %eax\n" \
 "	out %eax, $0\n" \
 "   ret\n");
 
