@@ -2,10 +2,12 @@
 #include <cstdio>
 #include <libgbc/machine.hpp>
 #include <spng.h>
+#include "file_helpers.cpp"
 
 EMBED_BINARY(index_html, "../index.html");
 EMBED_BINARY(rom, "../rom.gbc");
 static std::vector<uint8_t> romdata { rom, rom + rom_size };
+static std::string statefile = "";
 
 using PaletteArray = struct spng_plte;
 struct PixelState {
@@ -128,7 +130,7 @@ static void predict_next_frame(void*)
 	predict.png = generate_png(predict.machine->gpu.pixels(), predict.palette);
 }
 
-static void get_state(size_t n, struct virtbuffer vb[n], size_t res)
+static void get_frame(size_t n, struct virtbuffer vb[n], size_t res)
 {
 	assert(machine);
 
@@ -169,6 +171,13 @@ static void get_state(size_t n, struct virtbuffer vb[n], size_t res)
 		predict.forwarded_keys = current_state.inputs.get();
 		predict.palette = storage_state.palette;
 		async_storage_task(predict_next_frame, &predict);
+
+		// Store state every X frames
+		if (machine->gpu.frame_count() % 32 == 0)
+		{
+			auto state = create_serialized_state();
+			file_writer(statefile, state);
+		}
 	}
 
 	std::string prsstr = "X-Predictions: " + std::to_string(predict.predictions);
@@ -189,6 +198,7 @@ static void on_get(const char* c_url, int, int resp)
 	std::string url = c_url;
 
 	if (url == "/x") {
+		set_cacheable(true, 3600.0);
 		const char* ctype = "text/html";
 		backend_response(200, ctype, strlen(ctype),
 			index_html, index_html_size);
@@ -208,33 +218,29 @@ static void on_get(const char* c_url, int, int resp)
 	const char* nostore = "cache-control: no-store";
 	http_append(resp, nostore, strlen(nostore));
 
+	set_cacheable(false, 8.0);
+
 	// Read the current frame from the shared storage VM
 	// Input: Input state from this request
 	// Output: Encoded indexed 32-bit PNG
 	char output[6000];
 	ssize_t output_len =
-		storage_call(get_state, &inputs, sizeof(inputs), output, sizeof(output));
+		storage_call(get_frame, &inputs, sizeof(inputs), output, sizeof(output));
 
 	const char* ctype = "image/png";
 	backend_response(200, ctype, strlen(ctype), output, output_len);
 }
 
-static void do_serialize_state() {
+static std::vector<uint8_t> create_serialized_state()
+{
 	std::vector<uint8_t> state;
 	machine->serialize_state(state);
 	state.insert(state.end(), (uint8_t*) &storage_state, (uint8_t*) &storage_state + sizeof(storage_state));
 	state.insert(state.end(), (uint8_t*) &current_state, (uint8_t*) &current_state + sizeof(FrameState));
-	storage_return(state.data(), state.size());
+	return state;
 }
-static void do_restore_state(size_t len) {
-	printf("State: %zu bytes\n", len);
-	fflush(stdout);
-	// Restoration happens in two stages.
-	// 1st stage: No data, but the length is provided.
-	std::vector<uint8_t> state;
-	state.resize(len);
-	storage_return(state.data(), state.size());
-	// 2nd stage: Do the actual restoration:
+static void restore_state_from(const std::vector<uint8_t> state)
+{
 	size_t off = machine->restore_state(state);
 	if (state.size() >= off + sizeof(PixelState)) {
 		storage_state = *(PixelState*) &state.at(off);
@@ -246,6 +252,21 @@ static void do_restore_state(size_t len) {
 	printf("State restored!\n");
 	fflush(stdout);
 }
+static void do_serialize_state() {
+	auto state = create_serialized_state();
+	storage_return(state.data(), state.size());
+}
+static void do_restore_state(size_t len) {
+	printf("State: %zu bytes\n", len);
+	fflush(stdout);
+	// Restoration happens in two stages.
+	// 1st stage: No data, but the length is provided.
+	std::vector<uint8_t> state;
+	state.resize(len);
+	storage_return(state.data(), state.size());
+	// 2nd stage: Do the actual restoration:
+	restore_state_from(state);
+}
 
 int main(int argc, char** argv)
 {
@@ -255,6 +276,16 @@ int main(int argc, char** argv)
 		machine = new gbc::Machine(romdata);
 
 		current_state.ts = time_now();
+
+		statefile = argv[3];
+		try {
+			auto state = file_loader(statefile);
+			if (!state.empty()) {
+				restore_state_from(state);
+			}
+		} catch (...) {
+			fflush(stdout);
+		}
 
 		printf("Done loading\n");
 		fflush(stdout);

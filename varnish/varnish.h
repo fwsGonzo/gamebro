@@ -72,6 +72,16 @@ extern void
 http_append(int where, const char*, size_t);
 
 /**
+ * Varnish caching configuration
+ *
+**/
+extern long
+syscall_set_cacheable(int cached, long ttl_milliseconds);
+static inline long set_cacheable(int cached, float ttl) {
+	return syscall_set_cacheable(cached, ttl * 1000);
+}
+
+/**
  * Storage program
  *
  * Every tenant has a storage program that is initialized separately (and in
@@ -109,6 +119,9 @@ storage_call(storage_func, const void* src, size_t, void* dst, size_t);
 extern long
 storage_callv(storage_func, size_t n, const struct virtbuffer[n], void* dst, size_t);
 
+/* Create an async task that is scheduled to run next in storage. The
+   new task waits until other tasks are done before starting a new one,
+   which will block the current thread, making this a blocking call. */
 extern long
 async_storage_task(void (*task)(void* arg), void* arg);
 
@@ -237,6 +250,13 @@ asm(".global wait_for_requests\n" \
 "wait_for_requests:\n" \
 "	mov $0x10001, %eax\n" \
 "	out %eax, $0\n");
+
+asm(".global syscall_set_cacheable\n" \
+".type syscall_set_cacheable, function\n" \
+"syscall_set_cacheable:\n" \
+"	mov $0x10005, %eax\n" \
+"	out %eax, $0\n" \
+"	ret");
 
 asm(".global http_append\n" \
 ".type http_append, function\n" \
