@@ -90,20 +90,19 @@ generate_png(const std::vector<uint8_t>& pixels, PaletteArray& palette)
 }
 
 struct FrameState {
-	timespec ts;
+	double ts;
 	InputState inputs;
 	uint16_t contribs = 0;
 };
 static FrameState current_state;
 
-static timespec time_now() {
+static double time_now() {
 	timespec t;
 	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &t);
-	return t;
+	return t.tv_sec + t.tv_nsec / 1e9;
 }
-static double time_diff(timespec start_time, timespec end_time) {
-	const double secs = end_time.tv_sec - start_time.tv_sec;
-	return secs + (end_time.tv_nsec - start_time.tv_nsec) / 1e9;
+static double time_diff(double start_time, double end_time) {
+	return end_time - start_time;
 }
 
 static void predict_next_frame(void*)
@@ -138,8 +137,11 @@ static void get_frame(size_t n, struct virtbuffer vb[n], size_t res)
 	current_state.inputs.contribute(inputs);
 
 	auto t1 = time_now();
+	bool do_predict_next_frame = false;
+	static constexpr double TICKRATE = 0.0167;
+	static constexpr double SKIPRATE = 0.050;
 
-	if (time_diff(current_state.ts, t1) > 0.016)
+	while (time_diff(current_state.ts, t1) > TICKRATE)
 	{
 		auto keys = current_state.inputs.get();
 
@@ -163,11 +165,25 @@ static void get_frame(size_t n, struct virtbuffer vb[n], size_t res)
 			png = generate_png(machine->gpu.pixels(), storage_state.palette);
 		}
 
-		current_state.ts = t1;
+		do_predict_next_frame = true;
+
+		if (time_diff(current_state.ts, t1) > SKIPRATE)
+			current_state.ts = t1;
+		else
+			current_state.ts += TICKRATE;
+	}
+
+	if (do_predict_next_frame)
+	{
+		// Ensure we only make forward progress on inputs
+		// once per update, regardless of time passed.
 		current_state.contribs = current_state.inputs.contributors();
 		current_state.inputs.next();
 
-		// Predict next frame
+		// Predict next frame (after leaving)
+		// This is done by queueing up the given function
+		// on the queue of the storage VM, which happens
+		// after we leave.
 		predict.forwarded_keys = current_state.inputs.get();
 		predict.palette = storage_state.palette;
 		async_storage_task(predict_next_frame, &predict);
@@ -193,7 +209,7 @@ static void get_frame(size_t n, struct virtbuffer vb[n], size_t res)
 	storage_return(png.first, png.second);
 }
 
-static void on_get(const char* c_url, int, int resp)
+static void on_get(const char* c_url, const char*, int, int resp)
 {
 	std::string url = c_url;
 

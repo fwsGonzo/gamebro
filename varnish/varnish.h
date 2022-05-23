@@ -28,7 +28,7 @@ extern void register_func(...);
  * Register callbacks for various modes of operations:
 **/
 static inline void set_on_recv(void(*f)(const char*)) { register_func(0, f); }
-static inline void set_backend_get(void(*f)(const char*, int, int)) { register_func(1, f); }
+static inline void set_backend_get(void(*f)(const char*, const char*, int, int)) { register_func(1, f); }
 static inline void set_backend_post(void(*f)(const char*, const uint8_t*, size_t)) { register_func(2, f); }
 static inline void set_backend_stream_post(void(*f)(const uint8_t*, size_t)) { register_func(3, f); }
 
