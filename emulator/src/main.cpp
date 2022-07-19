@@ -3,8 +3,6 @@
 #include <libgbc/machine.hpp>
 #include <signal.h>
 
-static std::array<uint32_t, 64> palette = {};
-
 static void save_screenshot(const char* filename, const std::vector<uint16_t>& pixels)
 {
     int size_x = 0, size_y = 0;
@@ -29,11 +27,15 @@ static void save_screenshot(const char* filename, const std::vector<uint16_t>& p
     std::array<char, BMP_SIZE(256, 256)> array;
     bmp_init(array.data(), size_x, size_y);
     for (int y = 0; y < size_y; y++)
-        for (int x = 0; x < size_x; x++)
-        {
-            const uint16_t idx = pixels.at(y * size_x + x);
-            bmp_set(array.data(), x, y, palette.at(idx));
-        }
+    for (int x = 0; x < size_x; x++)
+    {
+        const uint16_t color = pixels.at(y * size_x + x);
+        const uint32_t r = ((color >> 0) & 0x1f) << 3;
+        const uint32_t g = ((color >> 5) & 0x1f) << 3;
+        const uint32_t b = ((color >> 10) & 0x1f) << 3;
+        const uint32_t rgba = (r << 16) | (g << 8) | (b << 0);
+        bmp_set(array.data(), x, y, rgba);
+    }
     // save it!
     save_file(filename, array);
     printf("*** Stored screenshot in %s\n", filename);
@@ -50,7 +52,7 @@ static void int_handler(int)
 
 int main(int argc, char** args)
 {
-    const char* romfile = "tests/bits_ram_en.gb";
+    const char* romfile = "tests/instr_timing.gb";
     if (argc >= 2) romfile = args[1];
 
     const auto romdata = load_file(romfile);
@@ -100,15 +102,6 @@ int main(int argc, char** args)
             const char* tilefile = "tiles1.bmp";
             save_screenshot(tilefile, machine.gpu.dump_tiles(1));
         }
-    });
-    machine->gpu.on_palchange([](const uint8_t idx, const uint16_t color) {
-        const uint32_t r = ((color >> 0) & 0x1f) << 3;
-        const uint32_t g = ((color >> 5) & 0x1f) << 3;
-        const uint32_t b = ((color >> 10) & 0x1f) << 3;
-        // TODO: BMP is BGR?
-        const uint32_t rgba = (r << 16) | (g << 8) | (b << 0);
-        printf("GPU: %u changes color to %04X (%06X)\n", idx, color, rgba);
-        palette.at(idx) = rgba;
     });
 
     while (machine->is_running()) { machine->simulate(); }
