@@ -25,7 +25,7 @@ public:
     static constexpr range_t ZRAM{0xFF80, 0xFFFE};
     static constexpr uint16_t InterruptEn = 0xFFFF;
 
-    Memory(Machine&, const std::vector<uint8_t>& rom);
+    Memory(Machine&, const std::string_view rom);
     void reset();
     void set_wram_bank(uint8_t bank);
 
@@ -73,7 +73,7 @@ public:
 
 private:
     Machine& m_machine;
-    const std::vector<uint8_t>& m_rom;
+    const std::string_view m_rom;
     MBC m_mbc;
     struct state_t
     {

@@ -24,8 +24,9 @@ enum keys_t
 class Machine
 {
 public:
-    // NOTE: machine uses ROM as a const reference
-    Machine(const std::vector<uint8_t>& rom, bool init = true);
+    Machine(const std::string_view rom, bool init = true);
+    Machine(const std::vector<uint8_t>& rom, bool init = true)
+        : Machine(std::string_view{(const char *)rom.data(), rom.size()}, init) {}
 
     CPU cpu;
     Memory memory;

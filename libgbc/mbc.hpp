@@ -3,6 +3,7 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
+#include <string_view>
 #include <vector>
 
 namespace gbc
@@ -20,7 +21,7 @@ public:
     static constexpr range_t WRAM_bX{0xD000, 0xE000};
     static constexpr range_t EchoRAM{0xE000, 0xFE00};
 
-    MBC(Memory&, const std::vector<uint8_t>& rom);
+    MBC(Memory&, const std::string_view rom);
 
     const auto& rom() const noexcept { return m_rom; }
     uint32_t rombank_offset() const noexcept { return m_state.rom_bank_offset; }
@@ -49,7 +50,7 @@ private:
     bool verbose_banking() const noexcept;
 
     Memory& m_memory;
-    const std::vector<uint8_t>& m_rom;
+    const std::string_view m_rom;
     struct state_t
     {
         uint32_t rom_bank_offset = 0x4000;

@@ -2,7 +2,7 @@
 
 namespace gbc
 {
-Machine::Machine(const std::vector<uint8_t>& rom, bool init)
+Machine::Machine(const std::string_view rom, bool init)
     : cpu(*this), memory(*this, rom), io(*this), gpu(*this), apu(*this)
 {
     // set CGB mode when ROM supports it

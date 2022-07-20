@@ -3,7 +3,7 @@
 
 namespace gbc
 {
-Memory::Memory(Machine& mach, const std::vector<uint8_t>& rom)
+Memory::Memory(Machine& mach, const std::string_view rom)
     : m_machine(mach), m_rom(rom), m_mbc{*this, rom}
 {
     assert(this->rom_valid());

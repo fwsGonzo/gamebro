@@ -9,7 +9,8 @@
 
 namespace gbc
 {
-MBC::MBC(Memory& m, const std::vector<uint8_t>& rom) : m_memory(m), m_rom(rom) {}
+MBC::MBC(Memory& m, const std::string_view rom)
+    : m_memory(m), m_rom(rom) {}
 
 void MBC::init()
 {
@@ -135,8 +136,9 @@ void MBC::write(uint16_t addr, uint8_t value)
             this->m_state.ram_enabled = value != 0;
         else
             this->m_state.ram_enabled = ((value & 0xF) == 0xA);
-        if (UNLIKELY(verbose_banking()))
-        { printf("* External RAM enabled: %d\n", this->m_state.ram_enabled); }
+        if (UNLIKELY(verbose_banking())) {
+            printf("* External RAM enabled: %d\n", this->m_state.ram_enabled);
+        }
         return;
     case 0x2000:
     case 0x3000:
@@ -200,8 +202,9 @@ void MBC::set_rombank(int reg)
 
     // cant select bank 0
     const int offset = reg * rombank_size();
-    if (UNLIKELY(verbose_banking()))
-    { printf("Selecting ROM bank 0x%02x offset %#x max %#zx\n", reg, offset, m_rom.size()); }
+    if (UNLIKELY(verbose_banking())) {
+        printf("Selecting ROM bank 0x%02x offset %#x max %#zx\n", reg, offset, m_rom.size());
+    }
     if (UNLIKELY((offset + rombank_size()) > m_rom.size()))
     {
         printf("Invalid ROM bank 0x%02x offset %#x max %#zx\n", reg, offset, m_rom.size());
@@ -218,8 +221,7 @@ void MBC::set_rambank(int reg)
         reg &= (this->m_state.ram_banks - 1);
     }
     const int offset = reg * rambank_size();
-    if (UNLIKELY(verbose_banking()))
-    {
+    if (UNLIKELY(verbose_banking())) {
         printf("Selecting RAM bank 0x%02x offset %#x max %#x\n", reg, offset,
                m_state.ram_bank_size);
     }
@@ -228,8 +230,9 @@ void MBC::set_rambank(int reg)
 void MBC::set_wrambank(int reg)
 {
     const int offset = reg * wrambank_size();
-    if (UNLIKELY(verbose_banking()))
-    { printf("Selecting WRAM bank 0x%02x offset %#x max %#x\n", reg, offset, m_state.wram_size); }
+    if (UNLIKELY(verbose_banking())) {
+        printf("Selecting WRAM bank 0x%02x offset %#x max %#x\n", reg, offset, m_state.wram_size);
+    }
     if (UNLIKELY((offset + wrambank_size()) > m_state.wram_size))
     {
         printf("Invalid Work RAM bank 0x%02x offset %#x\n", reg, offset);
@@ -240,7 +243,9 @@ void MBC::set_wrambank(int reg)
 }
 void MBC::set_mode(int mode)
 {
-    if (UNLIKELY(verbose_banking())) { printf("Mode select: 0x%02x\n", this->m_state.mode_select); }
+    if (UNLIKELY(verbose_banking())) {
+        printf("Mode select: 0x%02x\n", this->m_state.mode_select);
+    }
     this->m_state.mode_select = mode & 0x1;
     // for MBC we have to reset the upper bits when going into RAM mode
     if (this->m_state.version == 1 && this->m_state.mode_select == 1)
